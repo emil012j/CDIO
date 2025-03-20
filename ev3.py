@@ -8,7 +8,7 @@ colorsensor = ColorSensor()
 ir = InfraredSensor()
 while True: 
     distance = us.distance_centimeters 
-    print(f"Distance: {distance}")
+    print("Distance: {} cm".format(distance))
     sleep(0.5)
 
 
