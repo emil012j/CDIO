@@ -6,7 +6,13 @@ from ev3dev2.sensor.lego import UltrasonicSensor, ColorSensor, InfraredSensor
 us = UltrasonicSensor()
 colorsensor = ColorSensor()
 ir = InfraredSensor()
+while True: 
+    distance = us.distance_centimeters 
+    print(f"Distance: {distance}")
+    sleep(0.5)
 
+
+"""
 # Opsæt de store motorer på OUTPUT_A og OUTPUT_B
 motor_a = LargeMotor(OUTPUT_A)
 motor_b = LargeMotor(OUTPUT_B)
@@ -36,3 +42,4 @@ while True:
         motor_b.off() 
         sleep(2)
 
+"""
