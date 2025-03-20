@@ -1,14 +1,13 @@
 #!/usr/bin/env python3 
 
 from time import sleep
-from ev3dev2.motor import LargeMotor, MediumMotor, OUTPUT_A, OUTPUT_B, OUTPUT_C, SpeedPercent
-from ev3dev2.sensor.lego import UltrasonicSensor, ColorSensor, InfraredSensor 
+from ev3dev2.sensor.lego import UltrasonicSensor
+
 us = UltrasonicSensor()
-colorsensor = ColorSensor()
-ir = InfraredSensor()
+
 while True: 
-    distance = us.distance_centimeters 
-    print("Distance: {} cm".format(distance))
+    distance = us.distance_centimeters
+    print("Distance: {:.2f} cm".format(distance)) 
     sleep(0.5)
 
 
