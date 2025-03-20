@@ -1,3 +1,5 @@
+# Kode til om der er forbindelse til robotten, hvis der er forbindelse til robotten så skal den kører de andre programmer. (rækkefølge?)
+
 import socket
 import json
 import threading

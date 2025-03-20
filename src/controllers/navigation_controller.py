@@ -1,0 +1,1 @@
+# Kode til hvordan robotten ved hvor den skal navigere hen
