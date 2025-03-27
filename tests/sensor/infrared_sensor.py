@@ -6,7 +6,7 @@ from ev3dev2.sensor.lego import InfraredSensor
 ir = InfraredSensor()
 
 while True:
-    closeness = ir.proximity    #Get the closeness, 0 for very close and 100 for very far
-    print("Closeness: ".format(closeness))
+    closeness = ir.value()    #Get the closeness, 0 for very close and 100 for very far
+    print("Closeness:".format(closeness) )
     sleep(0.5)
 
