@@ -1,13 +1,15 @@
 #!/usr/bin/env python3 
 
 from time import sleep
-from ev3dev2.sensor.lego import UltrasonicSensor
+from ev3dev2.sensor.lego import InfraredSensor
 
-us = UltrasonicSensor()
+# Initialize the sensor
 
-while True: 
-    distance = us.distance_centimeters
-    print("Distance: {:.2f} cm".format(distance)) 
+ir = InfraredSensor()
+
+while True:
+    closeness = ir.proximity    #Get the closeness, 0 for very close and 100 for very far
+    print("Closeness: ".format(closeness))
     sleep(0.5)
 
 
