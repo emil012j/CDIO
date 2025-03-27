@@ -1,12 +1,13 @@
-from time import sleep
 from ev3dev2.sensor.lego import InfraredSensor
+from time import sleep
 
-# Initialize the sensor
+ir = InfraredSensor()  # Initialize the IR sensor
 
-ir = InfraredSensor()
-
+print("Starting IR sensor reading... (Press CTRL+C to stop)")
 while True:
-    closeness = ir.value()    #Get the closeness, 0 for very close and 100 for very far
-    print("Closeness:".format(closeness) )
-    sleep(0.5)
-
+    proximity_percent = ir.proximity # property: percentage of distance (0-100)
+    # Convert proximity to an approximate distance in cm, and beacon distance to cm if available
+    approx_cm = proximity_percent * 0.7
+    print("Proximity: {}% (~{:.1f} cm)".format(
+            proximity_percent, approx_cm))
+    sleep(0.5) 
