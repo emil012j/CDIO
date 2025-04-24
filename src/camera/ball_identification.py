@@ -38,7 +38,7 @@ import math
 import os
 
 MODEL_PATH = "best.pt"
-SOURCE = 1
+SOURCE = 0
 RESOLUTION = (1280, 720)
 CONF_THRESH_DISPLAY = 0.35
 
