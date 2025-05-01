@@ -2,91 +2,135 @@ import cv2
 import numpy as np
 import socket
 import json
-import time
 import threading
+import time
 from ultralytics import YOLO
+from ball_identification import calculate_scale_factor
 from navigation_controller import calculate_movement
-from navigation_controller import LargeMotor, OUTPUT_A, OUTPUT_B  
-from navigation_controller import moveRobot  
 
+# IP og porte
+ROBOT_IP = "192.168.149.158"
+PING_PORT = 1232
+COMMAND_PORT = 1233
 
+# Global statusflag
+robot_connected = False
+
+# Sender kommando til EV3
+def send_command_to_robot(direction, cm_distance):
+    try:
+        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        sock.connect((ROBOT_IP, COMMAND_PORT))
+        sock.send(json.dumps({"direction": direction, "distance": cm_distance}).encode())
+        sock.close()
+        print(f"✅ Sendte: {direction} ({cm_distance:.1f} cm)")
+    except Exception as e:
+        print(f"❌ Kunne ikke sende: {e}")
+
+# Pinger robotten
 def connect_to_robot():
+    global robot_connected
     while True:
         try:
-            print("Connecting to robot...")
+            print("🔌 Prøver at forbinde til robot...")
             client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            client_socket.connect(("172.20.10.12", 1234))  # EV3's IP and port
-            print("Connected to robot!")
+            client_socket.connect((ROBOT_IP, PING_PORT))
+            print("✅ Forbundet til robot!")
 
-            while True:  # Keep the connection alive and send pings
+            robot_connected = True
+            while True:
                 try:
-                    motor_a = LargeMotor(OUTPUT_A)
-                    motor_b = LargeMotor(OUTPUT_B)
-
-                    # Kamera setup (fast monteret over banen)
-                    cap = cv2.VideoCapture(0)
-                    model = YOLO("camera/my_model2.pt")
-
-                    def find_positions(frame):
-                        """Finder robot og bold-positioner i billedet"""
-                        results = model(frame)[0]
-                        robot_head, robot_tail, balls = None, None, []
-                        
-                        for box in results.boxes:
-                            x1, y1, x2, y2 = map(int, box.xyxy[0])
-                            center = ((x1+x2)//2, (y1+y2)//2)
-                            
-                            if model.names[int(box.cls)] == "robot":
-                                robot_tail = center
-                            elif "ball" in model.names[int(box.cls)]:
-                                balls.append(center)
-                                
-                        return robot_tail,robot_head, balls
-
-                    while True:
-                        ret, frame = cap.read()
-                        if not ret: break
-                        
-                        # Find positioner
-                        robot_tail, balls = find_positions(frame)
-                        if not robot_tail or not balls:
-                            print("Ingen robot eller bolde fundet!")
-                            continue
-                        
-                        # Vælg nærmeste bold
-                        target = min(balls, key=lambda t: np.linalg.norm(np.array(t)-np.array(robot_tail)))
-                        
-                        # Brug calculate_movement funktion
-                        direction = calculate_movement(robot_tail, target)
-                        
-                        # Kør robotten
-                        moveRobot(direction)
-                        
-                        # Visualisering (til debugging) her ser vi robotten og den bold den har valgt
-                        # hvilken retning den skal bevæge sig i
-                        cv2.circle(frame, robot_tail, 10, (0,255,0), -1)  # Robotten (grøn)
-                        cv2.circle(frame, target, 10, (0,0,255), -1)     # Den bold robotten har valgt (rød)
-                        cv2.putText(frame, f"Retning: {direction}", (10,30), 
-                                cv2.FONT_HERSHEY_SIMPLEX, 1, (255,255,255), 2)
-                        cv2.imshow("Tracking", frame)
-                        
-                        if cv2.waitKey(1) == ord('q'):
-                            break
-
-                    cap.release()
-                    cv2.destroyAllWindows() 
+                    ping_message = json.dumps({'ping': True}).encode()
+                    client_socket.send(ping_message)
+                    response = client_socket.recv(1024)
+                    if response:
+                        ack = json.loads(response.decode())
+                        print("📡 Svar modtaget:", ack)
+                    time.sleep(20)
                 except Exception as e:
-                    print(f"Lost connection to robot: {e}")
-                    break  # Exit the inner loop to reconnect
-        except ConnectionRefusedError:
-            print("Failed to connect to robot. Retrying in 5 seconds...")
+                    print(f"❌ Forbindelse mistet: {e}")
+                    robot_connected = False
+                    break
+        except Exception as e:
+            print(f"❌ Forbindelse fejlede: {e}")
+        time.sleep(5)
 
-# Start the connection thread so it runs in the background
-robot_connection_thread = threading.Thread(target=connect_to_robot, daemon=True)
-robot_connection_thread.start()
 
-# Keep the main thread alive
-while True:
+# Find objekter i billedet
+def find_positions(results, model):
+    
+
+    robot_tail, robot_head = None, None
+    balls = []
+
+    if results is None or results.obb is None:
+        print("Model gav ingen bokse.")
+        return robot_tail, robot_head, balls
+    
+
+
+    for i, box in enumerate(results.obb):
+        label_index = int(box.cls)
+        label = model.names[label_index].lower()
+        x1, y1, x2, y2 = map(int, box.xyxy[0])
+        cx, cy = (x1 + x2) // 2, (y1 + y2) // 2
+
+        print(f"Fundet: {label} ved ({cx}, {cy})")  # DEBUG: Print hvad modellen fandt
+
+        if label == "robottail":
+            robot_tail = (cx, cy)
+        elif label == "robothead":
+            robot_head = (cx, cy)
+        elif "ball" in label and "egg" not in label:
+            balls.append((cx, cy))
+
+    return robot_tail, robot_head, balls
+
+# Start forbindelse i baggrunden
+threading.Thread(target=connect_to_robot, daemon=True).start()
+
+# Vent på at robotten er forbundet før vi starter
+while not robot_connected:
+    print("⏳ Venter på robotforbindelse...")
     time.sleep(1)
 
-           
+# Når forbindelse er oppe, start kamera og YOLO
+print("🎥 Starter kameraforbindelse og boldsøgning...")
+model = YOLO("best.pt")
+print("Model labels (model.names):", model.names)  # DEBUG: Se hvad modellen kan genkende
+cap = cv2.VideoCapture(0)
+
+while True:
+    ret, frame = cap.read()
+    if not ret:
+        print("❗ Kunne ikke læse fra kamera.")
+        break
+
+    results_list = model(frame, imgsz=640, conf=0.5)
+    if not results_list or not results_list[0]:
+        print("Ingen objekter fundet – springer billedet over.")
+        continue
+    results = results_list[0]
+
+    robot_tail, robot_head, balls = find_positions(results, model)
+
+    if robot_tail and balls:
+        target = min(balls, key=lambda b: np.linalg.norm(np.array(robot_tail) - np.array(b)))
+        direction = calculate_movement(robot_tail, target)
+
+        pixel_distance = np.linalg.norm(np.array(robot_tail) - np.array(target))
+        scale = calculate_scale_factor(results, model)
+        if scale:
+            mm_distance = pixel_distance * scale
+            cm_distance = mm_distance / 10
+            print(f"➡️ Retning: {direction}, Afstand: {cm_distance:.1f} cm")
+            send_command_to_robot(direction, cm_distance)
+        else:
+            print("⚠️ Kunne ikke udregne skala.")
+
+    cv2.imshow("YOLO Kamera", frame)
+    if cv2.waitKey(1) & 0xFF == ord('q'):
+        break
+
+cap.release()
+cv2.destroyAllWindows()

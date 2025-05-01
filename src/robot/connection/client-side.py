@@ -11,7 +11,7 @@ def connect_to_robot():
             print("Connecting to robot...")
             # Create a new socket for each connection attempt
             client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            client_socket.connect(("172.20.10.12", 1234))  # EV3's IP and port
+            client_socket.connect(("192.168.149.158", 1232))  # EV3's IP and port
             print("Connected to robot!")
             
             while True:  # Keep the connection alive and send pings
