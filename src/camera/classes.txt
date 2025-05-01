@@ -1,0 +1,7 @@
+cross
+egg
+orange ball
+robothead
+robottail
+wall
+white ball
