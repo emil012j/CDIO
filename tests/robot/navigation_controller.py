@@ -9,7 +9,7 @@ from ultralytics import YOLO
 
 
 # Kamera
-cap = cv2.VideoCapture(2)
+cap = cv2.VideoCapture(0)
 
 # YOLO model
 model = YOLO("best.pt")  # Indlæs din model

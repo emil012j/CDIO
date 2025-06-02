@@ -9,7 +9,7 @@ from ultralytics import YOLO
 from ball_identification import calculate_scale_factor
 from navigation_controller import calculate_movement
 
-ROBOT_IP = "192.168.149.158"
+ROBOT_IP = "172.20.10.12"
 PING_PORT = 1232
 COMMAND_PORT = 1233
 
