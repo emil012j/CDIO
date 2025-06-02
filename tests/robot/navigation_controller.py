@@ -19,18 +19,29 @@ def calculate_distance(pos1, pos2):
     return math.sqrt((pos2[0] - pos1[0]) ** 2 + (pos2[1] - pos1[1]) ** 2)
 
 # Udregn hvor robotten skal bevæge sig
-def calculate_movement(robot_pos, target_pos, avoid=False):
-    dx = target_pos[0] - robot_pos[0]
-    dy = target_pos[1] - robot_pos[1]
+def calculate_movement(robot_tail, robot_head, target_pos):
+    # Vector from tail to head (robot facing direction)
+    robot_dx = robot_head[0] - robot_tail[0]
+    robot_dy = robot_head[1] - robot_tail[1]
+    robot_angle = math.atan2(robot_dy, robot_dx)
 
-    if avoid:
-        dx = -dx
-        dy = -dy
+    # Vector from tail to target
+    target_dx = target_pos[0] - robot_tail[0]
+    target_dy = target_pos[1] - robot_tail[1]
+    target_angle = math.atan2(target_dy, target_dx)
 
-    if abs(dx) > abs(dy):
-        return "RIGHT" if dx > 0 else "LEFT"
+    # Calculate angle difference in degrees
+    angle_diff = math.degrees(target_angle - robot_angle)
+    angle_diff = (angle_diff + 360) % 360  # Normalize to [0, 360)
+
+    if angle_diff < 45 or angle_diff > 315:
+        return "FORWARD"
+    elif 45 <= angle_diff < 135:
+        return "RIGHT"
+    elif 135 <= angle_diff < 225:
+        return "BACKWARD"
     else:
-        return "FORWARD" if dy < 0 else "BACKWARD"
+        return "LEFT"
 
 
 
