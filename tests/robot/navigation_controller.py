@@ -30,7 +30,7 @@ def calculate_movement(robot_pos, target_pos, avoid=False):
     if abs(dx) > abs(dy):
         return "RIGHT" if dx > 0 else "LEFT"
     else:
-        return "FORWARD" if dy > 0 else "BACKWARD"
+        return "FORWARD" if dy < 0 else "BACKWARD"
 
 
 

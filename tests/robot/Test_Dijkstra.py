@@ -23,7 +23,15 @@ def send_command_to_robot(direction, cm_distance):
         sock.close()
         print(f"Sendte: {direction} ({cm_distance:.1f} cm)")
         # Vent på at kommandoen bliver udført før næste iteration
-        time.sleep(1.5)  # Tilpas dette hvis nødvendigt
+        time.sleep(cm_distance / 10) 
+
+        # Send stop command til at stoppe aktion
+        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        sock.connect((ROBOT_IP, COMMAND_PORT))
+        sock.send(json.dumps({"direction": "stop", "distance": 0}).encode())
+        sock.close()
+        print("Sendte: stop")
+
     except Exception as e:
         print(f"Kunne ikke sende: {e}")
 
