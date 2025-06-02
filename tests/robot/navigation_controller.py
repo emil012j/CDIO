@@ -19,15 +19,15 @@ def calculate_distance(pos1, pos2):
     return math.sqrt((pos2[0] - pos1[0]) ** 2 + (pos2[1] - pos1[1]) ** 2)
 
 # Udregn hvor robotten skal bevæge sig
-def calculate_movement(robot_tail, robot_head, target_pos):
+def calculate_movement(robot_tail, robot_head, best_ball):
     # Vector from tail to head (robot facing direction)
     robot_dx = robot_head[0] - robot_tail[0]
     robot_dy = robot_head[1] - robot_tail[1]
     robot_angle = math.atan2(robot_dy, robot_dx)
 
     # Vector from tail to target
-    target_dx = target_pos[0] - robot_tail[0]
-    target_dy = target_pos[1] - robot_tail[1]
+    target_dx = best_ball[0] - robot_tail[0]
+    target_dy = best_ball[1] - robot_tail[1]
     target_angle = math.atan2(target_dy, target_dx)
 
     # Calculate angle difference in degrees
