@@ -45,14 +45,14 @@ def connect_to_robot():
                     response = client_socket.recv(1024)
                     if response:
                         ack = json.loads(response.decode())
-                        print("📡 Svar modtaget:", ack)
+                        print(" Svar modtaget:", ack)
                     time.sleep(20)
                 except Exception as e:
-                    print(f"❌ Forbindelse mistet: {e}")
+                    print(f"Forbindelse mistet: {e}")
                     robot_connected = False
                     break
         except Exception as e:
-            print(f"❌ Forbindelse fejlede: {e}")
+            print(f"Forbindelse fejlede: {e}")
         time.sleep(5)
 
 
@@ -91,11 +91,11 @@ threading.Thread(target=connect_to_robot, daemon=True).start()
 
 # Vent på at robotten er forbundet før vi starter
 while not robot_connected:
-    print("⏳ Venter på robotforbindelse...")
+    print("Venter på robotforbindelse...")
     time.sleep(1)
 
 # Når forbindelse er oppe, start kamera og YOLO
-print("🎥 Starter kameraforbindelse og boldsøgning...")
+print("Starter kameraforbindelse og boldsøgning...")
 model = YOLO("best.pt")
 print("Model labels (model.names):", model.names)  # DEBUG: Se hvad modellen kan genkende
 cap = cv2.VideoCapture(0)
@@ -103,7 +103,7 @@ cap = cv2.VideoCapture(0)
 while True:
     ret, frame = cap.read()
     if not ret:
-        print("❗ Kunne ikke læse fra kamera.")
+        print("Kunne ikke læse fra kamera.")
         break
 
     results_list = model(frame, imgsz=640, conf=0.5)
@@ -123,10 +123,10 @@ while True:
         if scale:
             mm_distance = pixel_distance * scale
             cm_distance = mm_distance / 10
-            print(f"➡️ Retning: {direction}, Afstand: {cm_distance:.1f} cm")
+            print(f"Retning: {direction}, Afstand: {cm_distance:.1f} cm")
             send_command_to_robot(direction, cm_distance)
         else:
-            print("⚠️ Kunne ikke udregne skala.")
+            print("Kunne ikke udregne skala.")
 
     cv2.imshow("YOLO Kamera", frame)
     if cv2.waitKey(1) & 0xFF == ord('q'):

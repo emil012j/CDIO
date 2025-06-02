@@ -78,25 +78,25 @@ while True:
             (robot_head[0] + robot_tail[0]) // 2,
             (robot_head[1] + robot_tail[1]) // 2
         )
-        print(f"🤖 Robot position: {robot_pos}")
+        print(f"Robot position: {robot_pos}")
 
         # Find nærmeste æg
         if eggs:
             closest_egg = min(eggs, key=lambda e: calculate_distance(robot_pos, e))
-            print("🥚 Æg fundet, undgår...")
+            print("Æg fundet, undgår...")
             direction = calculate_movement(robot_pos, closest_egg, avoid=True)
         elif balls:
             target_pos = min(balls, key=lambda b: calculate_distance(robot_pos, b))
-            print(f"⚽ Går mod bold: {target_pos}")
+            print(f"Går mod bold: {target_pos}")
             direction = calculate_movement(robot_pos, target_pos)
         else:
-            print("🚫 Ingen mål fundet. Står stille.")
+            print("Ingen mål fundet. Står stille.")
             continue  # skip moving if nothing found
 
-        print(f"➡️ Retning: {direction}")
+        print(f"Retning: {direction}")
 
     else:
-        print("⚠️ Robotens position kunne ikke bestemmes.")
+        print("Robotens position kunne ikke bestemmes.")
 
     cv2.imshow("Webcam feed", frame)
 
