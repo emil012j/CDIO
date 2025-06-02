@@ -23,19 +23,19 @@ def send_command_to_robot(direction, cm_distance):
         sock.connect((ROBOT_IP, COMMAND_PORT))
         sock.send(json.dumps({"direction": direction, "distance": cm_distance}).encode())
         sock.close()
-        print(f"✅ Sendte: {direction} ({cm_distance:.1f} cm)")
+        print(f"Sendte: {direction} ({cm_distance:.1f} cm)")
     except Exception as e:
-        print(f"❌ Kunne ikke sende: {e}")
+        print(f"Kunne ikke sende: {e}")
 
 # Pinger robotten
 def connect_to_robot():
     global robot_connected
     while True:
         try:
-            print("🔌 Prøver at forbinde til robot...")
+            print("Prøver at forbinde til robot...")
             client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             client_socket.connect((ROBOT_IP, PING_PORT))
-            print("✅ Forbundet til robot!")
+            print("Forbundet til robot!")
 
             robot_connected = True
             while True:
