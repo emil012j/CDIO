@@ -34,7 +34,7 @@ def move_robot_forward(distance_cm, speed=30):
         sleep(0.01)
 
     tank.off()
-    print(f"Moved forward {distance_cm} cm")
+    print("Moved forward {} cm".format(distance_cm))
 
 # Turn by running motors for proportional time (approximate)
 def move_robot_turn(angle_deg, speed=20):
@@ -43,7 +43,7 @@ def move_robot_turn(angle_deg, speed=20):
 
     duration = abs(angle_deg) * turn_time_per_degree
     direction = "left" if angle_deg > 0 else "right"
-    print(f"Turning {direction} {abs(angle_deg)} degrees for {duration:.2f} seconds")
+    print("Turning {} {} degrees for {:.2f} seconds".format(direction, abs(angle_deg), duration))
 
     if angle_deg > 0:
         tank.on(SpeedPercent(-speed), SpeedPercent(speed))
@@ -57,11 +57,11 @@ def handle_ping_server():
     s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     s.bind(("", PING_PORT))
     s.listen(1)
-    print(f"EV3 Ping Server listening on port {PING_PORT}...")
+    print("EV3 Ping Server listening on port {}...".format(PING_PORT))
 
     while True:
         conn, addr = s.accept()
-        print(f"Ping connection from {addr}")
+        print("Ping connection from {}".format(addr))
         try:
             while True:
                 data = conn.recv(1024)
@@ -71,7 +71,7 @@ def handle_ping_server():
                 if "ping" in msg:
                     conn.send(json.dumps({"ack": True}).encode())
         except Exception as e:
-            print("Ping error:", e)
+            print("Ping error: {}".format(e))
         finally:
             conn.close()
 
@@ -85,11 +85,11 @@ def handle_command_server():
     s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     s.bind(("", COMMAND_PORT))
     s.listen(1)
-    print(f"EV3 Command Server listening on port {COMMAND_PORT}...")
+    print("EV3 Command Server listening on port {}...".format(COMMAND_PORT))
 
     while True:
         conn, addr = s.accept()
-        print(f"Command connection from {addr}")
+        print("Command connection from {}".format(addr))
         try:
             data = conn.recv(1024)
             if not data:
@@ -100,12 +100,12 @@ def handle_command_server():
 
             if command == "forward":
                 distance = float(cmd.get("distance", 0))
-                print(f"Received forward command: {distance} cm")
+                print("Received forward command: {} cm".format(distance))
                 threading.Thread(target=execute_move_forward, args=(distance,), daemon=True).start()
 
             elif command == "turn":
                 angle = float(cmd.get("angle", 0))
-                print(f"Received turn command: {angle} degrees")
+                print("Received turn command: {} degrees".format(angle))
                 threading.Thread(target=execute_turn, args=(angle,), daemon=True).start()
 
             elif command == "stop":
@@ -113,7 +113,7 @@ def handle_command_server():
                 tank.off()
 
         except Exception as e:
-            print("Command error:", e)
+            print("Command error: {}".format(e))
         finally:
             conn.close()
 
