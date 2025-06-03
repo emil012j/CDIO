@@ -24,7 +24,7 @@ def move_robot_forward(distance_cm, speed=30):
     tank.left_motor.position = 0
     tank.right_motor.position = 0
 
-    tank.on(SpeedPercent(speed), SpeedPercent(speed))
+    tank.on(SpeedPercent(-speed), SpeedPercent(-speed))
 
     while True:
         left_pos = abs(tank.left_motor.position)
@@ -38,23 +38,20 @@ def move_robot_forward(distance_cm, speed=30):
 
 # Turn by running motors for proportional time (approximate)
 def move_robot_turn(angle_deg, speed=20):
-    # Robot geometry
-    wheel_distance_cm = 12  # Distance between wheels (axle length) — adjust if needed
-    wheel_diameter_cm = WHEEL_DIAMETER_CM  # Already defined above as 7 cm
+    # Empirical time per degree; adjust to fit your robot
+    turn_time_per_degree = 0.01  # seconds per degree (tune this!)
 
-    # Compute required wheel rotations to turn by angle_deg
-    robot_turn_circumference = 3.1416 * wheel_distance_cm
-    rotation_fraction = abs(angle_deg) / 360
-    turn_distance_cm = robot_turn_circumference * rotation_fraction
-    wheel_rotations = turn_distance_cm / (3.1416 * wheel_diameter_cm)
-
+    duration = abs(angle_deg) * turn_time_per_degree
     direction = "left" if angle_deg > 0 else "right"
-    print("Turning {} {} degrees -> {:.2f} wheel rotations".format(direction, abs(angle_deg), wheel_rotations))
+    print("Turning {} {} degrees for {:.2f} seconds".format(direction, abs(angle_deg), duration))
 
     if angle_deg > 0:
-        tank.on_for_rotations(SpeedPercent(-speed), SpeedPercent(speed), wheel_rotations)
+        tank.on(SpeedPercent(speed), SpeedPercent(-speed))
     else:
-        tank.on_for_rotations(SpeedPercent(speed), SpeedPercent(-speed), wheel_rotations)
+        tank.on(SpeedPercent(-speed), SpeedPercent(speed))
+
+    sleep(duration)
+    tank.off()
 
 def handle_ping_server():
     s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
