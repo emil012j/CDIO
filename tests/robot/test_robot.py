@@ -151,7 +151,6 @@ def navigate_robot_to_target(tail, head, target, path, scale, resolution):
 
 # Start robot connection ping thread
 threading.Thread(target=connect_to_robot, daemon=True).start()
-
 while not robot_connected:
     print("Venter på robotforbindelse...")
     time.sleep(1)
@@ -163,10 +162,17 @@ cap = cv2.VideoCapture(0)
 while True:
     ret, frame = cap.read()
     if not ret:
+        print("Kunne ikke læse fra kameraet.")
         break
 
-    results_list = model(frame, imgsz=640, conf=0.5)
-    if not results_list or not results_list[0]:
+    # Konverter BGR (OpenCV) til RGB
+    frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+
+    # Send billedet som en liste
+    results_list = model([frame_rgb], imgsz=640, conf=0.5)
+    
+    # Sikr at der er resultater
+    if not results_list or not results_list[0].boxes:
         continue
 
     results = results_list[0]
