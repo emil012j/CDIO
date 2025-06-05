@@ -9,7 +9,7 @@ import math
 from ultralytics import YOLO
 from ball_identification import calculate_scale_factor
 
-ROBOT_IP = "169.254.67.151"
+ROBOT_IP = "192.168.62.158"
 PING_PORT = 1232
 COMMAND_PORT = 1233
 robot_connected = False
