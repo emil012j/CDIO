@@ -83,7 +83,7 @@ def move_robot_forward(distance_cm, speed=30):
         sleep(0.01)
     
     tank.off()
-    print(f"Moved forward {distance_cm:.1f} cm")
+    print("Moved forward {:.1f} cm".format(distance_cm))
 
 def move_robot_turn(target_angle_deg, speed=20):
     """
@@ -123,7 +123,7 @@ def move_robot_turn(target_angle_deg, speed=20):
             sleep(0.01)
         tank.off()
     
-    print(f"Turned to {get_current_angle():.1f} degrees (target was {target_angle_deg:.1f})")
+    print("Turned to {:.1f} degrees (target was {:.1f})".format(get_current_angle(), target_angle_deg))
 
 def handle_ping_server():
     s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)

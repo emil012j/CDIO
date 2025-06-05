@@ -19,10 +19,10 @@ def send_turn_command(angle_deg):
         sock.connect((ROBOT_IP, COMMAND_PORT))
         sock.send(json.dumps({"command": "turn", "angle": angle_deg}).encode())
         sock.close()
-        print(f"Turning {angle_deg:.1f} degrees")
+        print("Turning {:.1f} degrees".format(angle_deg))
         # No need to sleep - the EV3 server will wait for the gyro sensor to reach the target angle
     except Exception as e:
-        print(f"Could not send turn command: {e}")
+        print("Could not send turn command: {}".format(e))
 
 def send_drive_command(cm_distance):
     try:
@@ -30,10 +30,10 @@ def send_drive_command(cm_distance):
         sock.connect((ROBOT_IP, COMMAND_PORT))
         sock.send(json.dumps({"command": "forward", "distance": cm_distance}).encode())
         sock.close()
-        print(f"Moving forward {cm_distance:.1f} cm")
+        print("Moving forward {:.1f} cm".format(cm_distance))
         time.sleep(cm_distance / 10)
     except Exception as e:
-        print(f"Could not send drive command: {e}")
+        print("Could not send drive command: {}".format(e))
 
 def connect_to_robot():
     global robot_connected
@@ -46,18 +46,18 @@ def connect_to_robot():
             robot_connected = True
             while True:
                 try:
-                    client_socket.send(json.dumps({'ping': True}).encode())
+                    client_socket.send(json.dumps({"ping": True}).encode())
                     response = client_socket.recv(1024)
                     if response:
                         ack = json.loads(response.decode())
-                        print("Received response:", ack)
+                        print("Received response: {}".format(ack))
                     time.sleep(20)
                 except Exception as e:
-                    print(f"Connection lost: {e}")
+                    print("Connection lost: {}".format(e))
                     robot_connected = False
                     break
         except Exception as e:
-            print(f"Connection failed: {e}")
+            print("Connection failed: {}".format(e))
         time.sleep(5)
 
 def find_positions(results, model):
@@ -116,10 +116,10 @@ def navigate_to_ball(tail, head, ball_pos, scale):
     distance_pixels = compute_distance(robot_center, ball_pos)
     distance_cm = distance_pixels * scale / 10
     
-    print(f"Robot heading: {robot_heading:.1f}°")
-    print(f"Angle to ball: {angle_to_ball:.1f}°")
-    print(f"Turn angle: {turn_angle:.1f}°")
-    print(f"Distance to ball: {distance_cm:.1f} cm")
+    print("Robot heading: {:.1f} degrees".format(robot_heading))
+    print("Angle to ball: {:.1f} degrees".format(angle_to_ball))
+    print("Turn angle: {:.1f} degrees".format(turn_angle))
+    print("Distance to ball: {:.1f} cm".format(distance_cm))
     
     # Execute the movement
     # First turn to face the ball
