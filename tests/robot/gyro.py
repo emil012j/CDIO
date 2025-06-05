@@ -1,86 +1,75 @@
-#!/usr/bin/env python3
 import socket
 import json
-import time
+from threading import Thread
+from time import sleep
+from ev3dev2.motor import MoveTank, OUTPUT_A, OUTPUT_D, SpeedPercent
+from ev3dev2.sensor.lego import GyroSensor
+from ev3dev2.sensor import INPUT_1
 
-try:
-    from ev3dev2.motor import LargeMotor, OUTPUT_B, OUTPUT_C, SpeedPercent
-    from ev3dev2.sensor import INPUT_1
-    from ev3dev2.sensor.lego import GyroSensor
-except ImportError:
-  
-    LargeMotor = None
-    OUTPUT_B = None
-    OUTPUT_C = None
-    SpeedPercent = None
-    INPUT_1 = None
-    GyroSensor = None
+# Initialisering
+tank = MoveTank(OUTPUT_A, OUTPUT_D)
+gyro = GyroSensor(INPUT_1)
 
-ROBOT_IP = "192.168.62.158"  # ← skift IP hvis nødvendigt
-COMMAND_PORT = 1233
+PORT = 12345  # Vælg en port
 
-def send_turn_command(angle_deg):
+def turn_90_degrees(speed=20):
+    gyro.reset()
+    target_angle = 90
+    tank.on(SpeedPercent(speed), SpeedPercent(-speed))
+    while gyro.angle < target_angle:
+        sleep(0.01)
+    tank.off()
+    print(f"Drejet {gyro.angle} grader")
+
+def drive_forward_full_speed():
+    tank.on(SpeedPercent(100), SpeedPercent(100))
+    print("Kører ligeud med fuld fart")
+
+def stop_motors():
+    tank.off()
+    print("Motorer stoppet")
+
+def handle_client(conn, addr):
+    print(f"Forbindelse fra {addr}")
     try:
-        print(f"Sender turn {angle_deg}° til robotten via netværk...")
-        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        sock.connect((ROBOT_IP, COMMAND_PORT))
-        command = {"command": "turn", "angle": angle_deg}
-        sock.send(json.dumps(command).encode())
-        sock.close()
-        print("Kommando sendt.")
+        while True:
+            data = conn.recv(1024)
+            if not data:
+                break
+
+            try:
+                msg = json.loads(data.decode())
+            except json.JSONDecodeError:
+                print("Modtog ikke gyldig JSON")
+                continue
+
+            command = msg.get("command")
+            if command == "start":
+                print("Start kommando modtaget")
+                turn_90_degrees()
+                drive_forward_full_speed()
+            elif command == "stop":
+                print("Stop kommando modtaget")
+                stop_motors()
+            else:
+                print(f"Ukendt kommando: {command}")
+
     except Exception as e:
-        print(f"Fejl ved sending: {e}")
+        print(f"Fejl i klient håndtering: {e}")
+    finally:
+        conn.close()
+        print(f"Forbindelse til {addr} lukket")
 
+def main():
+    s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    s.bind(("", PORT))
+    s.listen(1)
+    print(f"Server lytter på port {PORT}")
 
-
-if LargeMotor and GyroSensor:
-    gyro  = GyroSensor(INPUT_1)
-    left  = LargeMotor(OUTPUT_B)
-    right = LargeMotor(OUTPUT_C)
-
-    TURN_SPEED = 20
-    FWD_SPEED = 30
-    WHEEL_CIRC = 17.6
-    TICKS_PER_CM = 360 / WHEEL_CIRC
-
-    def gyro_turn(angle_deg):
-        gyro.reset()
-        direction = 1 if angle_deg > 0 else -1
-        left.run_forever(speed_sp = -TURN_SPEED * direction)
-        right.run_forever(speed_sp = TURN_SPEED * direction)
-
-        while abs(gyro.angle) < abs(angle_deg) - 1:
-            time.sleep(0.01)
-
-        left.stop()
-        right.stop()
-        print(f"Drejet {gyro.angle:.1f}°")
-
-    def drive_forward(cm):
-        ticks = int(cm * TICKS_PER_CM)
-        left.on_for_degrees(SpeedPercent(FWD_SPEED), ticks, block=False)
-        right.on_for_degrees(SpeedPercent(FWD_SPEED), ticks)
-else:
-    def gyro_turn(angle_deg):
-        print("Gyro-funktion ikke tilgængelig (ikke på EV3)")
-
-    def drive_forward(cm):
-        print("Drive forward ikke tilgængelig (ikke på EV3)")
-
+    while True:
+        conn, addr = s.accept()
+        client_thread = Thread(target=handle_client, args=(conn, addr), daemon=True)
+        client_thread.start()
 
 if __name__ == "__main__":
-
-
-    brug_netvaerk = False   
-
-    if brug_netvaerk:
-        send_turn_command(90)
-        time.sleep(5)
-        print("Netværks-test færdig.")
-    else:
-        print("Starter lokal gyro-drej …")
-        gyro_turn(90)
-        time.sleep(0.5)
-        print("Kører 30 cm frem …")
-        drive_forward(30)
-        print("Lokal test færdig.")
+    main()
