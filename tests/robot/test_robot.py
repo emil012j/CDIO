@@ -4,7 +4,6 @@ import socket
 import json
 import threading
 import time
-import heapq
 import math
 from ultralytics import YOLO
 from ball_identification import calculate_scale_factor
@@ -20,10 +19,10 @@ def send_turn_command(angle_deg):
         sock.connect((ROBOT_IP, COMMAND_PORT))
         sock.send(json.dumps({"command": "turn", "angle": angle_deg}).encode())
         sock.close()
-        print(f"Sendte: turn {angle_deg:.1f} degrees")
-        time.sleep(abs(angle_deg) / 90)  # Estimate time based on angle
+        print(f"Turning {angle_deg:.1f} degrees")
+        # No need to sleep - the EV3 server will wait for the gyro sensor to reach the target angle
     except Exception as e:
-        print(f"Kunne ikke sende turn: {e}")
+        print(f"Could not send turn command: {e}")
 
 def send_drive_command(cm_distance):
     try:
@@ -31,19 +30,19 @@ def send_drive_command(cm_distance):
         sock.connect((ROBOT_IP, COMMAND_PORT))
         sock.send(json.dumps({"command": "forward", "distance": cm_distance}).encode())
         sock.close()
-        print(f"Sendte: forward {cm_distance:.1f} cm")
+        print(f"Moving forward {cm_distance:.1f} cm")
         time.sleep(cm_distance / 10)
     except Exception as e:
-        print(f"Kunne ikke sende drive: {e}")
+        print(f"Could not send drive command: {e}")
 
 def connect_to_robot():
     global robot_connected
     while True:
         try:
-            print("Prøver at forbinde til robot...")
+            print("Connecting to robot...")
             client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             client_socket.connect((ROBOT_IP, PING_PORT))
-            print("Forbundet til robot!")
+            print("Connected to robot!")
             robot_connected = True
             while True:
                 try:
@@ -51,14 +50,14 @@ def connect_to_robot():
                     response = client_socket.recv(1024)
                     if response:
                         ack = json.loads(response.decode())
-                        print(" Svar modtaget:", ack)
+                        print("Received response:", ack)
                     time.sleep(20)
                 except Exception as e:
-                    print(f"Forbindelse mistet: {e}")
+                    print(f"Connection lost: {e}")
                     robot_connected = False
                     break
         except Exception as e:
-            print(f"Forbindelse fejlede: {e}")
+            print(f"Connection failed: {e}")
         time.sleep(5)
 
 def find_positions(results, model):
@@ -83,120 +82,101 @@ def find_positions(results, model):
 
     return robot_tail, robot_head, balls
 
-def build_graph_from_frame(frame, resolution=20):
-    height, width, _ = frame.shape
-    graph = {}
-    for y in range(0, height, resolution):
-        for x in range(0, width, resolution):
-            node = (x, y)
-            neighbors = []
-            for dx, dy in [(-resolution, 0), (resolution, 0), (0, -resolution), (0, resolution)]:
-                nx, ny = x + dx, y + dy
-                if 0 <= nx < width and 0 <= ny < height:
-                    neighbors.append(((nx, ny), resolution))
-            graph[node] = neighbors
-    return graph
-
-def dijkstra(graph, start):
-    distances = {node: float('inf') for node in graph}
-    previous = {node: None for node in graph}
-    distances[start] = 0
-    pq = [(0, start)]
-
-    while pq:
-        current_distance, current_node = heapq.heappop(pq)
-        if current_distance > distances[current_node]:
-            continue
-        for neighbor, weight in graph[current_node]:
-            distance = current_distance + weight
-            if distance < distances[neighbor]:
-                distances[neighbor] = distance
-                previous[neighbor] = current_node
-                heapq.heappush(pq, (distance, neighbor))
-
-    return distances, previous
-
-def reconstruct_path(previous, start, goal):
-    path = []
-    current = goal
-    while current and current != start:
-        path.append(current)
-        current = previous[current]
-    path.reverse()
-    return path
-
-def snap_to_grid(pos, resolution):
-    x, y = pos
-    return (x // resolution * resolution, y // resolution * resolution)
-
 def compute_angle(from_pos, to_pos):
+    """Calculate angle between two points in degrees"""
     dx = to_pos[0] - from_pos[0]
     dy = to_pos[1] - from_pos[1]
     return math.degrees(math.atan2(-dy, dx))  # screen coordinates: y is downward
 
-def navigate_robot_to_target(tail, head, target, path, scale, resolution):
-    heading = compute_angle(tail, head)  # initial heading from camera
-    current_pos = snap_to_grid(tail, resolution)
+def compute_distance(pos1, pos2):
+    """Calculate distance between two points in pixels"""
+    return math.sqrt((pos2[0] - pos1[0])**2 + (pos2[1] - pos1[1])**2)
 
-    for next_pos in path:
-        angle_to_next = compute_angle(current_pos, next_pos)
-        turn_angle = (angle_to_next - heading + 180) % 360 - 180  # shortest turn
-        send_turn_command(turn_angle)
-
-        distance_cm = resolution * scale / 10
-        send_drive_command(distance_cm)
-
-        heading = angle_to_next
-        current_pos = next_pos
+def navigate_to_ball(tail, head, ball_pos, scale):
+    """
+    Simple navigation: turn once to face the ball, then move straight to it.
+    
+    Args:
+        tail: (x, y) position of robot tail
+        head: (x, y) position of robot head
+        ball_pos: (x, y) position of the ball
+        scale: Scale factor to convert pixels to centimeters
+    """
+    # Calculate current robot heading (angle from tail to head)
+    robot_heading = compute_angle(tail, head)
+    
+    # Calculate angle to ball from robot's center
+    robot_center = ((head[0] + tail[0])/2, (head[1] + tail[1])/2)
+    angle_to_ball = compute_angle(robot_center, ball_pos)
+    
+    # Calculate the turn angle needed (shortest turn)
+    turn_angle = (angle_to_ball - robot_heading + 180) % 360 - 180
+    
+    # Calculate distance to ball in centimeters
+    distance_pixels = compute_distance(robot_center, ball_pos)
+    distance_cm = distance_pixels * scale / 10
+    
+    print(f"Robot heading: {robot_heading:.1f}°")
+    print(f"Angle to ball: {angle_to_ball:.1f}°")
+    print(f"Turn angle: {turn_angle:.1f}°")
+    print(f"Distance to ball: {distance_cm:.1f} cm")
+    
+    # Execute the movement
+    # First turn to face the ball
+    send_turn_command(turn_angle)
+    
+    # Then move straight to the ball
+    send_drive_command(distance_cm)
 
 # Start robot connection ping thread
 threading.Thread(target=connect_to_robot, daemon=True).start()
 
 while not robot_connected:
-    print("Venter på robotforbindelse...")
+    print("Waiting for robot connection...")
     time.sleep(1)
 
-print("Starter kameraforbindelse og boldsøgning...")
+print("Starting camera and ball detection...")
 model = YOLO("best.pt")
 cap = cv2.VideoCapture(0)
 
 while True:
     ret, frame = cap.read()
     if not ret:
+        print("Could not read from camera")
         break
 
-    results_list = model(frame, imgsz=640, conf=0.5)
-    if not results_list or not results_list[0]:
+    # Convert BGR to RGB
+    frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+    
+    # Run YOLO detection
+    results_list = model([frame_rgb], imgsz=640, conf=0.5)
+    
+    if not results_list or not results_list[0].boxes:
         continue
 
     results = results_list[0]
     tail, head, balls = find_positions(results, model)
 
     if tail and head and balls:
-        resolution = 20
-        graph = build_graph_from_frame(frame, resolution)
-        robot_node = snap_to_grid(tail, resolution)
-        distances, previous = dijkstra(graph, robot_node)
+        # Find closest ball
+        robot_center = ((head[0] + tail[0])/2, (head[1] + tail[1])/2)
+        closest_ball = min(balls, key=lambda b: compute_distance(robot_center, b))
+        
+        # Calculate scale factor
+        scale = calculate_scale_factor(results, model)
+        
+        if scale:
+            # Draw visualization
+            cv2.line(frame, (int(robot_center[0]), int(robot_center[1])), 
+                    (int(closest_ball[0]), int(closest_ball[1])), (0, 255, 0), 2)
+            cv2.circle(frame, (int(closest_ball[0]), int(closest_ball[1])), 5, (0, 0, 255), -1)
+            
+            # Navigate to the ball
+            navigate_to_ball(tail, head, closest_ball, scale)
+            break
 
-        best_ball = None
-        min_distance = float('inf')
-        for ball in balls:
-            ball_node = snap_to_grid(ball, resolution)
-            dist = distances.get(ball_node, float('inf'))
-            if dist < min_distance:
-                min_distance = dist
-                best_ball = ball
-
-        if best_ball:
-            ball_node = snap_to_grid(best_ball, resolution)
-            path = reconstruct_path(previous, robot_node, ball_node)
-            scale = calculate_scale_factor(results, model)
-
-            if scale and path:
-                navigate_robot_to_target(tail, head, best_ball, path, scale, resolution)
-                break
-
-    cv2.imshow("YOLO Kamera", frame)
+    # Show the frame
+    cv2.imshow("YOLO Camera", frame)
     if cv2.waitKey(1) & 0xFF == ord('q'):
         break
 
