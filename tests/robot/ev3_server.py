@@ -2,14 +2,15 @@ import socket
 import json
 import threading
 from ev3dev2.motor import MoveTank, OUTPUT_A, OUTPUT_D, SpeedPercent
+from ev3dev2.sensor import INPUT_1
+from ev3dev2.sensor.lego import GyroSensor
 from time import sleep
 
-# Initialize tank drive
 tank = MoveTank(OUTPUT_A, OUTPUT_D)
+gyro = GyroSensor(INPUT_1)
 
-WHEEL_DIAMETER_CM = 7  # Updated wheel diameter
+WHEEL_DIAMETER_CM = 7
 
-# Ports
 PING_PORT = 1232
 COMMAND_PORT = 1233
 
@@ -17,7 +18,6 @@ def cm_to_degrees(distance_cm):
     rotations = distance_cm / (3.1416 * WHEEL_DIAMETER_CM)
     return rotations * 360
 
-# Move forward with encoder feedback
 def move_robot_forward(distance_cm, speed=30):
     degrees_target = cm_to_degrees(distance_cm)
 
@@ -36,22 +36,20 @@ def move_robot_forward(distance_cm, speed=30):
     tank.off()
     print("Moved forward {} cm".format(distance_cm))
 
-# Turn by running motors for proportional time (approximate)
 def move_robot_turn(angle_deg, speed=20):
-    # Empirical time per degree; adjust to fit your robot
-    turn_time_per_degree = 0.01  # seconds per degree (tune this!)
-
-    duration = abs(angle_deg) * turn_time_per_degree
-    direction = "left" if angle_deg > 0 else "right"
-    print("Turning {} {} degrees for {:.2f} seconds".format(direction, abs(angle_deg), duration))
-
+    gyro.reset()
+    sleep(0.1)
     if angle_deg > 0:
         tank.on(SpeedPercent(speed), SpeedPercent(-speed))
     else:
         tank.on(SpeedPercent(-speed), SpeedPercent(speed))
 
-    sleep(duration)
+    target_angle = abs(angle_deg)
+    while gyro.angle < target_angle:
+        sleep(0.01)
+
     tank.off()
+    print("Turned {} degrees".format(angle_deg))
 
 def handle_ping_server():
     s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
