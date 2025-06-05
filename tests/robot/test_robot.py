@@ -7,33 +7,31 @@ import time
 import math
 from ultralytics import YOLO
 from ball_identification import calculate_scale_factor
+from navigation_controller import calculate_movement
 
 ROBOT_IP = "169.254.72.43"
 PING_PORT = 1232
 COMMAND_PORT = 1233
 robot_connected = False
 
-def send_turn_command(angle_deg):
+def send_command_to_robot(direction, cm_distance):
     try:
         sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         sock.connect((ROBOT_IP, COMMAND_PORT))
-        sock.send(json.dumps({"command": "turn", "angle": angle_deg}).encode())
+        sock.send(json.dumps({"direction": direction, "distance": cm_distance}).encode())
         sock.close()
-        print("Turning {:.1f} degrees".format(angle_deg))
-        # No need to sleep - the EV3 server will wait for the gyro sensor to reach the target angle
-    except Exception as e:
-        print("Could not send turn command: {}".format(e))
+        print("Sending: {} ({:.1f} cm)".format(direction, cm_distance))
+        time.sleep(cm_distance / 10)  # Wait for movement to complete
 
-def send_drive_command(cm_distance):
-    try:
+        # Send stop command
         sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         sock.connect((ROBOT_IP, COMMAND_PORT))
-        sock.send(json.dumps({"command": "forward", "distance": cm_distance}).encode())
+        sock.send(json.dumps({"direction": "stop", "distance": 0}).encode())
         sock.close()
-        print("Moving forward {:.1f} cm".format(cm_distance))
-        time.sleep(cm_distance / 10)
+        print("Sending: stop")
+
     except Exception as e:
-        print("Could not send drive command: {}".format(e))
+        print("Could not send command: {}".format(e))
 
 def connect_to_robot():
     global robot_connected
@@ -50,7 +48,7 @@ def connect_to_robot():
                     response = client_socket.recv(1024)
                     if response:
                         ack = json.loads(response.decode())
-                        print("Received response: {}".format(ack))
+                        print("Received response:", ack)
                     time.sleep(20)
                 except Exception as e:
                     print("Connection lost: {}".format(e))
@@ -65,6 +63,7 @@ def find_positions(results, model):
     balls = []
 
     if results is None or results.obb is None:
+        print("No detections from model")
         return robot_tail, robot_head, balls
 
     for i, box in enumerate(results.obb):
@@ -72,6 +71,8 @@ def find_positions(results, model):
         label = model.names[label_index].lower()
         x1, y1, x2, y2 = map(int, box.xyxy[0])
         cx, cy = (x1 + x2) // 2, (y1 + y2) // 2
+
+        print("Found: {} at ({}, {})".format(label, cx, cy))
 
         if label == "robottail":
             robot_tail = (cx, cy)
@@ -82,51 +83,9 @@ def find_positions(results, model):
 
     return robot_tail, robot_head, balls
 
-def compute_angle(from_pos, to_pos):
-    """Calculate angle between two points in degrees"""
-    dx = to_pos[0] - from_pos[0]
-    dy = to_pos[1] - from_pos[1]
-    return math.degrees(math.atan2(-dy, dx))  # screen coordinates: y is downward
-
 def compute_distance(pos1, pos2):
     """Calculate distance between two points in pixels"""
     return math.sqrt((pos2[0] - pos1[0])**2 + (pos2[1] - pos1[1])**2)
-
-def navigate_to_ball(tail, head, ball_pos, scale):
-    """
-    Simple navigation: turn once to face the ball, then move straight to it.
-    
-    Args:
-        tail: (x, y) position of robot tail
-        head: (x, y) position of robot head
-        ball_pos: (x, y) position of the ball
-        scale: Scale factor to convert pixels to centimeters
-    """
-    # Calculate current robot heading (angle from tail to head)
-    robot_heading = compute_angle(tail, head)
-    
-    # Calculate angle to ball from robot's center
-    robot_center = ((head[0] + tail[0])/2, (head[1] + tail[1])/2)
-    angle_to_ball = compute_angle(robot_center, ball_pos)
-    
-    # Calculate the turn angle needed (shortest turn)
-    turn_angle = (angle_to_ball - robot_heading + 180) % 360 - 180
-    
-    # Calculate distance to ball in centimeters
-    distance_pixels = compute_distance(robot_center, ball_pos)
-    distance_cm = distance_pixels * scale / 10
-    
-    print("Robot heading: {:.1f} degrees".format(robot_heading))
-    print("Angle to ball: {:.1f} degrees".format(angle_to_ball))
-    print("Turn angle: {:.1f} degrees".format(turn_angle))
-    print("Distance to ball: {:.1f} cm".format(distance_cm))
-    
-    # Execute the movement
-    # First turn to face the ball
-    send_turn_command(turn_angle)
-    
-    # Then move straight to the ball
-    send_drive_command(distance_cm)
 
 # Start robot connection ping thread
 threading.Thread(target=connect_to_robot, daemon=True).start()
@@ -137,6 +96,7 @@ while not robot_connected:
 
 print("Starting camera and ball detection...")
 model = YOLO("best.pt")
+print("Model labels:", model.names)  # Print available classes
 cap = cv2.VideoCapture(0)
 
 while True:
@@ -171,8 +131,13 @@ while True:
                     (int(closest_ball[0]), int(closest_ball[1])), (0, 255, 0), 2)
             cv2.circle(frame, (int(closest_ball[0]), int(closest_ball[1])), 5, (0, 0, 255), -1)
             
-            # Navigate to the ball
-            navigate_to_ball(tail, head, closest_ball, scale)
+            # Calculate movement using the same function as Test_Dijkstra.py
+            direction = calculate_movement(tail, closest_ball)
+            pixel_distance = compute_distance(tail, closest_ball)
+            distance_cm = pixel_distance * scale / 10
+            
+            print("Direction: {}, Distance: {:.1f} cm".format(direction, distance_cm))
+            send_command_to_robot(direction, distance_cm)
             break
 
     # Show the frame
