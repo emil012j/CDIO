@@ -81,6 +81,13 @@ def find_positions(results, model):
         elif "ball" in label and "egg" not in label:
             balls.append((cx, cy))
 
+    # Sanity check: er de for tæt på hinanden?
+    if robot_tail and robot_head:
+        dist = math.hypot(robot_head[0] - robot_tail[0], robot_head[1] - robot_tail[1])
+        if dist < 10:
+            print("Robothead og robottail er for tæt på hinanden – springer frame over")
+            return None, None, balls
+
     return robot_tail, robot_head, balls
 
 def build_graph_from_frame(frame, resolution=20):
@@ -134,20 +141,70 @@ def compute_angle(from_pos, to_pos):
     dy = to_pos[1] - from_pos[1]
     return math.degrees(math.atan2(-dy, dx))  # screen coordinates: y is downward
 
-def navigate_robot_to_target(tail, head, target, path, scale, resolution):
-    heading = compute_angle(tail, head)  # initial heading from camera
+def navigate_robot_to_target(tail, head, target, path, scale, resolution, model, cap):
+    heading = compute_angle(tail, head)
     current_pos = snap_to_grid(tail, resolution)
+    segments = compress_path(path)
 
-    for next_pos in path:
-        angle_to_next = compute_angle(current_pos, next_pos)
-        turn_angle = (angle_to_next - heading + 180) % 360 - 180  # shortest turn
-        send_turn_command(turn_angle)
+    for start, end in segments:
+        angle_to_next = compute_angle(current_pos, end)
+        turn_angle = (angle_to_next - heading + 180) % 360 - 180
 
-        distance_cm = resolution * scale / 10
-        send_drive_command(distance_cm)
+        if abs(turn_angle) > 5:
+            send_turn_command(turn_angle)
 
-        heading = angle_to_next
-        current_pos = next_pos
+        pixel_distance = np.linalg.norm(np.array(end) - np.array(current_pos))
+        cm_distance = (pixel_distance * scale) / 10
+        if cm_distance > 2:
+            send_drive_command(cm_distance)
+
+        # 🔁 Tag nyt billede og opdater heading og position
+        ret, frame = cap.read()
+        if not ret:
+            print("Kamerafejl – afbryder navigation")
+            break
+        results_list = model(frame, imgsz=640, conf=0.5)
+        if not results_list or not results_list[0]:
+            print("Ingen resultater efter bevægelse")
+            break
+        results = results_list[0]
+        tail, head, _ = find_positions(results, model)
+        if not tail or not head:
+            print("Mangler robothead eller tail – stopper navigation")
+            break
+
+        heading = compute_angle(tail, head)
+        current_pos = snap_to_grid(tail, resolution)
+
+
+def compress_path(path):
+    if not path:
+        return []
+
+    compressed = []
+    prev = path[0]
+    direction = None
+    group = [prev]
+
+    for curr in path[1:]:
+        dx = curr[0] - prev[0]
+        dy = curr[1] - prev[1]
+        if dx == 0 and dy == 0:
+            continue
+        new_direction = math.degrees(math.atan2(-dy, dx))
+        if direction is None or abs(new_direction - direction) < 1e-3:
+            group.append(curr)
+        else:
+            compressed.append((group[0], group[-1]))
+            group = [prev, curr]
+        direction = new_direction
+        prev = curr
+
+    if group:
+        compressed.append((group[0], group[-1]))
+
+    return compressed
+
 
 # Start robot connection ping thread
 threading.Thread(target=connect_to_robot, daemon=True).start()
@@ -193,7 +250,7 @@ while True:
             scale = calculate_scale_factor(results, model)
 
             if scale and path:
-                navigate_robot_to_target(tail, head, best_ball, path, scale, resolution)
+                navigate_robot_to_target(tail, head, best_ball, path, scale, resolution, model, cap)
                 break
 
     cv2.imshow("YOLO Kamera", frame)

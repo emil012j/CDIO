@@ -9,7 +9,7 @@ from ultralytics import YOLO
 
 
 # Kamera
-cap = cv2.VideoCapture(2)
+cap = cv2.VideoCapture(0)
 
 # YOLO model
 model = YOLO("best.pt")  # Indlæs din model
@@ -105,3 +105,28 @@ while True:
 
 cap.release()
 cv2.destroyAllWindows()
+
+"""
+    robot_dx = robot_head[0] - robot_tail[0]
+    robot_dy = robot_head[1] - robot_tail[1]
+    robot_angle = math.atan2(robot_dy, robot_dx)
+
+    # Vector from tail to target
+    target_dx = best_ball[0] - robot_tail[0]
+    target_dy = best_ball[1] - robot_tail[1]
+    target_angle = math.atan2(target_dy, target_dx)
+
+    # Calculate angle difference in degrees
+    angle_diff = math.degrees(target_angle - robot_angle)
+    angle_diff = (angle_diff + 360) % 360  # Normalize to [0, 360)
+
+    if angle_diff < 45 or angle_diff > 315:
+        return "FORWARD"
+    elif 45 <= angle_diff < 135:
+        return "RIGHT"
+    elif 135 <= angle_diff < 225:
+        return "BACKWARD"
+    else:
+        return "LEFT"
+
+"""
