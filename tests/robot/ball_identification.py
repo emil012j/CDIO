@@ -36,9 +36,16 @@ from ultralytics import YOLO
 import time
 import math
 import os
+import socket
+import json
+import threading
+
+def calculate_distance(pos1, pos2):
+    """Beregn afstand mellem to punkter"""
+    return math.sqrt((pos2[0] - pos1[0]) ** 2 + (pos2[1] - pos1[1]) ** 2)
 
 MODEL_PATH = "best.pt"
-SOURCE = 0
+SOURCE = 1
 RESOLUTION = (1280, 720)
 CONF_THRESH_DISPLAY = 0.35
 
@@ -49,6 +56,9 @@ EGG_SIZE_THRESHOLD_MM = 58.0
 CLASS_COLORS = { "cross": (0, 255, 0), "egg": (255, 0, 0), "orange ball": (0, 140, 255), "white ball": (255, 255, 255), "robothead": (0, 0, 255), "robottail": (255, 0, 255) }
 ORIENTED_OBJECTS = ["robothead", "robottail", "egg", "cross"]
 EGG_OBB_ASPECT_RATIO_THRESHOLD = 1.3
+
+ROBOT_IP = "169.254.99.233"  # EV3's IP
+COMMAND_PORT = 1233
 
 def get_obb_dimensions_from_obb_results(obb_results, index):
     try:
@@ -121,20 +131,90 @@ def draw_robot_tangent_line(frame, tail_pos, head_pos, color=(0,255,255), thickn
         cv2.line(frame, (sx,sy), (ex,ey), color, thickness)
     except Exception: pass
 
+def send_coordinate_command(target_pos, current_pos, scale_factor):
+    """Send koordinater til robotten"""
+    def send_command():
+        print("\nProever at sende til robot på {}:{}".format(ROBOT_IP, COMMAND_PORT))
+        try:
+            sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            sock.connect((ROBOT_IP, COMMAND_PORT))
+            
+            # Konverter pixel koordinater til mm
+            target_x_mm = target_pos[0] * scale_factor
+            target_y_mm = target_pos[1] * scale_factor
+            current_x_mm = current_pos[0] * scale_factor
+            current_y_mm = current_pos[1] * scale_factor
+            
+            # Konverter fra mm til cm
+            target_x_cm = target_x_mm / 10.0
+            target_y_cm = target_y_mm / 10.0
+            current_x_cm = current_x_mm / 10.0
+            current_y_cm = current_y_mm / 10.0
+            
+            # Sikkerhedscheck på koordinater (i cm)
+            if abs(target_x_cm) > 500 or abs(target_y_cm) > 500 or \
+               abs(current_x_cm) > 500 or abs(current_y_cm) > 500:
+                print("ADVARSEL: Koordinater er for store, ignorerer kommando")
+                return
+                
+            command = {
+                "coordinates": {
+                    "target_x": -target_x_mm,  # Vendt om pga. motormontering, send i mm
+                    "target_y": -target_y_mm,  # Vendt om pga. motormontering, send i mm
+                    "current_x": -current_x_mm, # Vendt om pga. motormontering, send i mm
+                    "current_y": -current_y_mm  # Vendt om pga. motormontering, send i mm
+                }
+            }
+            
+            print("Kommando der sendes: {}".format(command))
+            sock.send(json.dumps(command).encode())
+            print("Sendte koordinater: Maal ({:.1f}, {:.1f}) cm fra ({:.1f}, {:.1f}) cm".format(
+                target_x_cm, target_y_cm, current_x_cm, current_y_cm))
+            sock.close()
+            
+        except Exception as e:
+            print("Kunne ikke sende koordinater: {}".format(e))
+    
+    # Start kommandoen i en separat tråd
+    threading.Thread(target=send_command, daemon=True).start()
+
 def main():
+    print("Program starter...")
+    print("Forbinder til kamera...")
     try:
-        if not os.path.exists(MODEL_PATH): return
+        if not os.path.exists(MODEL_PATH): 
+            print("FEJL: Kan ikke finde {}".format(MODEL_PATH))
+            return
+        print("Loader YOLO model...")
         model = YOLO(MODEL_PATH)
-        if get_class_id('cross', model) is None: pass
-    except Exception: return
+        if get_class_id('cross', model) is None: 
+            print("FEJL: Model mangler 'cross' klasse")
+            pass
+    except Exception as e: 
+        print("FEJL ved load af model: {}".format(e))
+        return
 
+    print("Aabner kamera...")
     cap = cv2.VideoCapture(SOURCE, cv2.CAP_DSHOW)
-    if not cap.isOpened(): cap = cv2.VideoCapture(SOURCE)
-    if not cap.isOpened(): return
-    cap.set(cv2.CAP_PROP_FRAME_WIDTH, RESOLUTION[0]); cap.set(cv2.CAP_PROP_FRAME_HEIGHT, RESOLUTION[1])
-    cap.set(cv2.CAP_PROP_AUTOFOCUS, 0); cap.set(cv2.CAP_PROP_AUTO_EXPOSURE, 0.25); cap.set(cv2.CAP_PROP_EXPOSURE, -5)
+    if not cap.isOpened(): 
+        print("Proever backup kamera...")
+        cap = cv2.VideoCapture(SOURCE)
+    if not cap.isOpened(): 
+        print("FEJL: Kunne ikke aabne kamera!")
+        return
+    
+    print("Saetter kamera oploesning...")
+    cap.set(cv2.CAP_PROP_FRAME_WIDTH, RESOLUTION[0])
+    cap.set(cv2.CAP_PROP_FRAME_HEIGHT, RESOLUTION[1])
+    cap.set(cv2.CAP_PROP_AUTOFOCUS, 0)
+    cap.set(cv2.CAP_PROP_AUTO_EXPOSURE, 0.25)
+    cap.set(cv2.CAP_PROP_EXPOSURE, -5)
 
-    last_print_time = time.time(); print_interval = 5
+    print("System klar! Venter på at se robot og bolde...")
+    last_print_time = time.time()
+    print_interval = 5
+    last_command_time = 0
+    command_cooldown = 1.0  # Minimum tid mellem kommandoer (sekunder)
 
     try:
         while cap.isOpened():
@@ -240,11 +320,6 @@ def main():
                              dims_text = f"{real_w_mm:.0f}x{real_h_mm:.0f}mm ({dim_method})"
                              cv2.putText(display_frame, dims_text, (x1, y_offset_text), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255,255,255), 1); y_offset_text += 18
 
-                        # <<< VINKEL TEKST FJERNET HER >>>
-                        # if display_label in ORIENTED_OBJECTS:
-                        #     angle_text = f"Ang:{orientation_deg:.0f}"
-                        #     cv2.putText(display_frame, angle_text, (x1, y_offset_text), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1); y_offset_text += 18
-
                         if has_pos_info:
                             simple_log_info = f"Label: {display_label}, X: {rel_x}, Y: {rel_y}"
                             log_info_list.append(simple_log_info)
@@ -253,15 +328,51 @@ def main():
 
 
             if robot_head and robot_tail:
-                 try:
-                    dx=robot_head["pos"][0]-robot_tail["pos"][0]; dy=robot_head["pos"][1]-robot_tail["pos"][1]
-                    robot_angle_deg = math.degrees(math.atan2(-dy, dx))
-                    cv2.line(display_frame, robot_tail["pos"], robot_head["pos"], (0, 255, 255), 2)
-                    draw_robot_tangent_line(display_frame, robot_tail["pos"], robot_head["pos"], (0, 255, 255), 1, 2000)
-                    robot_info_text = f"Robot Angle: {robot_angle_deg:.1f}"
-                    cv2.putText(display_frame, robot_info_text, (10, RESOLUTION[1] - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 255), 2)
-                 except Exception: pass
-
+                try:
+                    current_time = time.time()
+                    if current_time - last_command_time < command_cooldown:
+                        continue  # Vent med at sende ny kommando
+                        
+                    # Beregn robot centrum
+                    robot_pos = (
+                        (robot_head["pos"][0] + robot_tail["pos"][0]) // 2,
+                        (robot_head["pos"][1] + robot_tail["pos"][1]) // 2
+                    )
+                    
+                    # Find nærmeste bold (hvis der er nogen)
+                    balls = []
+                    for info in log_info_list:
+                        if "ball" in info.lower() and "egg" not in info.lower():
+                            # Parse koordinater fra log info
+                            import re
+                            coords = re.findall(r'X: (-?\d+), Y: (-?\d+)', info)
+                            if coords:
+                                x, y = map(int, coords[0])
+                                balls.append((x + RESOLUTION[0]//2, RESOLUTION[1]//2 - y))
+                    
+                    if balls:
+                        # Find nærmeste bold
+                        closest_ball = min(balls, key=lambda b: calculate_distance(robot_pos, b))
+                        
+                        # Tegn linje til målet
+                        cv2.line(display_frame, robot_pos, closest_ball, (0, 255, 255), 2)
+                        
+                        # Send koordinater til robot hvis vi har valid skala
+                        if scale:
+                            send_coordinate_command(closest_ball, robot_pos, scale)
+                            last_command_time = current_time
+                    else:
+                        print("Ingen bolde fundet")
+                    
+                except Exception as e:
+                    print("Fejl i koordinat beregning: {}".format(e))
+            else:
+                if not robot_head and not robot_tail:
+                    print("Kan ikke se robotten")
+                elif not robot_head:
+                    print("Kan ikke se robot-head")
+                elif not robot_tail:
+                    print("Kan ikke se robot-tail")
 
             if time.time() - last_print_time > print_interval:
                 print(f"\n--- Objekter koordinater @ {time.strftime('%H:%M:%S')} ---")
