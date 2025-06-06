@@ -1,1 +1,0 @@
-# Kode til om kameraet virker og opfanger banen, boldene, væggene og koordinater?

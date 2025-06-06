@@ -1,3 +1,4 @@
+# bruges ikke
 from time import sleep
 from ev3dev2.sensor.lego import ColorSensor 
 

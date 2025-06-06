@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# bruges ikke - gammel test fil
 import socket
 import json
 import threading
