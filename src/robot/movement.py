@@ -6,35 +6,7 @@ tidbaseret drejning/fremad, udfører kommandoer den får fra camera
 from time import sleep
 from ..config.settings import *
 
-#drejning uden gyro, dvs. at robotten drejer i en bestemt vinkel i en bestemt tid
-def simple_turn(robot_controller, direction, duration):
-    speed = ROBOT_TURN_SPEED
-    print("Simple turn: {} for {:.2f} seconds".format(direction, duration))  # Tidsbaseret drejning (uden gyro)
-    
-    if direction == "right":
-        # Turn right: left motor forward, right motor backward (motorer er omvendt)
-        robot_controller.tank_drive.on(speed, -speed)
-    else:
-        # Turn left: left motor backward, right motor forward (motorer er omvendt)  
-        robot_controller.tank_drive.on(-speed, speed)
-        
-    sleep(duration)
-    robot_controller.tank_drive.off()
-    print("Simple turn complete")
-
-    #fremad kørsel uden gyro, dvs. at robotten kører i en bestemt afstand i en bestemt tid, hvor den ikke tager højde for at robotten evt kører skråt
-def simple_forward(robot_controller, distance_cm):
-    speed = ROBOT_FORWARD_SPEED
-    # Estimerer tid baseret på afstand (skal kalibreres)
-    duration = distance_cm / ESTIMATED_FORWARD_RATE
-    
-    print("Simple forward: {:.1f} cm for {:.2f} seconds".format(distance_cm, duration))  # Tidsbaseret fremad kørsel
-    
-    # Begge motorer fremad (motorer er omvendt, så bruger negative værdier)
-    robot_controller.tank_drive.on(-speed, -speed)
-    sleep(duration)
-    robot_controller.tank_drive.off()
-    print("Simple forward complete")
+# Simple movement metoder er nu i robot controller
 
 #udfører kommandoer fra vision system
 def execute_movement_command(robot_controller, command):
@@ -44,11 +16,15 @@ def execute_movement_command(robot_controller, command):
         if cmd_type == "simple_turn":
             direction = command.get('direction', 'left')
             duration = command.get('duration', 0.5)
-            simple_turn(robot_controller, direction, duration)
+            robot_controller.simple_turn(direction, duration)
             
         elif cmd_type == "simple_forward":
             distance = command.get('distance', 10)
-            simple_forward(robot_controller, distance)
+            robot_controller.simple_forward(distance)
+            
+        elif cmd_type == "forward":
+            distance = command.get('distance', 10)
+            robot_controller.simple_forward(distance)
             
         elif cmd_type == "stop":
             robot_controller.stop_all_motors()
@@ -56,7 +32,55 @@ def execute_movement_command(robot_controller, command):
             
         else:
             print("Unknown command: {}".format(cmd_type))
-            
+    
     except Exception as e:
         print("Error executing movement command: {}".format(e))
+        robot_controller.stop_all_motors()
+
+#KOORDINAT NAVIGATION SOM I DEN GAMLE FIL
+def execute_coordinate_command(robot_controller, command):
+    try:
+        if 'coordinates' in command:
+            coords = command['coordinates']
+            print("\nReceived coordinates: {}".format(coords))
+            
+            # Koordinater kommer i mm, konverter til cm for beregning
+            target_x = coords['target_x'] / 10.0
+            target_y = coords['target_y'] / 10.0  
+            current_x = coords['current_x'] / 10.0
+            current_y = coords['current_y'] / 10.0
+            
+            dx = target_x - current_x
+            dy = target_y - current_y
+            
+            # Beregn target vinkel og normaliser den
+            import math
+            target_angle = math.degrees(math.atan2(dy, dx))
+            target_angle = robot_controller.normalize_angle(target_angle)
+            
+            # Beregn korteste drejning fra nuværende vinkel
+            current_angle = robot_controller.normalize_angle(robot_controller.get_current_heading())
+            angle_diff = robot_controller.normalize_angle(target_angle - current_angle)
+            
+            print("\nNew navigation:")
+            print("From position: ({:.1f}, {:.1f})".format(current_x, current_y))
+            print("To position: ({:.1f}, {:.1f})".format(target_x, target_y))
+            print("Current angle: {}, Target angle: {}, Need to turn: {}".format(
+                current_angle, target_angle, angle_diff))
+            
+            # Drej mod målet med simple turn
+            if abs(angle_diff) > 5:  # Threshold for drejning
+                direction = "right" if angle_diff > 0 else "left"
+                from ..config.settings import ESTIMATED_TURN_RATE
+                duration = abs(angle_diff) / ESTIMATED_TURN_RATE
+                robot_controller.simple_turn(direction, duration)
+            
+            # Beregn afstand og kør
+            distance = math.sqrt(dx*dx + dy*dy)
+            if distance > 2:  # Minimum afstand threshold
+                print("Driving {:.1f} cm".format(distance))
+                robot_controller.simple_forward(distance)
+            
+    except Exception as e:
+        print("Error executing coordinate command: {}".format(e))
         robot_controller.stop_all_motors() 

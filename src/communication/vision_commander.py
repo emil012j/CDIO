@@ -29,8 +29,6 @@ class VisionCommander:
             return False
             
         try:
-            print("Sending command to robot at {}:{}".format(self.robot_ip, self.command_port))
-            
             sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)  # Håndterer netværk forbindelse til EV3
             sock.settimeout(2.0)  # Timeout og error handling
             sock.connect((self.robot_ip, self.command_port))
@@ -41,7 +39,6 @@ class VisionCommander:
             sock.close()
             
             self.last_command_time = time.time()
-            print("Command sent successfully: {}".format(command_dict))
             return True
             
         except socket.timeout:
@@ -64,11 +61,11 @@ class VisionCommander:
         }
         return self.send_command(command)
     
-    #sender en fremad kommando ved at sende en JSON med kommandoen og afstanden. feks. {"command": "simple_forward", "distance": 10}
+    #sender en fremad kommando ved at sende en JSON med kommandoen og afstanden. feks. {"command": "forward", "distance": 10}
     def send_forward_command(self, distance):
         """Send a forward movement command to the robot"""
         command = {
-            "command": "simple_forward", 
+            "command": "forward", 
             "distance": distance
         }
         return self.send_command(command)

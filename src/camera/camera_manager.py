@@ -20,15 +20,22 @@ class CameraManager:
     def initialize_camera(self):
         print("Initializing camera...")
         try:
-            self.cap = cv2.VideoCapture(self.camera_source)  # Initialiserer kamera
+            # Prøv med CAP_DSHOW først (Windows DirectShow)
+            self.cap = cv2.VideoCapture(self.camera_source, cv2.CAP_DSHOW)  # Initialiserer kamera
+            if not self.cap.isOpened():
+                print("Proever backup kamera...")
+                self.cap = cv2.VideoCapture(self.camera_source)
             if not self.cap.isOpened():
                 print("ERROR: Could not open camera {}".format(self.camera_source))
                 return False
             
-            # Set camera resolution
+            # Set camera resolution og indstillinger
             width, height = CAMERA_RESOLUTION
             self.cap.set(cv2.CAP_PROP_FRAME_WIDTH, width)
             self.cap.set(cv2.CAP_PROP_FRAME_HEIGHT, height)
+            self.cap.set(cv2.CAP_PROP_AUTOFOCUS, 0)
+            self.cap.set(cv2.CAP_PROP_AUTO_EXPOSURE, 0.25)
+            self.cap.set(cv2.CAP_PROP_EXPOSURE, -5)
             
             # Test frame capture
             ret, frame = self.cap.read()

@@ -1,19 +1,13 @@
 # -*- coding: utf-8 -*-
 """
- Initialiserer motorer/gyro, kalibrerer gyro, emergency stop, tjekker knap tryk
+Robot controller der håndterer motorer og grundlæggende operationer (ingen sensorer)
 """
 
-from ev3dev2.motor import LargeMotor, MoveTank
-from ev3dev2.sensor.lego import GyroSensor
+from ev3dev2.motor import LargeMotor, MoveTank, MediumMotor
 from ev3dev2.button import Button
-import math
 from time import sleep
-import socket
-import json
-import threading
 from ..config.settings import *
 
-#robot controller, der håndterer motorer, sensorer, og basic operations
 class RobotController:
     
     def __init__(self):
@@ -23,61 +17,88 @@ class RobotController:
         self.left_motor = LargeMotor('outA')
         self.right_motor = LargeMotor('outD')
         self.tank_drive = MoveTank('outA', 'outD')
-        
-        # Initialiserer gyro sensor (port 1)
-        self.gyro = GyroSensor('in1')
-        self.button = Button()
+
+    
+
+        # Initialiserer button (hvis tilgængelig)
+        try:
+            self.button = Button()
+        except:
+            self.button = None
+            print("No button available")
         
         # State
         self.running = True
         
         print("Robot controller initialized")
     
-    #kalibrerer gyroen
-    def calibrate_gyro(self):
-        print("Calibrating gyro...")
-        self.gyro.reset()
-        sleep(1)
-        self.gyro.calibrate()  # Kalibrerer gyro ved start
-        sleep(1)
-        print("Gyro calibrated. Start angle: {}".format(self.gyro.angle))
-    
-    #emergency stop for alle motorer som bruges ved at trykke escape på pc'en virker ikke ordentligt
     def stop_all_motors(self):
+        """Emergency stop for alle motorer"""
         try:
-            self.tank_drive.off()  # Håndterer emergency stop
+            self.tank_drive.off()
             self.left_motor.stop()
             self.right_motor.stop()
+         
             print("All motors stopped")
         except Exception as e:
             print("Error stopping motors: {}".format(e))
     
-    #tjekker for knap tryk, virker ikke ordentligt
     def check_buttons(self):
-        if self.button.backspace:  # Tjekker for knap tryk (BACK button)
+        """Tjekker for BACK knap tryk for at stoppe robotten"""
+        if self.button and self.button.backspace:
             print("Back button pressed - stopping robot")
             self.running = False
             self.stop_all_motors()
             return True
         return False
     
-    #normaliserer vinklen til [-180, 180] range for at undgå at vinklen bliver for stor, da gyroen kan give vinkler over 360 grader
     def normalize_angle(self, angle):
+        """Normaliserer vinkel til [-180, 180] range"""
         while angle > 180:
             angle -= 360
         while angle < -180:
             angle += 360
-        return angle
+        return angle 
     
-    #henter den nuværende heading fra gyroen
     def get_current_heading(self):
-        try:
-            return self.gyro.angle
-        except Exception:
-            return 0
+        """Returnerer nuværende retning - ingen gyro, så returnerer 0"""
+        return 0  # Ingen gyro - kun vision navigation
     
-    #afslutter robotten
+    def simple_turn(self, direction, duration):
+        """Simple turn uden gyro - kun tidsbaseret"""
+        speed = ROBOT_TURN_SPEED
+        print("Simple turn: {} for {:.2f} seconds".format(direction, duration))
+        
+        if direction == "right":
+            # Turn right: left motor forward, right motor backward (motorer er omvendt)
+            self.tank_drive.on(speed, -speed)
+       
+        else:
+            # Turn left: left motor backward, right motor forward (motorer er omvendt)  
+            self.tank_drive.on(-speed, speed)
+           
+            
+        sleep(duration)
+        self.tank_drive.off()
+        print("Simple turn complete")
+
+    def simple_forward(self, distance_cm):
+        """Simple forward uden gyro - kun tidsbaseret"""
+        speed = ROBOT_FORWARD_SPEED
+        # Estimerer tid baseret på afstand
+        duration = distance_cm / ESTIMATED_FORWARD_RATE
+        
+        print("Simple forward: {:.1f} cm for {:.2f} seconds".format(distance_cm, duration))
+        
+        # Begge motorer fremad (motorer er omvendt, så bruger negative værdier)
+        self.tank_drive.on(-speed, -speed)
+
+        sleep(duration)
+        self.tank_drive.off()
+        print("Simple forward complete")
+
     def cleanup(self):
+        """Afslutter robotten og stopper alle motorer"""
         print("Cleaning up robot controller...")
         self.stop_all_motors()
         self.running = False 

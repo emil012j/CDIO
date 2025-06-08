@@ -4,13 +4,13 @@ Indstillinger for robotten, feks. IP, port, kamera, modeller, farver, etc.
 """
 
 # Netværk indstillinger (IP, port)
-ROBOT_IP = "169.254.71.123"
+ROBOT_IP = "169.254.6.188"
 COMMAND_PORT = 1233
 
 # Kamera indstillinger (resolution, confidence)
 CAMERA_SOURCE = 1
 CAMERA_RESOLUTION = (1280, 720)
-CONFIDENCE_THRESHOLD = 0.35
+CONFIDENCE_THRESHOLD = 0.35 #0.35
 
 # YOLO model indstillinger
 MODEL_PATH = "best.pt"
@@ -34,20 +34,20 @@ CLASS_COLORS = {
 ORIENTED_OBJECTS = ["robothead", "robottail", "egg", "cross"]
 EGG_OBB_ASPECT_RATIO_THRESHOLD = 1.3
 
-# Navigation parametre (turn threshold, distances)
-COMMAND_COOLDOWN = 0.5  # sekunder mellem kommandoer, feks. hvis robotten ikke er klar til at modtage kommandoer
-PRINT_INTERVAL = 3      # print status hver 3 sekunder. status er feks. hvor robotten er, hvor bolden er, hvor egget er, etc.
-TURN_THRESHOLD = 10     # grader - robotten drejer kun hvis fejl er større end 10°.
-DISTANCE_THRESHOLD = 5  # cm - robotten kører kun hvis afstand er større end 5cm
-MAX_TURN_INCREMENT = 30 # drejer maksimum 30 grader ad gangen når den sigter mod boldene. ved at øge det kan det evt blive mere clean når den dreje mod boldene.
-MAX_FORWARD_DISTANCE = 20 # maksimum 20cm ad gangen 
+# Navigation parametre - ingen sensorer, kun vision navigation
+COMMAND_COOLDOWN = 1.0  # Fra gamle ball_identification.py
+PRINT_INTERVAL = 5      # 5 sekunder som i den gamle fil
+TURN_THRESHOLD = 15     # grader - større threshold for ordentlig rotation først
+DISTANCE_THRESHOLD = 3  # cm - kør helt tæt på for at samle boldene
+MAX_TURN_INCREMENT = 45 # Fra gamle fil - større drejninger
+MAX_FORWARD_DISTANCE = 20 # længere fremad for at nå boldene 
 
-# Robot hardware værdier (hjul diameter, hastigheder)
+# Robot hardware værdier (hjul diameter, hastigheder) - optimeret for tydelige bevægelser
 WHEEL_DIAMETER_CM = 7.0
-ROBOT_TURN_SPEED = 40 #hastigheden på robotten, når den drejer
-ROBOT_FORWARD_SPEED = 50 #hastigheden på robotten, når den kører fremad
-ESTIMATED_TURN_RATE = 180.0  # grader per sekund
-ESTIMATED_FORWARD_RATE = 20.0  # cm per sekund, 
+ROBOT_TURN_SPEED = 40 # Fra gamle robot controller
+ROBOT_FORWARD_SPEED = 50 # Fra gamle robot controller  
+ESTIMATED_TURN_RATE = 120.0  # samme som før
+ESTIMATED_FORWARD_RATE = 20.0  # Fra gamle fil (distance/20.0) 
 
 # PID Settings (vi bruger det ikke gyro indtil videre - kun hvis vi vil bruge gyro til præcis navigation)
 PID_KP = 0.5   # Proportional - hvor hurtigt robotten reagerer på fejl (højere = mere aggressiv)

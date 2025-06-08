@@ -10,10 +10,10 @@ from ..config.settings import *
 def calculate_distance(pos1, pos2):
     return math.sqrt((pos1[0] - pos2[0])**2 + (pos1[1] - pos2[1])**2)
 
-#beregner vinklen mellem to punkter
+#beregner vinklen mellem to punkter (OpenCV koordinat system - Y er vendt)
 def calculate_angle_from_positions(from_pos, to_pos):
     dx = to_pos[0] - from_pos[0]
-    dy = to_pos[1] - from_pos[1]
+    dy = from_pos[1] - to_pos[1]  # Omvendt pga OpenCV koordinat system
     angle_rad = math.atan2(dy, dx)
     angle_deg = math.degrees(angle_rad)
     return angle_deg
@@ -96,6 +96,6 @@ def create_forward_command(distance_cm):
     move_distance = min(distance_cm, MAX_FORWARD_DISTANCE)
     
     return {
-        "command": "simple_forward",
+        "command": "forward",
         "distance": move_distance
     } 

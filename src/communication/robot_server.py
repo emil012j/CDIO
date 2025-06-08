@@ -75,10 +75,13 @@ class RobotServer:
             print("Received command: {}".format(command))
             
             #importerer movement system for at udføre kommandoer
-            from ..robot.movement import execute_movement_command
+            from ..robot.movement import execute_movement_command, execute_coordinate_command
             
-            #sender kommandoen til movement system
-            execute_movement_command(self.robot_controller, command)
+            #håndterer kommandoer og koordinater
+            if 'coordinates' in command:
+                execute_coordinate_command(self.robot_controller, command)
+            else:
+                execute_movement_command(self.robot_controller, command)
             
         except json.JSONDecodeError:
             print("Invalid JSON received")
