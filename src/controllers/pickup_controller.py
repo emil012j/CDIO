@@ -1,1 +1,2 @@
+# bruges ikke
 # Kode til hvordan robotten ved hvordan den skal samle bolden op (eller lukke bolden inde)

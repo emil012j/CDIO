@@ -1,5 +1,14 @@
 {
     "python.analysis.extraPaths": [
         "./src/controllers"
-    ]
+    ],
+    "python.analysis.diagnosticSeverityOverrides": {
+        "reportMissingImports": "none",
+        "reportMissingModuleSource": "none"
+    },
+    "python.analysis.ignore": [
+        "**/ev3dev2/**"
+    ],
+    "python.analysis.stubPath": "./typings",
+    "python.analysis.typeCheckingMode": "basic"
 }
