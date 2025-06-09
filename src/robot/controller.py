@@ -64,39 +64,73 @@ class RobotController:
         """Returnerer nuværende retning - ingen gyro, så returnerer 0"""
         return 0  # Ingen gyro - kun vision navigation
     
-    def simple_turn(self, direction, duration):
-        """Simple turn uden gyro - kun tidsbaseret"""
+    def simple_turn(self, direction, angle_degrees):
+        """
+        Drej roboten med en given vinkel
+        Minimal vinkel: 5 grader
+        """
         speed = ROBOT_TURN_SPEED
-        print("Simple turn: {} for {:.2f} seconds".format(direction, duration))
+        
+        # Minimal vinkel tærskel - EV3 motorer kan ikke dreje under ~5 grader pålideligt
+        min_angle = 5.0
+        actual_angle = max(abs(angle_degrees), min_angle)
+        
+        # Beregn omdrejninger baseret på vinkel
+        # 0.5 omdrejninger = 90 grader, så rotations = (angle / 90) * 0.5
+        rotations = actual_angle / 90.0 * 0.5
+        
+        print("Simple turn: {} {:.1f} degrees -> {:.1f} degrees ({:.3f} rotations)".format(
+            direction, angle_degrees, actual_angle, rotations))
+        
+        # Spring over hvis vinkel er for lille
+        if rotations < 0.05:  # Under 0.05 omdrejninger = ingen bevægelse
+            print("Angle too small, skipping turn")
+            return
         
         if direction == "right":
             # Turn right: left motor forward, right motor backward (motorer er omvendt)
-            self.tank_drive.on(speed, -speed)
-       
+            self.tank_drive.on_for_rotations(speed, -speed, rotations)
         else:
             # Turn left: left motor backward, right motor forward (motorer er omvendt)  
-            self.tank_drive.on(-speed, speed)
-           
+            self.tank_drive.on_for_rotations(-speed, speed, rotations)
             
-        sleep(duration)
-        self.tank_drive.off()
         print("Simple turn complete")
+    
+    def turn_by_angle(self, angle_degrees):
+        """
+            Turn robot by specific angle using motor rotations
+            Positive angle = right turn, negative angle = left turn
+        """
+        if angle_degrees == 0:
+            return
+            
+        direction = "right" if angle_degrees > 0 else "left"
+        self.simple_turn(direction, abs(angle_degrees))
 
-    def simple_forward(self, distance_cm):
-        """Simple forward uden gyro - kun tidsbaseret"""
+    def simple_forward(self, distance_cm, overshoot_cm=10):
+        """
+        Move robot forward using motor rotations
+        Hjul diameter: 6.8 cm → omkreds: 21.36 cm per omdrejning
+        Overshoot: Robot head skal være på boldens koordinat + ekstra for opsamling
+        """
         speed = ROBOT_FORWARD_SPEED
-        # Estimerer tid baseret på afstand
-        duration = distance_cm / ESTIMATED_FORWARD_RATE
         
-        print("Simple forward: {:.1f} cm for {:.2f} seconds".format(distance_cm, duration))
+        # Beregn total afstand inklusiv overshoot
+        total_distance = distance_cm + overshoot_cm
+        
+        # Beregn omdrejninger baseret på hjul diameter
+        wheel_diameter_cm = 6.8  # Præcis måling af hjul diameter
+        wheel_circumference_cm = 3.14159 * wheel_diameter_cm  # π × diameter ≈ 21.36 cm
+        rotations = total_distance / wheel_circumference_cm
+        
+        print("Simple forward: {:.1f} cm + {:.1f} cm overshoot = {:.1f} cm total ({:.3f} rotations)".format(
+            distance_cm, overshoot_cm, total_distance, rotations))
         
         # Begge motorer fremad (motorer er omvendt, så bruger negative værdier)
-        self.tank_drive.on(-speed, -speed)
-
-        sleep(duration)
-        self.tank_drive.off()
+        self.tank_drive.on_for_rotations(-speed, -speed, rotations)
+        
         print("Simple forward complete")
-
+    
     def cleanup(self):
         """Afslutter robotten og stopper alle motorer"""
         print("Cleaning up robot controller...")

@@ -76,13 +76,13 @@ def main():
                     
                     print("Navigation: Angle diff={:.1f}°, Distance={:.1f}cm".format(angle_diff, distance_cm))
                     
-                    # TURN PHASE: Drej først til retningen er korrekt (større tolerance for første drejning)
-                    if abs(angle_diff) > 15:  # Større threshold for at sikre ordentlig rotation
+                    # TURN PHASE: Drej først til retningen er korrekt - PRÆCIST første gang
+                    if abs(angle_diff) > 10:  # Reduceret threshold for mere præcis navigation
                         direction = "right" if angle_diff > 0 else "left"
-                        # Større drejning til at komme i retning
-                        turn_amount = min(abs(angle_diff), 45)  # Op til 45 grader ad gangen
+                        # Drej hele vinklen på én gang for præcision
+                        turn_amount = abs(angle_diff)  # Fjernet 45° begrænsning - drej præcist!
                         duration = turn_amount / ESTIMATED_TURN_RATE
-                        print("TURNING {} for {:.2f} seconds ({:.1f} degrees)".format(direction, duration, turn_amount))
+                        print("PRECISE TURNING {} for {:.2f} seconds ({:.1f} degrees)".format(direction, duration, turn_amount))
                         commander.send_turn_command(direction, duration)
                     
                     # FORWARD PHASE: Kør frem når retningen er nogenlunde korrekt

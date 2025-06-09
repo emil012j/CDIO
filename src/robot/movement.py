@@ -16,7 +16,12 @@ def execute_movement_command(robot_controller, command):
         if cmd_type == "simple_turn":
             direction = command.get('direction', 'left')
             duration = command.get('duration', 0.5)
-            robot_controller.simple_turn(direction, duration)
+            # Konverter duration til vinkel grader
+            # ESTIMATED_TURN_RATE er grader per sekund, så angle = duration * rate
+            angle_degrees = duration * ESTIMATED_TURN_RATE
+            print("Converting turn: {:.3f}s duration -> {:.1f} degrees (ESTIMATED_TURN_RATE={})".format(
+                duration, angle_degrees, ESTIMATED_TURN_RATE))
+            robot_controller.simple_turn(direction, angle_degrees)
             
         elif cmd_type == "simple_forward":
             distance = command.get('distance', 10)
@@ -71,9 +76,8 @@ def execute_coordinate_command(robot_controller, command):
             # Drej mod målet med simple turn
             if abs(angle_diff) > 5:  # Threshold for drejning
                 direction = "right" if angle_diff > 0 else "left"
-                from ..config.settings import ESTIMATED_TURN_RATE
-                duration = abs(angle_diff) / ESTIMATED_TURN_RATE
-                robot_controller.simple_turn(direction, duration)
+                # Send direkte vinkel i grader i stedet for duration
+                robot_controller.simple_turn(direction, abs(angle_diff))
             
             # Beregn afstand og kør
             distance = math.sqrt(dx*dx + dy*dy)

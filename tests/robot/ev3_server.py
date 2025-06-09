@@ -121,7 +121,7 @@ def move_robot(direction, distance_cm):
     elif direction == "RIGHT":
         motor_a.on(-30)
         motor_d.on(30)
-        sleep(duration)
+    sleep(duration)
 
     motor_a.off()
     motor_d.off()

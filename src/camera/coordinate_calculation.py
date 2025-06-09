@@ -78,8 +78,8 @@ def create_turn_command(angle_diff):
     if abs(angle_diff) <= TURN_THRESHOLD:
         return None
     
-    # Laver turn kommandoer
-    turn_amount = max(-MAX_TURN_INCREMENT, min(MAX_TURN_INCREMENT, angle_diff))
+    # Laver turn kommandoer - ingen begrænsning, drej præcist!
+    turn_amount = angle_diff
     
     return {
         "command": "simple_turn",
