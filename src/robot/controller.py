@@ -18,7 +18,14 @@ class RobotController:
         self.right_motor = LargeMotor('outD')
         self.tank_drive = MoveTank('outA', 'outD')
 
-    
+        # Medium motor for collect mechanism
+        self.collect_motor = MediumMotor('outC')
+        
+        try:
+            self.collect_motor.on(speed=50)  # Start immediately
+            print("Collect mechanism started (Port C)")
+        except Exception as e:
+            print("Failed to start collect mechanism:", e)
 
         # Initialiserer button (hvis tilgængelig)
         try:
@@ -38,6 +45,7 @@ class RobotController:
             self.tank_drive.off()
             self.left_motor.stop()
             self.right_motor.stop()
+            self.collect_motor.off()
          
             print("All motors stopped")
         except Exception as e:
