@@ -113,14 +113,16 @@ def load_yolo_model(model_path=MODEL_PATH):
         print("ERROR loading model: {}".format(e))
         return None
     
-#DETECTER OBJEKTER I KAMERAET 
+#DETECTER OBJEKTER I KAMERAET - OPTIMERET VERSION
 def run_detection(model, frame):
     try:
-        results_list = model(frame, imgsz=640, conf=CONFIDENCE_THRESHOLD, verbose=False)  # Kører detection på kamera frames
+        # Brug optimeret image size for hurtigere inference
+        results_list = model(frame, imgsz=YOLO_IMG_SIZE, conf=CONFIDENCE_THRESHOLD, verbose=False, device='cpu')  # Explicit CPU for stabil performance
         if isinstance(results_list, list) and len(results_list) > 0:
             return results_list[0]
         return None
-    except Exception: 
+    except Exception as e: 
+        print(f"Detection error: {e}")
         return None
     
 #PROCESSER OG TEGNER DETEKTERINGERNE SOM I DEN GAMLE FIL

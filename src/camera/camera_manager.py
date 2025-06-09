@@ -1,24 +1,27 @@
 # -*- coding: utf-8 -*-
 """
- Initialiserer kamera, læser frames, tegner detection bokse, viser status
+ Initialiserer kamera, læser frames, tegner detection bokse, viser status - OPTIMERET VERSION
 """
 
 import cv2
 import time
 import math
+import threading
 from ..config.settings import *
 
-#kamera manager, der håndterer kameraet og viser det på skærmen
+#kamera manager, der håndterer kameraet og viser det på skærmen - MED PERFORMANCE OPTIMERING
 class CameraManager:
     #initialiserer kameraet
     def __init__(self, camera_source=CAMERA_SOURCE):
         self.camera_source = camera_source
         self.cap = None
         self.is_initialized = False
+        self.last_frame_time = 0
+        self.target_frame_interval = 1.0 / TARGET_FPS  # FPS begrænsning
         
-    #initialiserer kameraet med de rigtige indstillinger
+    #initialiserer kameraet med de rigtige indstillinger - OPTIMERET
     def initialize_camera(self):
-        print("Initializing camera...")
+        print("Initializing camera with optimized settings...")
         try:
             # Prøv med CAP_DSHOW først (Windows DirectShow)
             self.cap = cv2.VideoCapture(self.camera_source, cv2.CAP_DSHOW)  # Initialiserer kamera
@@ -29,13 +32,17 @@ class CameraManager:
                 print("ERROR: Could not open camera {}".format(self.camera_source))
                 return False
             
-            # Set camera resolution og indstillinger
+            # Set camera resolution og indstillinger - OPTIMERET FOR PERFORMANCE
             width, height = CAMERA_RESOLUTION
             self.cap.set(cv2.CAP_PROP_FRAME_WIDTH, width)
             self.cap.set(cv2.CAP_PROP_FRAME_HEIGHT, height)
+            
+            # Performance optimeringar
+            self.cap.set(cv2.CAP_PROP_FPS, TARGET_FPS)  # Begrænser kamera FPS
+            self.cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)  # Reducer buffer lag
             self.cap.set(cv2.CAP_PROP_AUTOFOCUS, 0)
             self.cap.set(cv2.CAP_PROP_AUTO_EXPOSURE, 0.25)
-            self.cap.set(cv2.CAP_PROP_EXPOSURE, -5)
+            self.cap.set(cv2.CAP_PROP_EXPOSURE, -6)  # Hurtigere shutter
             
             # Test frame capture
             ret, frame = self.cap.read()
@@ -43,9 +50,10 @@ class CameraManager:
                 print("ERROR: Could not read frame from camera")
                 return False
             
-            print("Camera initialized successfully - Resolution: {}x{}".format(
+            print("Camera initialized successfully - Resolution: {}x{}, Target FPS: {}".format(
                 int(self.cap.get(cv2.CAP_PROP_FRAME_WIDTH)),
-                int(self.cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+                int(self.cap.get(cv2.CAP_PROP_FRAME_HEIGHT)),
+                TARGET_FPS
             ))
             
             self.is_initialized = True
@@ -55,14 +63,21 @@ class CameraManager:
             print("ERROR initializing camera: {}".format(e))
             return False
     
-    #læser frames fra kameraet
+    #læser frames fra kameraet - MED FPS BEGRÆNSNING
     def read_frame(self):
         if not self.is_initialized or self.cap is None:
             return None
             
+        # FPS throttling for at undgå overload
+        current_time = time.time()
+        time_since_last = current_time - self.last_frame_time
+        if time_since_last < self.target_frame_interval:
+            time.sleep(max(0, self.target_frame_interval - time_since_last))
+        
         try:
             ret, frame = self.cap.read()  # Læser frames fra kamera
             if ret and frame is not None:
+                self.last_frame_time = time.time()
                 return frame
             return None
         except Exception:

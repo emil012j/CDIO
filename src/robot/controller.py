@@ -18,6 +18,8 @@ class RobotController:
         self.right_motor = LargeMotor('outD')
         self.tank_drive = MoveTank('outA', 'outD')
 
+        self.harvester_motor = MediumMotor('outC')
+
     
 
         # Initialiserer button (hvis tilgængelig)
@@ -38,6 +40,8 @@ class RobotController:
             self.tank_drive.off()
             self.left_motor.stop()
             self.right_motor.stop()
+            self.harvester_motor.stop()
+
          
             print("All motors stopped")
         except Exception as e:
@@ -79,6 +83,7 @@ class RobotController:
         # 0.5 omdrejninger = 90 grader, så rotations = (angle / 90) * 0.5
         rotations = actual_angle / 90.0 * 0.5
         
+
         print("Simple turn: {} {:.1f} degrees -> {:.1f} degrees ({:.3f} rotations)".format(
             direction, angle_degrees, actual_angle, rotations))
         
@@ -90,10 +95,12 @@ class RobotController:
         if direction == "right":
             # Turn right: left motor forward, right motor backward (motorer er omvendt)
             self.tank_drive.on_for_rotations(speed, -speed, rotations)
+            self.harvester_motor.on_for_rotations(speed, -speed)
         else:
             # Turn left: left motor backward, right motor forward (motorer er omvendt)  
             self.tank_drive.on_for_rotations(-speed, speed, rotations)
-            
+            self.harvester_motor.on_for_rotations(speed, -speed)
+
         print("Simple turn complete")
     
     def turn_by_angle(self, angle_degrees):
@@ -128,7 +135,8 @@ class RobotController:
         
         # Begge motorer fremad (motorer er omvendt, så bruger negative værdier)
         self.tank_drive.on_for_rotations(-speed, -speed, rotations)
-        
+        self.harvester_motor.on_for_rotations(speed, -speed)
+
         print("Simple forward complete")
     
     def cleanup(self):
