@@ -88,6 +88,25 @@ class TrackUtils:
         
         return goals
     
+    def get_left_side_target(self) -> Optional[Tuple[int, int]]:
+        """Get target position that is 1/6 from the left side of the track"""
+        if not self.boundaries:
+            return None
+            
+        # Get left side points
+        top_left = self.boundaries["top_left"]
+        bottom_left = self.boundaries["bottom_left"]
+        
+        # Calculate middle point of left side
+        mid_y = (top_left[1] + bottom_left[1]) // 2
+        
+        # Calculate point that is 1/6 from left side
+        # First get total width of left side
+        left_width = top_left[0] - bottom_left[0]  # This might be negative depending on coordinate system
+        target_x = top_left[0] - (abs(left_width) // 6)  # Move 1/6 from left edge
+        
+        return (target_x, mid_y)
+    
     def draw_track_overlay(self, frame: np.ndarray, margin: int = 30) -> None:
         """Draw track boundaries and margin on the frame"""
         if not self.boundaries:
@@ -117,13 +136,6 @@ class TrackUtils:
             cv2.circle(frame, center, 5, (255, 0, 0), -1)
             cv2.putText(frame, "Center", (center[0]+10, center[1]), 
                        cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 0, 0), 2)
-        
-        # Draw suggested goal positions
-        goals = self.get_goal_positions()
-        for side, pos in goals.items():
-            cv2.circle(frame, pos, 8, (0, 255, 255), -1)
-            cv2.putText(frame, f"{side} goal", (pos[0]+10, pos[1]), 
-                       cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 255), 2)
 
 # Example usage:
 if __name__ == "__main__":
