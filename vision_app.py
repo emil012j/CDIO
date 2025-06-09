@@ -8,8 +8,8 @@ import cv2
 import time
 import math
 from src.camera.detection import load_yolo_model, run_detection, process_detections_and_draw, calculate_scale_factor
-from src.camera.coordinate_calculation import calculate_navigation_command, create_turn_command, create_forward_command
-from src.camera.camera_manager import CameraManager, draw_detection_box, draw_navigation_info, display_status
+from src.camera.coordinate_calculation import calculate_navigation_command
+from src.camera.camera_manager import CameraManager
 from src.communication.vision_commander import VisionCommander
 from src.config.settings import *
 
@@ -23,6 +23,13 @@ def main():
     camera = CameraManager()
     if not camera.initialize_camera():
         return
+    
+    # Start track calibration
+    print("\nStarting track calibration...")
+    if not camera.calibrate_track():
+        print("Track calibration failed or was cancelled")
+        return
+    print("Track calibration complete!")
     
     print("Initializing vision commander...")
     commander = VisionCommander()  # Sender kommandoer til EV3 robotten over netværk
