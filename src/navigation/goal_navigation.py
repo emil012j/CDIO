@@ -5,9 +5,11 @@ Simple goal navigation that:
 3. Finally releases balls
 """
 
-from typing import Dict
-from src.robot.movement import execute_coordinate_command
+import time
+from typing import Dict, Optional
 from src.robot.controller import RobotController
+from src.camera.coordinate_calculation import calculate_navigation_command
+from src.config.settings import *
 
 class GoalNavigation:
     def __init__(self, robot: RobotController):
@@ -15,61 +17,92 @@ class GoalNavigation:
         self.first_target_x = -160  # First position
         self.final_target_x = -400  # Goal position
         self.current_state = "MOVING_TO_FIRST"  # States: MOVING_TO_FIRST, MOVING_TO_GOAL, RELEASING_BALLS, DONE
+        self.release_start_time = None  # Track when we started releasing balls
         
-    def update(self, robot_head: Dict, robot_tail: Dict) -> bool:
+    def update(self, robot_head: Dict, robot_tail: Dict, scale_factor: Optional[float]) -> bool:
         """
         Update navigation and send commands to robot.
         Returns True if navigation is complete, False otherwise.
+        
+        Uses the same movement style as vision_app:
+        1. Turn to face target
+        2. Move forward to target
         """
         if not robot_head or not robot_tail or "pos" not in robot_head or "pos" not in robot_tail:
             return False
             
-        # Get current robot head position
+        # Handle ball release state
+        if self.current_state == "RELEASING_BALLS":
+            if self.release_start_time is None:
+                print("Starting ball release sequence...")
+                self.release_start_time = time.time()
+                self.robot.release_balls()  # This will stop harvester, run forward, then restart backwards
+            elif time.time() - self.release_start_time > 5.0:  # Wait 5 seconds for release to complete
+                print("Ball release sequence complete")
+                self.current_state = "DONE"
+                return True
+            return False
+            
+        # Get current robot position
         head_x = robot_head["pos"][0]
         head_y = robot_head["pos"][1]
         
+        # Calculate target position based on current state
         if self.current_state == "MOVING_TO_FIRST":
-            # Check if we've reached first position
-            if abs(head_x - self.first_target_x) < 10 and abs(head_y) < 10:
+            target_x = self.first_target_x
+            target_y = 0
+        else:  # MOVING_TO_GOAL
+            target_x = self.final_target_x
+            target_y = 0
+            
+        # Create a virtual target point for navigation
+        target_point = (target_x, target_y)
+        
+        # Calculate navigation command using the same function as vision_app
+        navigation_info = calculate_navigation_command(
+            robot_head, robot_tail, target_point, scale_factor
+        )
+        
+        if not navigation_info:
+            return False
+            
+        angle_diff = navigation_info["angle_diff"]
+        distance_cm = navigation_info["distance_cm"]
+        
+        print("Goal Navigation: State={}, Angle diff={:.1f}deg, Distance={:.1f}cm".format(
+            self.current_state, angle_diff, distance_cm))
+        
+        # Check if we've reached the target
+        if distance_cm < 10:  # Within 10cm of target
+            if self.current_state == "MOVING_TO_FIRST":
                 print("Reached first position! Moving to goal...")
                 self.current_state = "MOVING_TO_GOAL"
-            else:
-                # Navigate to first position
-                command = {
-                    "coordinates": {
-                        "current_x": head_x,
-                        "current_y": head_y,
-                        "target_x": self.first_target_x,
-                        "target_y": 0  # Always target y=0
-                    }
-                }
-                execute_coordinate_command(self.robot, command)
-                
-        elif self.current_state == "MOVING_TO_GOAL":
-            # Check if we've reached goal position
-            if abs(head_x - self.final_target_x) < 10 and abs(head_y) < 10:
-                print("Reached goal position! Releasing balls...")
+            elif self.current_state == "MOVING_TO_GOAL":
+                print("Reached goal position! Starting ball release sequence...")
                 self.current_state = "RELEASING_BALLS"
-                self.robot.release_balls()
-                self.current_state = "DONE"
-                return True
-            else:
-                # Navigate to goal position
-                command = {
-                    "coordinates": {
-                        "current_x": head_x,
-                        "current_y": head_y,
-                        "target_x": self.final_target_x,
-                        "target_y": 0  # Always target y=0
-                    }
-                }
-                execute_coordinate_command(self.robot, command)
+                self.release_start_time = None  # Will be set in next update
+        else:
+            # Use same movement logic as vision_app
+            if abs(angle_diff) > 10:  # TURN PHASE
+                direction = "right" if angle_diff > 0 else "left"
+                turn_amount = abs(angle_diff)
+                # Convert to degrees for simple_turn
+                self.robot.simple_turn(direction, turn_amount)
+                print("GOAL NAV: Turning {} {:.1f} degrees".format(direction, turn_amount))
+            elif distance_cm > 3:  # FORWARD PHASE
+                move_distance = min(distance_cm, 20)
+                self.robot.simple_forward(move_distance)
+                print("GOAL NAV: Driving forward {:.1f}cm".format(move_distance))
+            else:  # Final approach
+                print("GOAL NAV: Final approach")
+                self.robot.simple_forward(5)
                 
         return False
     
     def reset(self):
         """Reset navigation state"""
         self.current_state = "MOVING_TO_FIRST"
+        self.release_start_time = None
         self.robot.stop_all_motors()
 
 

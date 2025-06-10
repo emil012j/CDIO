@@ -49,19 +49,17 @@ def main():
     if not camera.initialize_camera():
         return
     
-    # Start track calibration
-    print("\nStarting track calibration...")
-    if not camera.calibrate_track():
-        print("Track calibration failed or was cancelled")
-        return
-    print("Track calibration complete!")
-    
     print("Initializing vision commander...")
     commander = VisionCommander()  # Sender kommandoer til EV3 robotten over netværk
     
     # Initialize goal navigation with adapter
     goal_nav = GoalNavigation(VisionCommanderAdapter(commander))
     goal_navigation_active = False
+    
+    # Track ball collection state
+    ball_collection_complete = False
+    no_balls_frames = 0  # Count frames with no balls visible
+    NO_BALLS_THRESHOLD = 30  # Number of frames with no balls before considering collection complete
     
     print("Starting main loop - escape to exit (OPTIMERET VERSION)")
     
@@ -98,6 +96,15 @@ def main():
                 display_frame = frame.copy()
                 robot_head, robot_tail, balls, log_info_list = process_detections_and_draw(results, model, display_frame, scale_factor)
                 
+                # Update ball collection state
+                if not balls:
+                    no_balls_frames += 1
+                    if no_balls_frames >= NO_BALLS_THRESHOLD and not ball_collection_complete:
+                        print("*** NO BALLS VISIBLE FOR {} FRAMES - BALL COLLECTION COMPLETE ***".format(NO_BALLS_THRESHOLD))
+                        ball_collection_complete = True
+                else:
+                    no_balls_frames = 0  # Reset counter if we see balls again
+                
                 # Cache resultaterne til brug i mellemliggende frames
                 cached_results = results
                 cached_robot_head = robot_head
@@ -111,30 +118,23 @@ def main():
                 robot_tail = cached_robot_tail
                 balls = cached_balls
                 scale_factor = cached_scale_factor
-                
-                # Tegn cached detection boxes (simpel version)
-                if robot_head and "pos" in robot_head:
-                    camera.draw_detection_box(display_frame, robot_head["pos"], "robot-head", (0, 0, 255))
-                if robot_tail and "pos" in robot_tail:
-                    camera.draw_detection_box(display_frame, robot_tail["pos"], "robot-tail", (255, 0, 255))
-                for ball_pos in balls:
-                    camera.draw_detection_box(display_frame, ball_pos, "ball", (0, 140, 255))
             
             # Navigation logic
             navigation_info = None
             
             if should_run_yolo:  # Navigation kun når vi har fresh data
                 # Check if we should start goal navigation
-                if not goal_navigation_active and robot_head and robot_tail and not balls:
-                    print("*** NO BALLS VISIBLE - STARTING GOAL NAVIGATION ***")
+                if not goal_navigation_active and ball_collection_complete and robot_head and robot_tail:
+                    print("*** STARTING GOAL NAVIGATION ***")
                     goal_navigation_active = True
                     goal_nav.reset()  # Reset goal navigation state
+                    commander.send_stop_command()  # Stop any ongoing movement
                 
                 # Run appropriate navigation
                 if goal_navigation_active:
                     # Goal navigation is active
                     if robot_head and robot_tail and "pos" in robot_head and "pos" in robot_tail:
-                        if goal_nav.update(robot_head, robot_tail):
+                        if goal_nav.update(robot_head, robot_tail, scale_factor):
                             print("*** GOAL NAVIGATION COMPLETE ***")
                             goal_navigation_active = False
                             commander.send_stop_command()
@@ -230,10 +230,13 @@ def main():
                 CONFIDENCE_THRESHOLD, yolo_frame_count, frame_count), 
                 (10, 20), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 255, 0), 2)
             
-            # Add goal navigation status
+            # Add state information
             if goal_navigation_active:
                 cv2.putText(display_frame, "GOAL NAVIGATION ACTIVE", 
                           (10, 40), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 255, 255), 2)
+            elif ball_collection_complete:
+                cv2.putText(display_frame, "BALL COLLECTION COMPLETE", 
+                          (10, 40), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 255, 0), 2)
             
             camera.display_status(display_frame, robot_head, robot_tail, balls, scale_factor, navigation_info)
             cv2.imshow("YOLO OBB Detection - OPTIMERET", display_frame)
@@ -257,11 +260,13 @@ def main():
                 elif not robot_tail:
                     print("*** MANGLER ROBOT-TAIL ***")
                 
-                if not balls:
+                if ball_collection_complete:
                     if goal_navigation_active:
                         print("*** GOAL NAVIGATION ACTIVE ***")
                     else:
-                        print("*** INGEN BOLDE FUNDET - MISSION COMPLETE? ***")
+                        print("*** BALL COLLECTION COMPLETE - READY FOR GOAL NAV ***")
+                elif not balls:
+                    print("*** INGEN BOLDE SYNLIGE ({}/{}) ***".format(no_balls_frames, NO_BALLS_THRESHOLD))
                 else:
                     print("*** {} BOLDE SYNLIGE ***".format(len(balls)))
                 
