@@ -14,6 +14,9 @@ from src.camera.camera_manager import CameraManager, draw_detection_box, draw_na
 from src.communication.vision_commander import VisionCommander
 from src.config.settings import *
 
+# BOLD LOCKING - vælg EN bold og hold fokus
+target_ball = None  # Global variabel
+
 def is_cross_blocking_path(robot_head, robot_tail, ball_pos, cross_pos):
     if not cross_pos:
         return False
@@ -44,8 +47,8 @@ def main():
     
     print("Starting main loop -  escape to exit")
     
-    # SIMPLE LØSNING: Gem bold positioner for når de forsvinder
-    last_ball_positions = []
+    # BOLD LOCKING: Fokuser på EN bold ad gangen
+    target_ball = None
     
     last_print_time = time.time()
     frame_count = 0
@@ -68,30 +71,28 @@ def main():
             display_frame = frame.copy()
             robot_head, robot_tail, balls, log_info_list = process_detections_and_draw(results, model, display_frame, scale_factor)
             
-            # SIMPLE LØSNING: Opdater bold positioner når de er synlige
-            if balls:
-                last_ball_positions = balls[:]  # Kopier listen
-                print("Updated ball positions: {} balls saved".format(len(last_ball_positions)))
+            # BOLD LOCKING: Vælg EN bold og hold fokus
+            if not target_ball and balls:
+                target_ball = balls[0]  # Tag første bold
+                print("LOCKING onto ball at position {}".format(target_ball))
             
-            # Simple vision-baseret navigation som den gamle fil
+            # Simple vision-baseret navigation
             navigation_info = None
             
-            # Tjek om mission er complete (ingen bolde synlige)
-            if robot_head and robot_tail and not balls and not last_ball_positions:
+            # Tjek om mission er complete (ingen target bold)
+            if robot_head and robot_tail and not target_ball:
                 if commander.can_send_command():
                     print("*** MISSION COMPLETE - STOPPING ROBOT ***")
                     commander.send_stop_command()
             
-            # Navigation - brug synlige bolde eller gemte positioner
-            elif robot_head and robot_tail and (balls or last_ball_positions):
-                closest_ball = min(balls, key=lambda b: 
-                    ((robot_head["pos"][0] + robot_tail["pos"][0]) // 2 - b[0])**2 + 
-                    ((robot_head["pos"][1] + robot_tail["pos"][1]) // 2 - b[1])**2
-                )
+            # Navigation kun hvis robot og target bold
+            elif robot_head and robot_tail and target_ball:
+                navigation_info = calculate_navigation_command(robot_head, robot_tail, target_ball, scale_factor)
                 
-                navigation_info = calculate_navigation_command(
-                    robot_head, robot_tail, closest_ball, scale_factor
-                )
+                # Hvis vi er meget tæt på, bold er samlet - find ny target
+                if navigation_info and navigation_info["distance_cm"] < 5:
+                    print("Ball collected! Looking for next ball...")
+                    target_ball = None  # Reset - find ny bold næste gang
                 
                 # Simple navigation: TURN først til retning passer, så FORWARD
                 if navigation_info and commander.can_send_command():
@@ -101,7 +102,7 @@ def main():
                     print("Navigation: Angle diff={:.1f}°, Distance={:.1f}cm".format(angle_diff, distance_cm))
                     
                     # TURN PHASE: Drej først til retningen er korrekt - STRIKT vinkel krav
-                    if abs(angle_diff) > 2:  # STRIKT threshold - robotten MÅ være rettet mod bolden 
+                    if abs(angle_diff) > 5:  # STRIKT threshold - robotten MÅ være rettet mod bolden 
                         direction = "right" if angle_diff > 0 else "left"
                         # Drej hele vinklen på én gang for præcision
                         turn_amount = abs(angle_diff)  # Fjernet 45° begrænsning - drej præcist!
