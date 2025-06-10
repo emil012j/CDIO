@@ -232,7 +232,7 @@ def process_detections_and_draw(results, model, frame, scale_factor=None):
                 if is_egg_shape:
                     egg_reason = "Shape"
                 is_egg_size = False
-                if real_w_mm is not None and (real_w_mm > EGG_SIZE_THRESHOLD_MM or real_h_mm > EGG_SIZE_THRESHOLD_MM):
+                if real_w_mm is not None and real_h_mm is not None and (real_w_mm > EGG_SIZE_THRESHOLD_MM or real_h_mm > EGG_SIZE_THRESHOLD_MM):
                     is_egg_size = True
                     if egg_reason:
                         egg_reason += "+Size"

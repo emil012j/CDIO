@@ -4,7 +4,7 @@ Indstillinger for robotten, feks. IP, port, kamera, modeller, farver, etc.
 """
 
 # Netværk indstillinger (IP, port)
-ROBOT_IP = "169.254.127.195"
+ROBOT_IP = "192.168.65.158"
 COMMAND_PORT = 1233
 
 # Kamera indstillinger (resolution, confidence)
@@ -13,7 +13,7 @@ CAMERA_RESOLUTION = (1280, 720)
 CONFIDENCE_THRESHOLD = 0.35 #0.35
 
 # YOLO model indstillinger
-MODEL_PATH = "best.pt"
+MODEL_PATH = "my_model3.pt"
 
 # Object detection konstanter  
 CROSS_DIAMETER_MM = 200.0
