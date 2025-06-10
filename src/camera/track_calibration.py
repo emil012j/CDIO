@@ -16,36 +16,39 @@ class TrackCalibrator:
         if event == cv2.EVENT_LBUTTONDOWN and self.calibration_mode:
             if len(self.boundary_points) < 4:
                 self.boundary_points.append((x, y))
-                print(f"Added point {len(self.boundary_points)}: ({x}, {y})")
+                print("Added point {}: ({}, {})".format(len(self.boundary_points), x, y))
             if len(self.boundary_points) == 4:
-                self.save_boundary_points()
+                self.save_boundaries()
                 print("Calibration complete! Press 'q' to continue.")
 
-    def save_boundary_points(self) -> None:
-        """Save boundary points to a JSON file"""
-        if len(self.boundary_points) == 4:
-            boundaries = {
-                "top_left": self.boundary_points[0],
-                "top_right": self.boundary_points[1],
-                "bottom_right": self.boundary_points[2],
-                "bottom_left": self.boundary_points[3]
-            }
-            try:
-                with open(self.boundary_file, 'w') as f:
-                    json.dump(boundaries, f)
-                print(f"Boundary points saved to {self.boundary_file}")
-            except Exception as e:
-                print(f"Error saving boundary points: {e}")
-
-    def load_boundary_points(self) -> Optional[Dict[str, List[int]]]:
-        """Load boundary points from JSON file"""
+    def add_boundary_point(self, x: int, y: int):
+        """Add a boundary point"""
+        self.boundary_points.append((x, y))
+        print("Added point {}: ({}, {})".format(len(self.boundary_points), x, y))
+    
+    def save_boundaries(self):
+        """Save boundary points to file"""
+        try:
+            with open(self.boundary_file, 'w') as f:
+                json.dump({
+                    'boundary_points': self.boundary_points,
+                    'calibrated': True
+                }, f)
+            print("Boundary points saved to {}".format(self.boundary_file))
+        except Exception as e:
+            print("Error saving boundary points: {}".format(e))
+    
+    def load_boundaries(self) -> bool:
+        """Load boundary points from file"""
         try:
             if os.path.exists(self.boundary_file):
                 with open(self.boundary_file, 'r') as f:
-                    return json.load(f)
+                    data = json.load(f)
+                    self.boundary_points = data.get('boundary_points', [])
+                    return data.get('calibrated', False)
         except Exception as e:
-            print(f"Error loading boundary points: {e}")
-        return None
+            print("Error loading boundary points: {}".format(e))
+        return False
 
     def draw_calibration_overlay(self, frame: np.ndarray) -> None:
         """Draw calibration points and instructions on the frame"""
@@ -109,7 +112,7 @@ class TrackCalibrator:
             key = cv2.waitKey(1) & 0xFF
             if key == ord('q'):
                 if len(self.boundary_points) == 4:
-                    self.save_boundary_points()
+                    self.save_boundaries()
                     self.calibration_mode = False
                 else:
                     print("Please set all 4 points before quitting")

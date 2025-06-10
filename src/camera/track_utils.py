@@ -16,7 +16,7 @@ class TrackUtils:
                     self.boundaries = json.load(f)
                 return True
         except Exception as e:
-            print(f"Error loading boundaries: {e}")
+            print("Error loading boundaries: {}".format(e))
         return False
     
     def get_boundary_points(self) -> Optional[Dict[str, List[int]]]:

@@ -31,6 +31,10 @@ def execute_movement_command(robot_controller, command):
             distance = command.get('distance', 10)
             robot_controller.simple_forward(distance)
             
+        elif cmd_type == "release_balls":
+            robot_controller.release_balls()
+            print("Release balls command executed")
+            
         elif cmd_type == "stop":
             robot_controller.stop_all_motors()
             print("Stop command executed")

@@ -175,15 +175,15 @@ class CameraManager:
             # Navigation info
             if navigation_info:
                 y_offset += 40
-                cv2.putText(frame, "Robot heading: {:.1f}°".format(navigation_info["robot_heading"]), 
+                cv2.putText(frame, "Robot heading: {:.1f}deg".format(navigation_info["robot_heading"]), 
                            (10, y_offset), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 255), 2)
                 
                 y_offset += 25  
-                cv2.putText(frame, "Target heading: {:.1f}°".format(navigation_info["target_heading"]), 
+                cv2.putText(frame, "Target heading: {:.1f}deg".format(navigation_info["target_heading"]), 
                            (10, y_offset), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 255), 2)
                 
                 y_offset += 25
-                cv2.putText(frame, "Angle diff: {:.1f}°".format(navigation_info["angle_diff"]), 
+                cv2.putText(frame, "Angle diff: {:.1f}deg".format(navigation_info["angle_diff"]), 
                            (10, y_offset), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 255), 2)
                 
                 y_offset += 25  

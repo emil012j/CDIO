@@ -18,9 +18,13 @@ class RobotController:
         self.right_motor = LargeMotor('outD')
         self.tank_drive = MoveTank('outA', 'outD')
 
-        self.harvester_motor = MediumMotor('outC')
-
-    
+        # Harvester motor (Motor C) - skal køre konstant baglæns
+        try:
+            self.harvester_motor = MediumMotor('outC')
+            print("Harvester motor (Motor C) initialized")
+        except Exception as e:
+            self.harvester_motor = None
+            print("Warning: Could not initialize harvester motor: {}".format(e))
 
         # Initialiserer button (hvis tilgængelig)
         try:
@@ -32,7 +36,20 @@ class RobotController:
         # State
         self.running = True
         
+        # Start harvester motor konstant
+        self.start_harvester()
+        
         print("Robot controller initialized")
+    
+    def start_harvester(self):
+        """Starter harvester motoren konstant baglæns"""
+        if self.harvester_motor:
+            try:
+                # Kør konstant baglæns på medium speed
+                self.harvester_motor.on(-30)  # Negativ = baglæns
+                print("Harvester motor started - running backwards constantly")
+            except Exception as e:
+                print("Error starting harvester: {}".format(e))
     
     def stop_all_motors(self):
         """Emergency stop for alle motorer"""
@@ -40,8 +57,10 @@ class RobotController:
             self.tank_drive.off()
             self.left_motor.stop()
             self.right_motor.stop()
-            self.harvester_motor.stop()
-
+            
+            # Stop harvester også
+            if self.harvester_motor:
+                self.harvester_motor.stop()
          
             print("All motors stopped")
         except Exception as e:
@@ -70,8 +89,7 @@ class RobotController:
     
     def simple_turn(self, direction, angle_degrees):
         """
-        Drej roboten med en given vinkel
-        Minimal vinkel: 5 grader
+        Drej roboten med en given vinkel - harvester fortsætter med at køre
         """
         speed = ROBOT_TURN_SPEED
         
@@ -83,7 +101,6 @@ class RobotController:
         # 0.5 omdrejninger = 90 grader, så rotations = (angle / 90) * 0.5
         rotations = actual_angle / 90.0 * 0.5
         
-
         print("Simple turn: {} {:.1f} degrees -> {:.1f} degrees ({:.3f} rotations)".format(
             direction, angle_degrees, actual_angle, rotations))
         
@@ -93,15 +110,13 @@ class RobotController:
             return
         
         if direction == "right":
-            # Turn right: left motor forward, right motor backward (motorer er omvendt)
+            # Turn right: left motor forward, right motor backward
             self.tank_drive.on_for_rotations(speed, -speed, rotations)
-            self.harvester_motor.on_for_rotations(speed, -speed)
         else:
-            # Turn left: left motor backward, right motor forward (motorer er omvendt)  
+            # Turn left: left motor backward, right motor forward
             self.tank_drive.on_for_rotations(-speed, speed, rotations)
-            self.harvester_motor.on_for_rotations(speed, -speed)
 
-        print("Simple turn complete")
+        print("Simple turn complete - harvester still running")
     
     def turn_by_angle(self, angle_degrees):
         """
@@ -116,9 +131,7 @@ class RobotController:
 
     def simple_forward(self, distance_cm, overshoot_cm=10):
         """
-        Move robot forward using motor rotations
-        Hjul diameter: 6.8 cm → omkreds: 21.36 cm per omdrejning
-        Overshoot: Robot head skal være på boldens koordinat + ekstra for opsamling
+        Move robot forward - harvester fortsætter med at køre
         """
         speed = ROBOT_FORWARD_SPEED
         
@@ -126,8 +139,8 @@ class RobotController:
         total_distance = distance_cm + overshoot_cm
         
         # Beregn omdrejninger baseret på hjul diameter
-        wheel_diameter_cm = 6.8  # Præcis måling af hjul diameter
-        wheel_circumference_cm = 3.14159 * wheel_diameter_cm  # π × diameter ≈ 21.36 cm
+        wheel_diameter_cm = 68.8  # Korrekt hjul diameter fra specs
+        wheel_circumference_cm = 3.14159 * wheel_diameter_cm  # π × diameter ≈ 216 cm
         rotations = total_distance / wheel_circumference_cm
         
         print("Simple forward: {:.1f} cm + {:.1f} cm overshoot = {:.1f} cm total ({:.3f} rotations)".format(
@@ -135,9 +148,8 @@ class RobotController:
         
         # Begge motorer fremad (motorer er omvendt, så bruger negative værdier)
         self.tank_drive.on_for_rotations(-speed, -speed, rotations)
-        self.harvester_motor.on_for_rotations(speed, -speed)
 
-        print("Simple forward complete")
+        print("Simple forward complete - harvester still running")
     
     def cleanup(self):
         """Afslutter robotten og stopper alle motorer"""
@@ -146,13 +158,24 @@ class RobotController:
         self.running = False 
 
     def release_balls(self):
-        """Release balls by running harvester motor backwards"""
+        """Release balls by running harvester motor forwards temporarily"""
+        if not self.harvester_motor:
+            print("Cannot release balls - harvester motor not available")
+            return
+            
         try:
             print("Releasing balls...")
-            # Run harvester motor backwards at 50% speed for 8 rotations
-            self.harvester_motor.on_for_rotations(50, -8)  # Negative speed = backwards
+            # Stop harvester temporarily
+            self.harvester_motor.stop()
+            sleep(0.2)  # Short pause
+            
+            # Run harvester motor FORWARDS at 50% speed for 8 rotations to release
+            self.harvester_motor.on_for_rotations(50, 8)  # Positive speed = forwards to release
             print("Ball release complete")
+            
+            # Resume constant backwards operation for ball collection
+            self.start_harvester()
         except Exception as e:
-            print(f"Error releasing balls: {e}")
-        finally:
-            self.harvester_motor.stop() 
+            print("Error releasing balls: {}".format(e))
+            # Always restart harvester even if error occurs
+            self.start_harvester() 

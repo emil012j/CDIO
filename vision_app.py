@@ -159,13 +159,13 @@ def main():
                             angle_diff = navigation_info["angle_diff"]
                             distance_cm = navigation_info["distance_cm"]
                             
-                            print("Navigation: Angle diff={:.1f}°, Distance={:.1f}cm".format(angle_diff, distance_cm))
+                            print("Navigation: Angle diff={:.1f}deg, Distance={:.1f}cm".format(angle_diff, distance_cm))
                             
                             # TURN PHASE: Drej først til retningen er korrekt - PRÆCIST første gang
                             if abs(angle_diff) > 10:  # Reduceret threshold for mere præcis navigation
                                 direction = "right" if angle_diff > 0 else "left"
                                 # Drej hele vinklen på én gang for præcision
-                                turn_amount = abs(angle_diff)  # Fjernet 45° begrænsning - drej præcist!
+                                turn_amount = abs(angle_diff)  # Fjernet 45deg begrænsning - drej præcist!
                                 duration = turn_amount / ESTIMATED_TURN_RATE
                                 print("PRECISE TURNING {} for {:.2f} seconds ({:.1f} degrees)".format(direction, duration, turn_amount))
                                 commander.send_turn_command(direction, duration)
@@ -190,7 +190,7 @@ def main():
                 
                 if goal_navigation_active:
                     # Draw goal navigation state
-                    cv2.putText(display_frame, f"GOAL NAV: {goal_nav.current_state}", 
+                    cv2.putText(display_frame, "GOAL NAV: {}".format(goal_nav.current_state), 
                               (10, 60), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 255, 255), 2)
                 elif balls:
                     # Find nærmeste bold

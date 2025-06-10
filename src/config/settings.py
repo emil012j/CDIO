@@ -4,7 +4,7 @@ Indstillinger for robotten, feks. IP, port, kamera, modeller, farver, etc.
 """
 
 # Netværk indstillinger (IP, port)
-ROBOT_IP = "169.254.200.88"
+ROBOT_IP = "169.254.155.239"
 COMMAND_PORT = 1233
 
 # Kamera indstillinger (resolution, confidence) - OPTIMERET FOR PERFORMANCE
@@ -48,4 +48,4 @@ MAX_FORWARD_DISTANCE = 20 # maks længde for fremadkørsel
 
 ROBOT_TURN_SPEED = 40 # Motor hastighed til drejning
 ROBOT_FORWARD_SPEED = 50 # Motor hastighed til fremadkørsel  
-ESTIMATED_TURN_RATE = 120.0  # grader per sekund - til konvertering af duration til vinkel
+ESTIMATED_TURN_RATE = 180.0  # grader per sekund - til konvertering af duration til vinkel (0.5 rotation = 90 degrees)

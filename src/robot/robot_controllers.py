@@ -1,1 +1,0 @@
-# Kode til at robotten kan hente de forskellige controllers, det kan være movement, pickup, camera, motors osv.

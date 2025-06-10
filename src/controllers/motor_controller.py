@@ -1,2 +1,0 @@
-# bruges ikke
-# Kode til at få forbindelse til motorene og få dem til at fungere
