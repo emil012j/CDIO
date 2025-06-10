@@ -1,127 +1,165 @@
+"""
+Goal calibration - click 2 points to mark the goal edges (top and bottom of goal opening)
+"""
+
 import cv2
-import numpy as np
 import json
 import os
-from typing import List, Tuple, Optional, Dict
+from ..config.settings import *
 
-class TrackCalibrator:
-    def __init__(self, window_name: str = "Track Calibration"):
-        self.window_name = window_name
-        self.boundary_points: List[Tuple[int, int]] = []
-        self.calibration_mode = False
-        self.boundary_file = 'track_boundaries.json'
+class GoalCalibrator:
+    def __init__(self):
+        self.goal_file = "goal_positions.json"
+        self.goal_points = []  # Will store 2 points: [top_goal_edge, bottom_goal_edge]
         
-    def mouse_callback(self, event: int, x: int, y: int, flags: int, param) -> None:
-        """Handle mouse events for calibration"""
-        if event == cv2.EVENT_LBUTTONDOWN and self.calibration_mode:
-            if len(self.boundary_points) < 4:
-                self.boundary_points.append((x, y))
-                print("Added point {}: ({}, {})".format(len(self.boundary_points), x, y))
-            if len(self.boundary_points) == 4:
-                self.save_boundaries()
-                print("Calibration complete! Press 'q' to continue.")
+    def mouse_callback(self, event, x, y, flags, param):
+        """Handle mouse clicks to set goal edge points"""
+        if event == cv2.EVENT_LBUTTONDOWN:
+            if len(self.goal_points) < 2:
+                self.goal_points.append((x, y))
+                print("Goal edge point {} set at: ({}, {})".format(len(self.goal_points), x, y))
+                
+                if len(self.goal_points) == 2:
+                    print("Both goal edges captured! Press 'q' to save and exit")
+            else:
+                print("Both goal edges already set. Press 'r' to reset")
 
-    def add_boundary_point(self, x: int, y: int):
-        """Add a boundary point"""
-        self.boundary_points.append((x, y))
-        print("Added point {}: ({}, {})".format(len(self.boundary_points), x, y))
-    
-    def save_boundaries(self):
-        """Save boundary points to file"""
+    def save_goal_positions(self) -> bool:
+        """Save goal edge positions to file"""
+        if len(self.goal_points) != 2:
+            print("Need exactly 2 goal edge points")
+            return False
+            
         try:
-            with open(self.boundary_file, 'w') as f:
-                json.dump({
-                    'boundary_points': self.boundary_points,
-                    'calibrated': True
-                }, f)
-            print("Boundary points saved to {}".format(self.boundary_file))
+            # Calculate goal center and target position
+            top_edge = self.goal_points[0]
+            bottom_edge = self.goal_points[1]
+            
+            # Goal center (middle between the two edges)
+            goal_center_x = (top_edge[0] + bottom_edge[0]) // 2
+            goal_center_y = (top_edge[1] + bottom_edge[1]) // 2
+            
+            # Target position (30cm away from goal center)
+            target_x = goal_center_x + 80  # Move 80 pixels away from goal (toward field)
+            target_y = goal_center_y
+            
+            goal_data = {
+                'calibrated': True,
+                'top_edge': top_edge,
+                'bottom_edge': bottom_edge,
+                'goal_center': (goal_center_x, goal_center_y),
+                'target_position': (target_x, target_y)
+            }
+            
+            with open(self.goal_file, 'w') as f:
+                json.dump(goal_data, f, indent=2)
+                
+            print("Goal positions saved to {}".format(self.goal_file))
+            print("Goal center: ({}, {})".format(goal_center_x, goal_center_y))
+            print("Target position: ({}, {})".format(target_x, target_y))
+            return True
+            
         except Exception as e:
-            print("Error saving boundary points: {}".format(e))
-    
-    def load_boundaries(self) -> bool:
-        """Load boundary points from file"""
-        try:
-            if os.path.exists(self.boundary_file):
-                with open(self.boundary_file, 'r') as f:
-                    data = json.load(f)
-                    self.boundary_points = data.get('boundary_points', [])
-                    return data.get('calibrated', False)
-        except Exception as e:
-            print("Error loading boundary points: {}".format(e))
-        return False
-
-    def draw_calibration_overlay(self, frame: np.ndarray) -> None:
-        """Draw calibration points and instructions on the frame"""
-        # Draw current points
-        for i, point in enumerate(self.boundary_points):
-            cv2.circle(frame, point, 5, (0, 255, 0), -1)
-            cv2.putText(frame, str(i+1), (point[0]+10, point[1]+10), 
-                       cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 2)
-        
-        # Draw lines between points
-        if len(self.boundary_points) > 1:
-            for i in range(len(self.boundary_points)-1):
-                cv2.line(frame, self.boundary_points[i], 
-                        self.boundary_points[i+1], (0, 255, 0), 2)
-        
-        # Draw line from last point to first if we have 3 points
-        if len(self.boundary_points) == 3:
-            cv2.line(frame, self.boundary_points[2], 
-                    self.boundary_points[0], (0, 255, 0), 2)
-        
-        # Show instructions
-        cv2.putText(frame, "Click to set points (1-4)", (10, 30), 
-                   cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 0), 2)
-        cv2.putText(frame, "Press 'r' to reset", (10, 60), 
-                   cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 0), 2)
-        cv2.putText(frame, "Press 'q' when done", (10, 90), 
-                   cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 0), 2)
-
-    def start_calibration(self, cap: cv2.VideoCapture) -> bool:
-        """Start the calibration process"""
-        if not cap.isOpened():
-            print("Camera not initialized")
+            print("Error saving goal positions: {}".format(e))
             return False
 
-        self.calibration_mode = True
-        self.boundary_points = []
+    def load_goal_positions(self) -> bool:
+        """Load goal positions from file"""
+        try:
+            if os.path.exists(self.goal_file):
+                with open(self.goal_file, 'r') as f:
+                    data = json.load(f)
+                    if data.get('calibrated', False):
+                        self.goal_points = [data['top_edge'], data['bottom_edge']]
+                        return True
+        except Exception as e:
+            print("Error loading goal positions: {}".format(e))
+        return False
+
+    def draw_calibration_overlay(self, frame):
+        """Draw goal calibration points and instructions"""
+        # Draw current goal edge points
+        for i, point in enumerate(self.goal_points):
+            cv2.circle(frame, point, 8, (0, 255, 0), -1)
+            label = "Top Edge" if i == 0 else "Bottom Edge"
+            cv2.putText(frame, label, (point[0]+15, point[1]), 
+                       cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 255, 0), 2)
         
-        # Create window and set mouse callback
-        cv2.namedWindow(self.window_name)
-        cv2.setMouseCallback(self.window_name, self.mouse_callback)
+        # Draw line between points if we have both
+        if len(self.goal_points) == 2:
+            cv2.line(frame, self.goal_points[0], self.goal_points[1], (0, 255, 0), 3)
+            
+            # Calculate and show goal center
+            center_x = (self.goal_points[0][0] + self.goal_points[1][0]) // 2
+            center_y = (self.goal_points[0][1] + self.goal_points[1][1]) // 2
+            cv2.circle(frame, (center_x, center_y), 5, (255, 0, 0), -1)
+            cv2.putText(frame, "Goal Center", (center_x+10, center_y), 
+                       cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 0, 0), 2)
+            
+            # Show target position
+            target_x = center_x + 80
+            target_y = center_y
+            cv2.circle(frame, (target_x, target_y), 8, (0, 0, 255), -1)
+            cv2.putText(frame, "Target Position", (target_x+10, target_y), 
+                       cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 0, 255), 2)
+            cv2.line(frame, (center_x, center_y), (target_x, target_y), (0, 0, 255), 2)
         
-        print("\nCalibration Mode:")
-        print("1. Click to set the four corners of your track in this order:")
-        print("   - Top Left")
-        print("   - Top Right")
-        print("   - Bottom Right")
-        print("   - Bottom Left")
-        print("2. Press 'q' when done to save and continue")
-        print("3. Press 'r' to reset if you make a mistake\n")
+        # Show instructions
+        instructions = [
+            "Click TOP edge of goal",
+            "Click BOTTOM edge of goal", 
+            "Press 'r' to reset",
+            "Press 'q' to save and exit"
+        ]
         
-        while self.calibration_mode:
-            ret, frame = cap.read()
-            if not ret:
-                break
+        for i, instruction in enumerate(instructions):
+            color = (0, 255, 0) if i < len(self.goal_points) else (255, 255, 255)
+            cv2.putText(frame, instruction, (10, 30 + i*25), 
+                       cv2.FONT_HERSHEY_SIMPLEX, 0.6, color, 2)
+
+    def start_calibration(self, cap):
+        """Start goal calibration process"""
+        print("\n=== GOAL CALIBRATION ===")
+        print("Click the TOP edge of the goal")
+        print("Then click the BOTTOM edge of the goal")
+        print("Press 'r' to reset, 'q' to save and exit")
+        
+        # Load existing calibration if available
+        if self.load_goal_positions():
+            print("Loaded existing goal calibration")
+        
+        cv2.namedWindow("Goal Calibration")
+        cv2.setMouseCallback("Goal Calibration", self.mouse_callback)
+        
+        try:
+            while True:
+                ret, frame = cap.read()
+                if not ret:
+                    break
                 
-            # Draw calibration overlay
-            self.draw_calibration_overlay(frame)
+                self.draw_calibration_overlay(frame)
+                cv2.imshow("Goal Calibration", frame)
+                
+                key = cv2.waitKey(1) & 0xFF
+                if key == ord('q'):
+                    if len(self.goal_points) == 2:
+                        if self.save_goal_positions():
+                            break
+                    else:
+                        print("Need 2 goal edge points before saving")
+                elif key == ord('r'):
+                    self.goal_points = []
+                    print("Goal points reset")
+                elif key == 27:  # ESC
+                    break
+                    
+        finally:
+            cv2.destroyWindow("Goal Calibration")
             
-            cv2.imshow(self.window_name, frame)
-            
-            key = cv2.waitKey(1) & 0xFF
-            if key == ord('q'):
-                if len(self.boundary_points) == 4:
-                    self.save_boundaries()
-                    self.calibration_mode = False
-                else:
-                    print("Please set all 4 points before quitting")
-            elif key == ord('r'):
-                self.boundary_points = []
-                print("Reset calibration points")
-        
-        cv2.destroyWindow(self.window_name)
-        return len(self.boundary_points) == 4
+        return len(self.goal_points) == 2
+
+# For backward compatibility, keep the old class name
+TrackCalibrator = GoalCalibrator
 
 def main():
     """Simple standalone calibration tool"""

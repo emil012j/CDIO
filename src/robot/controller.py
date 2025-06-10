@@ -156,25 +156,14 @@ class RobotController:
         self.stop_all_motors()
         self.running = False 
 
-    def release_balls(self):
-        """Release balls by running harvester motor forwards temporarily"""
-        if not self.harvester_motor:
-            print("Cannot release balls - harvester motor not available")
-            return
-            
-        try:
-            print("Releasing balls...")
-            # Stop harvester temporarily
-            self.harvester_motor.stop()
-            sleep(0.2)  # Short pause
-            
-            # Run harvester motor FORWARDS at 50% speed for 8 rotations to release
-            self.harvester_motor.on_for_rotations(50, 8)  # Positive speed = forwards to release
-            print("Ball release complete")
-            
-            # Resume constant backwards operation for ball collection
-            self.start_harvester()
-        except Exception as e:
-            print("Error releasing balls: {}".format(e))
-            # Always restart harvester even if error occurs
-            self.start_harvester() 
+        def release_harvester(self):
+        "aflevere bolde"
+        if self.harvester_motor:
+            try:
+                # Kør konstant baglæns på højere speed for hurtigere opsamling
+                self.harvester_motor.on(30)  # Øget fra -30 til -50 for hurtigere samling
+                print("Harvester motor started - running backwards constantly at speed 50")
+            except Exception as e:
+                print("Error starting harvester: {}".format(e))
+
+    
