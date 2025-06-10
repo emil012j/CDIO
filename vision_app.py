@@ -93,7 +93,7 @@ def main():
                     print("Navigation: Angle diff={:.1f}°, Distance={:.1f}cm".format(angle_diff, distance_cm))
                     
                     # TURN PHASE: Drej først til retningen er korrekt - PRÆCIST første gang
-                    if abs(angle_diff) > 10:  # Reduceret threshold for mere præcis navigation
+                    if abs(angle_diff) > 10:  # Reduceret threshold for mere præcis navigation - de 10 % vi snakkede om?
                         direction = "right" if angle_diff > 0 else "left"
                         # Drej hele vinklen på én gang for præcision
                         turn_amount = abs(angle_diff)  # Fjernet 45° begrænsning - drej præcist!
