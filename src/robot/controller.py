@@ -22,7 +22,7 @@ class RobotController:
         self.collect_motor = MediumMotor('outC')
         
         try:
-            self.collect_motor.on(speed=50)  # Start immediately
+            self.collect_motor.on(speed=-50)  # Start immediately
             print("Collect mechanism started (Port C)")
         except Exception as e:
             print("Failed to start collect mechanism:", e)
