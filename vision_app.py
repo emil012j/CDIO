@@ -7,11 +7,26 @@ hovedprogrammet der skal køre på pc'en
 import cv2
 import time
 import math
-from src.camera.detection import load_yolo_model, run_detection, process_detections_and_draw, calculate_scale_factor
+from shapely.geometry import LineString, Point
+from src.camera.detection import load_yolo_model, run_detection, process_detections_and_draw, calculate_scale_factor, get_cross_position
 from src.camera.coordinate_calculation import calculate_navigation_command, create_turn_command, create_forward_command
 from src.camera.camera_manager import CameraManager, draw_detection_box, draw_navigation_info, display_status
 from src.communication.vision_commander import VisionCommander
 from src.config.settings import *
+
+def is_cross_blocking_path(robot_head, robot_tail, ball_pos, cross_pos):
+    if not cross_pos:
+        return False
+    robot_x = (robot_head["pos"][0] + robot_tail["pos"][0]) // 2
+    robot_y = (robot_head["pos"][1] + robot_tail["pos"][1]) // 2
+    path = LineString([(robot_x, robot_y), ball_pos])
+    return path.distance(Point(cross_pos)) < CROSS_AVOID_RADIUS
+
+def choose_unblocked_ball(robot_head, robot_tail, balls, cross_pos):
+    for ball in balls:
+        if not is_cross_blocking_path(robot_head, robot_tail, ball, cross_pos):
+            return ball
+    return balls[0]  # fallback
 
 def main():
     print("Loader YOLO model...")
@@ -44,7 +59,8 @@ def main():
             # Detekterer robot (head/tail) og bolde i real-time
             results = run_detection(model, frame)
             scale_factor = calculate_scale_factor(results, model)
-            
+            cross_pos = get_cross_position(results, model)
+
             # Process detections og tegn på frame som i den gamle fil
             display_frame = frame.copy()
             robot_head, robot_tail, balls, log_info_list = process_detections_and_draw(results, model, display_frame, scale_factor)
@@ -105,10 +121,7 @@ def main():
                 )
                 
                 # Find nærmeste bold
-                closest_ball = min(balls, key=lambda b: 
-                    ((robot_head["pos"][0] + robot_tail["pos"][0]) // 2 - b[0])**2 + 
-                    ((robot_head["pos"][1] + robot_tail["pos"][1]) // 2 - b[1])**2
-                )
+                closest_ball = choose_unblocked_ball(robot_head, robot_tail, balls, cross_pos)
                 
                 # Tegn linje til målet som i den gamle fil
                 cv2.line(display_frame, robot_center, closest_ball, (0, 255, 255), 2)

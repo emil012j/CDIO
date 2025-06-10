@@ -138,7 +138,8 @@ class RobotController:
         self.tank_drive.on_for_rotations(-speed, -speed, rotations)
         
         print("Simple forward complete")
-    
+
+ 
     def cleanup(self):
         """Afslutter robotten og stopper alle motorer"""
         print("Cleaning up robot controller...")

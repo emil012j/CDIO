@@ -18,6 +18,7 @@ MODEL_PATH = "best.pt"
 # Object detection konstanter  
 CROSS_DIAMETER_MM = 200.0
 EGG_SIZE_THRESHOLD_MM = 58.0
+CROSS_AVOID_RADIUS = 100  # Tune as needed. Bliver brugt til at undgå at robotten kører ind i krydset.
 
 # Farver til visualization
 CLASS_COLORS = {
