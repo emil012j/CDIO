@@ -37,20 +37,7 @@ class RobotController:
         # State
         self.running = True
         
-        # Start harvester motor konstant
-        self.start_harvester()
-        
         print("Robot controller initialized")
-    
-    def start_harvester(self):
-        """Starter harvester motoren konstant baglæns"""
-        if self.harvester_motor:
-            try:
-                # Kør konstant baglæns på højere speed for hurtigere opsamling
-                self.harvester_motor.on(-50)  # Øget fra -30 til -50 for hurtigere samling
-                print("Harvester motor started - running backwards constantly at speed 50")
-            except Exception as e:
-                print("Error starting harvester: {}".format(e))
     
     def stop_all_motors(self):
         """Emergency stop for alle motorer"""
@@ -87,7 +74,8 @@ class RobotController:
     
     def simple_turn(self, direction, angle_degrees):
         """
-        Drej roboten med en given vinkel - harvester fortsætter med at køre
+        Drej roboten med en given vinkel
+        Minimal vinkel: 5 grader
         """
         speed = ROBOT_TURN_SPEED
         
@@ -108,13 +96,13 @@ class RobotController:
             return
         
         if direction == "right":
-            # Turn right: left motor forward, right motor backward
+            # Turn right: left motor forward, right motor backward (motorer er omvendt)
             self.tank_drive.on_for_rotations(speed, -speed, rotations)
         else:
-            # Turn left: left motor backward, right motor forward
+            # Turn left: left motor backward, right motor forward (motorer er omvendt)  
             self.tank_drive.on_for_rotations(-speed, speed, rotations)
-
-        print("Simple turn complete - harvester still running")
+            
+        print("Simple turn complete")
     
     def turn_by_angle(self, angle_degrees):
         """
@@ -129,7 +117,9 @@ class RobotController:
 
     def simple_forward(self, distance_cm, overshoot_cm=10):
         """
-        Move robot forward - harvester fortsætter med at køre
+        Move robot forward using motor rotations
+        Hjul diameter: 6.8 cm → omkreds: 21.36 cm per omdrejning
+        Overshoot: Robot head skal være på boldens koordinat + ekstra for opsamling
         """
         speed = ROBOT_FORWARD_SPEED
         
@@ -137,8 +127,8 @@ class RobotController:
         total_distance = distance_cm + overshoot_cm
         
         # Beregn omdrejninger baseret på hjul diameter
-        wheel_diameter_cm = 68.8  # Korrekt hjul diameter fra specs
-        wheel_circumference_cm = 3.14159 * wheel_diameter_cm  # π × diameter ≈ 216 cm
+        wheel_diameter_cm = 6.8  # Præcis måling af hjul diameter
+        wheel_circumference_cm = 3.14159 * wheel_diameter_cm  # π × diameter ≈ 21.36 cm
         rotations = total_distance / wheel_circumference_cm
         
         print("Simple forward: {:.1f} cm + {:.1f} cm overshoot = {:.1f} cm total ({:.3f} rotations)".format(
@@ -156,14 +146,10 @@ class RobotController:
         self.stop_all_motors()
         self.running = False 
 
-        def release_harvester(self):
-        "aflevere bolde"
-        if self.harvester_motor:
-            try:
-                # Kør konstant baglæns på højere speed for hurtigere opsamling
-                self.harvester_motor.on(30)  # Øget fra -30 til -50 for hurtigere samling
-                print("Harvester motor started - running backwards constantly at speed 50")
-            except Exception as e:
-                print("Error starting harvester: {}".format(e))
-
-    
+    def release_balls(self):
+        """Reverse medium motor to release balls"""
+        try:
+            self.collect_motor.on(speed=30)  # Reverse direction at speed 30
+            print("Release mechanism started - motor running at speed 30")
+        except Exception as e:
+            print("Failed to start release mechanism:", e)
