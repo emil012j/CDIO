@@ -16,24 +16,23 @@ from src.navigation.goal_navigation import GoalNavigation
 from src.robot.controller import RobotController
 from src.config.settings import *
 
-class VisionCommanderAdapter(RobotController):
-    """Adapter that makes VisionCommander compatible with RobotController interface"""
+# Vision Command Adapter - NO ROBOT HARDWARE NEEDED (runs on PC)
+class VisionCommanderAdapter:
+    """Adapter that sends commands over network instead of controlling hardware directly"""
+    
     def __init__(self, commander: VisionCommander):
-        super().__init__()  # Initialize base RobotController
         self.commander = commander
-        
+        # No robot hardware initialization - this runs on PC!
+
     def send_turn_command(self, direction: str, duration: float) -> None:
-        angle = duration * ESTIMATED_TURN_RATE
-        if direction == "left":
-            angle = -angle
         self.commander.send_turn_command(direction, duration)
-        
+
     def send_forward_command(self, distance_cm: float) -> None:
         self.commander.send_forward_command(distance_cm)
-        
+
     def stop_all_motors(self) -> None:
         self.commander.send_stop_command()
-        
+
     def release_balls(self) -> None:
         # Send a special command to release balls
         self.commander.send_command({"command": "release_balls"})
@@ -172,7 +171,7 @@ def main():
                             
                             # FORWARD PHASE: Kør frem når retningen er nogenlunde korrekt
                             elif distance_cm > 3:  # Kør helt tæt på for at samle boldene
-                                move_distance = min(distance_cm, 20)  # Længere distance for at nå boldene
+                                move_distance = min(distance_cm, MAX_FORWARD_DISTANCE)  # Længere distance for smooth bevægelse
                                 print("DRIVING FORWARD {:.1f} cm".format(move_distance))  
                                 commander.send_forward_command(move_distance)
                             

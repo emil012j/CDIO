@@ -7,15 +7,19 @@ Simple goal navigation that:
 
 import time
 from typing import Dict, Optional
-from src.robot.controller import RobotController
 from src.camera.coordinate_calculation import calculate_navigation_command
 from src.config.settings import *
 
 class GoalNavigation:
-    def __init__(self, robot: RobotController):
-        self.robot = robot
-        self.first_target_x = -160  # First position
-        self.final_target_x = -400  # Goal position
+    def __init__(self, robot_adapter):
+        """robot_adapter should have send_turn_command, send_forward_command, etc."""
+        self.robot = robot_adapter
+        # Realistic pixel coordinates based on 640x480 camera resolution
+        # Assuming robot starts around center (320, 240) and goal is off-screen
+        self.first_target_x = 100   # First position - closer to camera edge  
+        self.first_target_y = 240   # Keep same Y level as robot
+        self.final_target_x = -50   # Goal position - off-screen left
+        self.final_target_y = 240   # Keep same Y level
         self.current_state = "MOVING_TO_FIRST"  # States: MOVING_TO_FIRST, MOVING_TO_GOAL, RELEASING_BALLS, DONE
         self.release_start_time = None  # Track when we started releasing balls
         
@@ -36,7 +40,7 @@ class GoalNavigation:
             if self.release_start_time is None:
                 print("Starting ball release sequence...")
                 self.release_start_time = time.time()
-                self.robot.release_balls()  # This will stop harvester, run forward, then restart backwards
+                self.robot.release_balls()  # Send release command over network
             elif time.time() - self.release_start_time > 5.0:  # Wait 5 seconds for release to complete
                 print("Ball release sequence complete")
                 self.current_state = "DONE"
@@ -50,10 +54,10 @@ class GoalNavigation:
         # Calculate target position based on current state
         if self.current_state == "MOVING_TO_FIRST":
             target_x = self.first_target_x
-            target_y = 0
+            target_y = self.first_target_y
         else:  # MOVING_TO_GOAL
             target_x = self.final_target_x
-            target_y = 0
+            target_y = self.final_target_y
             
         # Create a virtual target point for navigation
         target_point = (target_x, target_y)
@@ -73,7 +77,7 @@ class GoalNavigation:
             self.current_state, angle_diff, distance_cm))
         
         # Check if we've reached the target
-        if distance_cm < 10:  # Within 10cm of target
+        if distance_cm < 20:  # Øget tolerance fra 10 til 20cm for at undgå stuck loops
             if self.current_state == "MOVING_TO_FIRST":
                 print("Reached first position! Moving to goal...")
                 self.current_state = "MOVING_TO_GOAL"
@@ -82,20 +86,20 @@ class GoalNavigation:
                 self.current_state = "RELEASING_BALLS"
                 self.release_start_time = None  # Will be set in next update
         else:
-            # Use same movement logic as vision_app
+            # Use same movement logic as vision_app - send commands over network
             if abs(angle_diff) > 10:  # TURN PHASE
                 direction = "right" if angle_diff > 0 else "left"
-                turn_amount = abs(angle_diff)
-                # Convert to degrees for simple_turn
-                self.robot.simple_turn(direction, turn_amount)
+                turn_amount = min(abs(angle_diff), 45)  # Begræns store drejninger for stabilitet
+                duration = turn_amount / ESTIMATED_TURN_RATE
+                self.robot.send_turn_command(direction, duration)
                 print("GOAL NAV: Turning {} {:.1f} degrees".format(direction, turn_amount))
             elif distance_cm > 3:  # FORWARD PHASE
-                move_distance = min(distance_cm, 20)
-                self.robot.simple_forward(move_distance)
+                move_distance = min(distance_cm, MAX_FORWARD_DISTANCE)  # Längere bevægelse for smooth motion
+                self.robot.send_forward_command(move_distance)
                 print("GOAL NAV: Driving forward {:.1f}cm".format(move_distance))
             else:  # Final approach
                 print("GOAL NAV: Final approach")
-                self.robot.simple_forward(5)
+                self.robot.send_forward_command(5)
                 
         return False
     

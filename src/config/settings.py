@@ -40,11 +40,11 @@ ORIENTED_OBJECTS = ["robothead", "robottail", "egg", "cross"]
 EGG_OBB_ASPECT_RATIO_THRESHOLD = 1.3
 
 # Navigation parametre - ingen sensorer, kun vision navigation
-COMMAND_COOLDOWN = 1.0  # Fra gamle ball_identification.py
+COMMAND_COOLDOWN = 0.5  # Reduceret fra 1.0 til 0.5 for mere smooth bevægelse
 PRINT_INTERVAL = 5      # 5 sekunder som i den gamle fil
 TURN_THRESHOLD = 10     # mindste antal grader for at dreje.
 DISTANCE_THRESHOLD = 3  # cm - kør helt tæt på for at samle boldene
-MAX_FORWARD_DISTANCE = 20 # maks længde for fremadkørsel
+MAX_FORWARD_DISTANCE = 40 # Øget fra 20 til 40 for længere, mere smooth bevægelse
 
 ROBOT_TURN_SPEED = 40 # Motor hastighed til drejning
 ROBOT_FORWARD_SPEED = 50 # Motor hastighed til fremadkørsel  

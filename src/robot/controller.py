@@ -45,9 +45,9 @@ class RobotController:
         """Starter harvester motoren konstant baglæns"""
         if self.harvester_motor:
             try:
-                # Kør konstant baglæns på medium speed
-                self.harvester_motor.on(-30)  # Negativ = baglæns
-                print("Harvester motor started - running backwards constantly")
+                # Kør konstant baglæns på højere speed for hurtigere opsamling
+                self.harvester_motor.on(-50)  # Øget fra -30 til -50 for hurtigere samling
+                print("Harvester motor started - running backwards constantly at speed 50")
             except Exception as e:
                 print("Error starting harvester: {}".format(e))
     
