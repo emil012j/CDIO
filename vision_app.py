@@ -7,10 +7,12 @@ hovedprogrammet der skal køre på pc'en
 import cv2
 import time
 import math
+import gc  # Tilføj garbage collection for memory management
 from src.camera.detection import load_yolo_model, run_detection, process_detections_and_draw, calculate_scale_factor
 from src.camera.coordinate_calculation import calculate_navigation_command, create_turn_command, create_forward_command
 from src.camera.camera_manager import CameraManager, draw_detection_box, draw_navigation_info, display_status
 from src.communication.vision_commander import VisionCommander
+from src.robot.progressive_navigator import ProgressiveNavigator
 from src.config.settings import *
 
 def main():
@@ -27,10 +29,16 @@ def main():
     print("Initializing vision commander...")
     commander = VisionCommander()  # Sender kommandoer til EV3 robotten over netværk
     
+    print("Initializing progressive navigator...")
+    navigator = ProgressiveNavigator()  # Intelligent boldtargeting med progressiv præcision
+    
     print("Starting main loop -  escape to exit")
     
     last_print_time = time.time()
     frame_count = 0
+    last_gc_time = time.time()  # Til garbage collection timing
+    heavy_load_count = 0  # Tæl hvor mange frames med mange objekter
+    last_heavy_load_time = time.time()  # Til at tracke hvor længe heavy load varer
     
     try:
         while True:
@@ -41,13 +49,78 @@ def main():
             frame_count += 1
             current_time = time.time()
             
+            # NUCLEAR OPTION: Hvis heavy load i mere end 30 sekunder, restart detection
+            if heavy_load_count > 0 and current_time - last_heavy_load_time > 30.0:
+                print("NUCLEAR OPTION: Heavy load too long - clearing everything and forcing cleanup")
+                gc.collect()
+                heavy_load_count = 0
+                last_heavy_load_time = current_time
+                # Force en pause
+                time.sleep(0.1)
+            
+            # MEMORY MANAGEMENT: Skip frames hvis for mange objekter (forhindrer lag)
+            total_objects_detected = 0
+            
             # Detekterer robot (head/tail) og bolde i real-time
             results = run_detection(model, frame)
             scale_factor = calculate_scale_factor(results, model)
             
+            # Tæl objekter FØRST for memory management
+            if results and len(results) > 0 and hasattr(results[0], 'boxes') and results[0].boxes is not None:
+                total_objects_detected = len(results[0].boxes)
+            
+            # AGGRESIV MEMORY MANAGEMENT: Hvis for mange objekter, KØR UDEN VISUALIZATION
+            if total_objects_detected > MAX_OBJECTS_BEFORE_SKIP:
+                heavy_load_count += 1
+                if heavy_load_count == 1:  # Første gang heavy load
+                    last_heavy_load_time = current_time
+                print("HEAVY LOAD: {} objects detected, frame {} (no visualization)".format(total_objects_detected, heavy_load_count))
+                
+                # KØR KUN DETECTION - INGEN TEGNING/VISUALIZATION
+                robot_head, robot_tail, balls, log_info_list = process_detections_and_draw(results, model, None, scale_factor)
+                
+                # FORCE CLEANUP efter heavy load
+                del results
+                gc.collect()  # Force garbage collection efter hver heavy load frame
+                
+                # Simple navigation uden visualization
+                if robot_head and robot_tail and balls and commander.can_send_command():
+                    closest_ball = min(balls, key=lambda b: 
+                        ((robot_head["pos"][0] + robot_tail["pos"][0]) // 2 - b[0])**2 + 
+                        ((robot_head["pos"][1] + robot_tail["pos"][1]) // 2 - b[1])**2
+                    )
+                    
+                    navigation_info = calculate_navigation_command(robot_head, robot_tail, closest_ball, scale_factor)
+                    
+                    if navigation_info:
+                        angle_diff = navigation_info["angle_diff"]
+                        distance_cm = navigation_info["distance_cm"]
+                        command, nav_info = navigator.get_navigation_command(angle_diff, distance_cm)
+                        commander.send_command(command)
+                        print("HEAVY LOAD NAVIGATION: {} - {:.1f}°, {:.1f}cm".format(nav_info["phase"], angle_diff, distance_cm))
+                
+                # Skip visualization helt
+                if cv2.waitKey(1) & 0xFF == ord('q'):
+                    break
+                continue
+                
+            else:
+                # NORMAL PROCESSING med visualization
+                heavy_load_count = 0  # Reset heavy load counter
+            
             # Process detections og tegn på frame som i den gamle fil
             display_frame = frame.copy()
             robot_head, robot_tail, balls, log_info_list = process_detections_and_draw(results, model, display_frame, scale_factor)
+            
+            # Tæl objekter for memory management
+            total_objects_detected = (1 if robot_head else 0) + (1 if robot_tail else 0) + len(balls)
+            
+            # MEMORY MANAGEMENT: Spring frame over hvis for mange objekter (forhindrer overload)
+            if total_objects_detected > MAX_OBJECTS_BEFORE_SKIP and frame_count % FRAME_SKIP_RATIO == 0:
+                print("MEMORY: Skipping frame (too many objects: {})".format(total_objects_detected))
+                # Explicit frame cleanup
+                del display_frame, results
+                continue
             
             # Simple vision-baseret navigation som den gamle fil
             navigation_info = None
@@ -69,32 +142,23 @@ def main():
                     robot_head, robot_tail, closest_ball, scale_factor
                 )
                 
-                # Simple navigation: TURN først til retning passer, så FORWARD
+                # Intelligent navigation med progressiv navigator
                 if navigation_info and commander.can_send_command():
                     angle_diff = navigation_info["angle_diff"]
                     distance_cm = navigation_info["distance_cm"]
                     
-                    print("Navigation: Angle diff={:.1f}°, Distance={:.1f}cm".format(angle_diff, distance_cm))
+                    # Få optimal kommando fra progressive navigator
+                    command, nav_info = navigator.get_navigation_command(angle_diff, distance_cm)
+                    phase = nav_info["phase"]
                     
-                    # TURN PHASE: Drej først til retningen er korrekt (større tolerance for første drejning)
-                    if abs(angle_diff) > 15:  # Større threshold for at sikre ordentlig rotation
-                        direction = "right" if angle_diff > 0 else "left"
-                        # Større drejning til at komme i retning
-                        turn_amount = min(abs(angle_diff), 45)  # Op til 45 grader ad gangen
-                        duration = turn_amount / ESTIMATED_TURN_RATE
-                        print("TURNING {} for {:.2f} seconds ({:.1f} degrees)".format(direction, duration, turn_amount))
-                        commander.send_turn_command(direction, duration)
+                    # Vis detaljeret status
+                    status_msg = navigator.get_status_message(phase, command, nav_info)
+                    print("SMART NAVIGATION: {}".format(status_msg))
+                    print("  -> Angle: {:.1f}°, Distance: {:.1f}cm, Phase: {}".format(
+                        angle_diff, distance_cm, phase))
                     
-                    # FORWARD PHASE: Kør frem når retningen er nogenlunde korrekt
-                    elif distance_cm > 3:  # Kør helt tæt på for at samle boldene
-                        move_distance = min(distance_cm, 20)  # Længere distance for at nå boldene
-                        print("DRIVING FORWARD {:.1f} cm".format(move_distance))  
-                        commander.send_forward_command(move_distance)
-                    
-                    # TARGET VERY CLOSE: Kort burst for at samle bolden
-                    else:
-                        print("TARGET VERY CLOSE - final push")
-                        commander.send_forward_command(5)  # Kort fremad for at samle
+                    # Send kommando til robot
+                    commander.send_command(command)
             
             # Tegn robot retning og navigation linje som i den gamle fil
             if robot_head and robot_tail and balls:
@@ -141,6 +205,22 @@ def main():
             
             display_status(display_frame, robot_head, robot_tail, balls, scale_factor, navigation_info)
             cv2.imshow("YOLO OBB Detection", display_frame)  # Samme titel som den gamle fil
+            
+            # MEMORY MANAGEMENT: Periodisk garbage collection 
+            if current_time - last_gc_time >= MEMORY_GC_INTERVAL:
+                gc.collect()  # Force garbage collection for at rydde op i memory
+                last_gc_time = current_time
+                print("MEMORY: Garbage collection performed (freed memory)")
+            
+            # AGGRESSIV MEMORY MANAGEMENT: Force cleanup hver 50. frame
+            if frame_count % 50 == 0:
+                gc.collect()
+                print("AGGRESSIVE: Frame {} - forced garbage collection".format(frame_count))
+            
+            # MEMORY MANAGEMENT: Explicit frame cleanup efter hver iteration  
+            del display_frame, results
+            if 'closest_ball' in locals():
+                del closest_ball
             
             # Status updates
             if current_time - last_print_time >= PRINT_INTERVAL:

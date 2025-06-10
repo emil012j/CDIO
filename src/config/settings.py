@@ -4,13 +4,19 @@ Indstillinger for robotten, feks. IP, port, kamera, modeller, farver, etc.
 """
 
 # Netværk indstillinger (IP, port)
-ROBOT_IP = "169.254.6.188"
+ROBOT_IP = "192.168.65.158"
 COMMAND_PORT = 1233
 
 # Kamera indstillinger (resolution, confidence)
 CAMERA_SOURCE = 1
 CAMERA_RESOLUTION = (1280, 720)
 CONFIDENCE_THRESHOLD = 0.35 #0.35
+
+# Memory management indstillinger (forhindrer lag ved mange objekter)
+MAX_OBJECTS_BEFORE_SKIP = 4      # Reduceret fra 6 - tidligere intervention
+MEMORY_GC_INTERVAL = 5.0         # Reduceret fra 10 - mere hyppig cleanup  
+FRAME_SKIP_RATIO = 2             # Skip hver 2. frame ved mange objekter
+EMERGENCY_OBJECT_LIMIT = 8       # Hvis flere objekter: KØR UDEN VISUALIZATION
 
 # YOLO model indstillinger
 MODEL_PATH = "best.pt"
@@ -43,11 +49,40 @@ MAX_TURN_INCREMENT = 45 # Fra gamle fil - større drejninger
 MAX_FORWARD_DISTANCE = 20 # længere fremad for at nå boldene 
 
 # Robot hardware værdier (hjul diameter, hastigheder) - optimeret for tydelige bevægelser
-WHEEL_DIAMETER_CM = 7.0
-ROBOT_TURN_SPEED = 40 # Fra gamle robot controller
-ROBOT_FORWARD_SPEED = 50 # Fra gamle robot controller  
-ESTIMATED_TURN_RATE = 120.0  # samme som før
-ESTIMATED_FORWARD_RATE = 20.0  # Fra gamle fil (distance/20.0) 
+WHEEL_DIAMETER_CM = 68.8  # Korrekt hjuldiameter som oplyst
+WHEEL_CIRCUMFERENCE_CM = WHEEL_DIAMETER_CM * 3.14159  # ~216.06 cm per rotation
+
+# Hastigheds indstillinger - forskellige hastigheder til forskellige opgaver
+ROBOT_TURN_SPEED = 40      # Standard drejningshastighed
+ROBOT_TURN_SPEED_SLOW = 20 # Langsom drejning til præcis sigtning
+ROBOT_FORWARD_SPEED = 50   # Standard kørehastighed  
+ROBOT_FORWARD_SPEED_SLOW = 25 # Langsom kørsel når tæt på mål
+
+# Harvester motor indstillinger
+POWER_HARVESTER = 45  # Speed 45 konstant (positiv for baglæns på denne motor)
+
+# Kalibrerede bevægelsesrater baseret på korrekt hjuldiameter
+# En halv omgang af hjulene = 90 graders drejning (som oplyst)
+# 0.25 omgang = 45 grader, 0.125 omgang = 22.5 grader osv.
+MOTOR_ROTATIONS_PER_90_DEGREES = 0.5  # Halv omgang = 90° rotation
+ESTIMATED_FORWARD_RATE = WHEEL_CIRCUMFERENCE_CM / 10.8  # Baseret på faktisk hjulomkreds
+
+# Præcisionsnavigation parametre - mindre forsigtige værdier
+COARSE_TURN_THRESHOLD = 15   # Grov justering: store drejninger  
+FINE_TURN_THRESHOLD = 8      # Fin justering: små korrektioner  
+VERY_FINE_TURN_THRESHOLD = 4 # Meget fin justering når tæt på
+DISTANCE_THRESHOLD = 5       # Stopafstand til bold - øget fra 3
+PRECISION_DISTANCE = 20      # Afstand hvor præcisionskørsel starter - øget
+
+# Progressive korrektur indstillinger - mindre forsigtige
+MAX_TURN_COARSE = 60         # Store drejninger til grovkorrektion - øget
+MAX_TURN_FINE = 25           # Mindre drejninger til finjustering - øget  
+MAX_TURN_PRECISION = 10      # Meget små drejninger når tæt på - øget
+
+# Fremdrift parametre - længere distancer for mindre forsigtig kørsel
+MAX_FORWARD_DISTANCE_FAR = 50   # Lange køretur når langt væk - øget betydeligt
+MAX_FORWARD_DISTANCE_NEAR = 20  # Korte køretur når tæt på - øget
+MAX_FORWARD_DISTANCE_CLOSE = 10 # Meget korte køretur når meget tæt på - øget
 
 # PID Settings (vi bruger det ikke gyro indtil videre - kun hvis vi vil bruge gyro til præcis navigation)
 PID_KP = 0.5   # Proportional - hvor hurtigt robotten reagerer på fejl (højere = mere aggressiv)

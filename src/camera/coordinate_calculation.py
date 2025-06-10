@@ -73,29 +73,69 @@ def calculate_navigation_command(robot_head, robot_tail, target_ball, scale_fact
         "distance_cm": distance_cm
     }
 
-#laver turn kommandoer baseret på vinkel forskel
-def create_turn_command(angle_diff):
-    if abs(angle_diff) <= TURN_THRESHOLD:
+#laver turn kommandoer baseret på vinkel forskel med progressiv præcision
+def create_turn_command(angle_diff, distance_to_target=None):
+    # Bestem threshold baseret på afstand til mål (hvis tilgængelig)
+    if distance_to_target is not None:
+        if distance_to_target > PRECISION_DISTANCE:
+            threshold = COARSE_TURN_THRESHOLD
+            max_turn = MAX_TURN_COARSE
+        elif distance_to_target > DISTANCE_THRESHOLD * 3:
+            threshold = FINE_TURN_THRESHOLD
+            max_turn = MAX_TURN_FINE
+        else:
+            threshold = VERY_FINE_TURN_THRESHOLD
+            max_turn = MAX_TURN_PRECISION
+    else:
+        # Default til fin justering hvis afstand ikke er kendt
+        threshold = FINE_TURN_THRESHOLD
+        max_turn = MAX_TURN_FINE
+    
+    if abs(angle_diff) <= threshold:
         return None
     
-    # Laver turn kommandoer
-    turn_amount = max(-MAX_TURN_INCREMENT, min(MAX_TURN_INCREMENT, angle_diff))
+    # Begræns drejning baseret på afstand til mål
+    turn_amount = max(-max_turn, min(max_turn, angle_diff))
     
     return {
-        "command": "simple_turn",
+        "command": "precision_turn",
         "direction": "right" if turn_amount > 0 else "left",
-        "duration": abs(turn_amount) / ESTIMATED_TURN_RATE
+        "angle_degrees": abs(turn_amount)
     }
 
-#laver forward kommandoer baseret på afstand
+#laver forward kommandoer baseret på afstand med progressiv hastighed
 def create_forward_command(distance_cm):
     if distance_cm <= DISTANCE_THRESHOLD:
         return None
     
-    # Laver forward kommandoer
-    move_distance = min(distance_cm, MAX_FORWARD_DISTANCE)
+    # Brug precision forward til intelligent hastighedskontrol
+    return {
+        "command": "precision_forward",
+        "distance": distance_cm
+    }
+
+#laver optimeret turn kommando der tager højde for både vinkel og afstand
+def create_optimized_turn_command(angle_diff, distance_to_target):
+    """Skaber turn kommando optimeret til boldtargeting"""
+    return create_turn_command(angle_diff, distance_to_target)
+
+#laver optimeret forward kommando med afstandsbaseret hastighed
+def create_optimized_forward_command(distance_cm, angle_accuracy):
+    """Skaber forward kommando med hastighed baseret på hvor godt retningen passer"""
+    if distance_cm <= DISTANCE_THRESHOLD:
+        return None
+    
+    # Hvis retningen ikke er helt korrekt, kør kun kort distance
+    if abs(angle_accuracy) > VERY_FINE_TURN_THRESHOLD:
+        max_distance = MAX_FORWARD_DISTANCE_CLOSE
+    elif distance_cm > PRECISION_DISTANCE:
+        max_distance = MAX_FORWARD_DISTANCE_FAR
+    else:
+        max_distance = MAX_FORWARD_DISTANCE_NEAR
+    
+    move_distance = min(distance_cm, max_distance)
     
     return {
-        "command": "forward",
+        "command": "precision_forward",
         "distance": move_distance
     } 
