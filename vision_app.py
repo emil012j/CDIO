@@ -153,32 +153,41 @@ def main():
                             robot_head, robot_tail, closest_ball, scale_factor
                         )
                         
-                        # Simple navigation: TURN først til retning passer, så FORWARD
+                        # SMART NAVIGATION: Only correct angle if far away AND significantly off course
                         if navigation_info and commander.can_send_command():
                             angle_diff = navigation_info["angle_diff"]
                             distance_cm = navigation_info["distance_cm"]
                             
                             print("Navigation: Angle diff={:.1f}deg, Distance={:.1f}cm".format(angle_diff, distance_cm))
                             
-                            # TURN PHASE: Drej først til retningen er korrekt - PRÆCIST første gang
-                            if abs(angle_diff) > 10:  # Reduceret threshold for mere præcis navigation
+                            # When close (< 20cm), do precise corrections. When far, only correct if > 10 degrees off
+                            
+                            if distance_cm > 20 and abs(angle_diff) > 10:
+                                # FAR AWAY + OFF COURSE: Turn to correct
                                 direction = "right" if angle_diff > 0 else "left"
-                                # Drej hele vinklen på én gang for præcision
-                                turn_amount = abs(angle_diff)  # Fjernet 45deg begrænsning - drej præcist!
+                                turn_amount = abs(angle_diff)
                                 duration = turn_amount / ESTIMATED_TURN_RATE
-                                print("PRECISE TURNING {} for {:.2f} seconds ({:.1f} degrees)".format(direction, duration, turn_amount))
+                                print("FAR CORRECTION: Turning {} for {:.2f} seconds ({:.1f} degrees)".format(direction, duration, turn_amount))
                                 commander.send_turn_command(direction, duration)
                             
-                            # FORWARD PHASE: Kør frem når retningen er nogenlunde korrekt
-                            elif distance_cm > 3:  # Kør helt tæt på for at samle boldene
-                                move_distance = min(distance_cm, MAX_FORWARD_DISTANCE)  # Længere distance for smooth bevægelse
-                                print("DRIVING FORWARD {:.1f} cm".format(move_distance))  
+                            elif distance_cm <= 20 and abs(angle_diff) > 10:
+                                # CLOSE + OFF COURSE: Precise turn
+                                direction = "right" if angle_diff > 0 else "left"
+                                turn_amount = abs(angle_diff)
+                                duration = turn_amount / ESTIMATED_TURN_RATE
+                                print("CLOSE CORRECTION: Turning {} for {:.2f} seconds ({:.1f} degrees)".format(direction, duration, turn_amount))
+                                commander.send_turn_command(direction, duration)
+                            
+                            elif distance_cm > 3:
+                                # GOOD COURSE OR CLOSE ENOUGH: Move forward confidently
+                                move_distance = min(distance_cm, MAX_FORWARD_DISTANCE)
+                                print("CONFIDENT FORWARD {:.1f} cm (angle OK: {:.1f}deg)".format(move_distance, angle_diff))
                                 commander.send_forward_command(move_distance)
                             
-                            # TARGET VERY CLOSE: Kort burst for at samle bolden
                             else:
+                                # VERY CLOSE: Final push
                                 print("TARGET VERY CLOSE - final push")
-                                commander.send_forward_command(5)  # Kort fremad for at samle
+                                commander.send_forward_command(5)
             
             # Tegn robot retning og navigation linje (kun på fresh YOLO data)
             if should_run_yolo and robot_head and robot_tail and "pos" in robot_head and "pos" in robot_tail:
