@@ -7,11 +7,36 @@ hovedprogrammet der skal køre på pc'en
 import cv2
 import time
 import math
+from typing import Optional, Dict, List, Tuple, Any
 from src.camera.detection import load_yolo_model, run_detection, process_detections_and_draw, calculate_scale_factor
 from src.camera.coordinate_calculation import calculate_navigation_command
 from src.camera.camera_manager import CameraManager
 from src.communication.vision_commander import VisionCommander
+from src.navigation.goal_navigation import GoalNavigation
+from src.robot.controller import RobotController
 from src.config.settings import *
+
+class VisionCommanderAdapter(RobotController):
+    """Adapter that makes VisionCommander compatible with RobotController interface"""
+    def __init__(self, commander: VisionCommander):
+        super().__init__()  # Initialize base RobotController
+        self.commander = commander
+        
+    def send_turn_command(self, direction: str, duration: float) -> None:
+        angle = duration * ESTIMATED_TURN_RATE
+        if direction == "left":
+            angle = -angle
+        self.commander.send_turn_command(direction, duration)
+        
+    def send_forward_command(self, distance_cm: float) -> None:
+        self.commander.send_forward_command(distance_cm)
+        
+    def stop_all_motors(self) -> None:
+        self.commander.send_stop_command()
+        
+    def release_balls(self) -> None:
+        # Send a special command to release balls
+        self.commander.send_command({"command": "release_balls"})
 
 def main():
     print("Loader YOLO model...")
@@ -34,6 +59,10 @@ def main():
     print("Initializing vision commander...")
     commander = VisionCommander()  # Sender kommandoer til EV3 robotten over netværk
     
+    # Initialize goal navigation with adapter
+    goal_nav = GoalNavigation(VisionCommanderAdapter(commander))
+    goal_navigation_active = False
+    
     print("Starting main loop - escape to exit (OPTIMERET VERSION)")
     
     last_print_time = time.time()
@@ -42,10 +71,10 @@ def main():
     
     # Cache til seneste detection resultater (bruger disse mellem YOLO kald)
     cached_results = None
-    cached_robot_head = None
-    cached_robot_tail = None
-    cached_balls = []
-    cached_scale_factor = None
+    cached_robot_head: Optional[Dict[str, Any]] = None
+    cached_robot_tail: Optional[Dict[str, Any]] = None
+    cached_balls: List[Tuple[int, int]] = []
+    cached_scale_factor: Optional[float] = None
     
     try:
         while True:
@@ -85,78 +114,95 @@ def main():
                 
                 # Tegn cached detection boxes (simpel version)
                 if robot_head and "pos" in robot_head:
-                    draw_detection_box(display_frame, robot_head["pos"], "robot-head", (0, 0, 255))
+                    camera.draw_detection_box(display_frame, robot_head["pos"], "robot-head", (0, 0, 255))
                 if robot_tail and "pos" in robot_tail:
-                    draw_detection_box(display_frame, robot_tail["pos"], "robot-tail", (255, 0, 255))
+                    camera.draw_detection_box(display_frame, robot_tail["pos"], "robot-tail", (255, 0, 255))
                 for ball_pos in balls:
-                    draw_detection_box(display_frame, ball_pos, "ball", (0, 140, 255))
+                    camera.draw_detection_box(display_frame, ball_pos, "ball", (0, 140, 255))
             
-            # Simple vision-baseret navigation som den gamle fil (kun på YOLO frames)
+            # Navigation logic
             navigation_info = None
             
             if should_run_yolo:  # Navigation kun når vi har fresh data
-                # Tjek om mission er complete (ingen bolde synlige)
-                if robot_head and robot_tail and not balls:
-                    if commander.can_send_command():
-                        print("*** MISSION COMPLETE - STOPPING ROBOT ***")
-                        commander.send_stop_command()
+                # Check if we should start goal navigation
+                if not goal_navigation_active and robot_head and robot_tail and not balls:
+                    print("*** NO BALLS VISIBLE - STARTING GOAL NAVIGATION ***")
+                    goal_navigation_active = True
+                    goal_nav.reset()  # Reset goal navigation state
                 
-                # Navigation kun hvis robot og bolde er synlige
-                elif robot_head and robot_tail and balls and "pos" in robot_head and "pos" in robot_tail:
-                    closest_ball = min(balls, key=lambda b: 
-                        ((robot_head["pos"][0] + robot_tail["pos"][0]) // 2 - b[0])**2 + 
-                        ((robot_head["pos"][1] + robot_tail["pos"][1]) // 2 - b[1])**2
-                    )
-                    
-                    navigation_info = calculate_navigation_command(
-                        robot_head, robot_tail, closest_ball, scale_factor
-                    )
-                    
-                    # Simple navigation: TURN først til retning passer, så FORWARD
-                    if navigation_info and commander.can_send_command():
-                        angle_diff = navigation_info["angle_diff"]
-                        distance_cm = navigation_info["distance_cm"]
+                # Run appropriate navigation
+                if goal_navigation_active:
+                    # Goal navigation is active
+                    if robot_head and robot_tail and "pos" in robot_head and "pos" in robot_tail:
+                        if goal_nav.update(robot_head, robot_tail):
+                            print("*** GOAL NAVIGATION COMPLETE ***")
+                            goal_navigation_active = False
+                            commander.send_stop_command()
+                else:
+                    # Normal ball collection navigation
+                    if robot_head and robot_tail and balls and "pos" in robot_head and "pos" in robot_tail:
+                        # Calculate robot center for finding closest ball
+                        robot_center_x = (robot_head["pos"][0] + robot_tail["pos"][0]) // 2
+                        robot_center_y = (robot_head["pos"][1] + robot_tail["pos"][1]) // 2
                         
-                        print("Navigation: Angle diff={:.1f}°, Distance={:.1f}cm".format(angle_diff, distance_cm))
+                        closest_ball = min(balls, key=lambda b: 
+                            (robot_center_x - b[0])**2 + 
+                            (robot_center_y - b[1])**2
+                        )
                         
-                        # TURN PHASE: Drej først til retningen er korrekt - PRÆCIST første gang
-                        if abs(angle_diff) > 10:  # Reduceret threshold for mere præcis navigation
-                            direction = "right" if angle_diff > 0 else "left"
-                            # Drej hele vinklen på én gang for præcision
-                            turn_amount = abs(angle_diff)  # Fjernet 45° begrænsning - drej præcist!
-                            duration = turn_amount / ESTIMATED_TURN_RATE
-                            print("PRECISE TURNING {} for {:.2f} seconds ({:.1f} degrees)".format(direction, duration, turn_amount))
-                            commander.send_turn_command(direction, duration)
+                        navigation_info = calculate_navigation_command(
+                            robot_head, robot_tail, closest_ball, scale_factor
+                        )
                         
-                        # FORWARD PHASE: Kør frem når retningen er nogenlunde korrekt
-                        elif distance_cm > 3:  # Kør helt tæt på for at samle boldene
-                            move_distance = min(distance_cm, 20)  # Længere distance for at nå boldene
-                            print("DRIVING FORWARD {:.1f} cm".format(move_distance))  
-                            commander.send_forward_command(move_distance)
-                        
-                        # TARGET VERY CLOSE: Kort burst for at samle bolden
-                        else:
-                            print("TARGET VERY CLOSE - final push")
-                            commander.send_forward_command(5)  # Kort fremad for at samle
+                        # Simple navigation: TURN først til retning passer, så FORWARD
+                        if navigation_info and commander.can_send_command():
+                            angle_diff = navigation_info["angle_diff"]
+                            distance_cm = navigation_info["distance_cm"]
+                            
+                            print("Navigation: Angle diff={:.1f}°, Distance={:.1f}cm".format(angle_diff, distance_cm))
+                            
+                            # TURN PHASE: Drej først til retningen er korrekt - PRÆCIST første gang
+                            if abs(angle_diff) > 10:  # Reduceret threshold for mere præcis navigation
+                                direction = "right" if angle_diff > 0 else "left"
+                                # Drej hele vinklen på én gang for præcision
+                                turn_amount = abs(angle_diff)  # Fjernet 45° begrænsning - drej præcist!
+                                duration = turn_amount / ESTIMATED_TURN_RATE
+                                print("PRECISE TURNING {} for {:.2f} seconds ({:.1f} degrees)".format(direction, duration, turn_amount))
+                                commander.send_turn_command(direction, duration)
+                            
+                            # FORWARD PHASE: Kør frem når retningen er nogenlunde korrekt
+                            elif distance_cm > 3:  # Kør helt tæt på for at samle boldene
+                                move_distance = min(distance_cm, 20)  # Længere distance for at nå boldene
+                                print("DRIVING FORWARD {:.1f} cm".format(move_distance))  
+                                commander.send_forward_command(move_distance)
+                            
+                            # TARGET VERY CLOSE: Kort burst for at samle bolden
+                            else:
+                                print("TARGET VERY CLOSE - final push")
+                                commander.send_forward_command(5)  # Kort fremad for at samle
             
             # Tegn robot retning og navigation linje (kun på fresh YOLO data)
-            if should_run_yolo and robot_head and robot_tail and balls and "pos" in robot_head and "pos" in robot_tail:
+            if should_run_yolo and robot_head and robot_tail and "pos" in robot_head and "pos" in robot_tail:
                 # Beregn robot centrum
-                robot_center = (
-                    (robot_head["pos"][0] + robot_tail["pos"][0]) // 2,
-                    (robot_head["pos"][1] + robot_tail["pos"][1]) // 2
-                )
+                robot_center_x = (robot_head["pos"][0] + robot_tail["pos"][0]) // 2
+                robot_center_y = (robot_head["pos"][1] + robot_tail["pos"][1]) // 2
+                robot_center = (robot_center_x, robot_center_y)
                 
-                # Find nærmeste bold
-                closest_ball = min(balls, key=lambda b: 
-                    ((robot_head["pos"][0] + robot_tail["pos"][0]) // 2 - b[0])**2 + 
-                    ((robot_head["pos"][1] + robot_tail["pos"][1]) // 2 - b[1])**2
-                )
+                if goal_navigation_active:
+                    # Draw goal navigation state
+                    cv2.putText(display_frame, f"GOAL NAV: {goal_nav.current_state}", 
+                              (10, 60), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 255, 255), 2)
+                elif balls:
+                    # Find nærmeste bold
+                    closest_ball = min(balls, key=lambda b: 
+                        (robot_center_x - b[0])**2 + 
+                        (robot_center_y - b[1])**2
+                    )
+                    
+                    # Tegn linje til målet
+                    cv2.line(display_frame, robot_center, closest_ball, (0, 255, 255), 2)
                 
-                # Tegn linje til målet som i den gamle fil
-                cv2.line(display_frame, robot_center, closest_ball, (0, 255, 255), 2)
-                
-                # Tegn robot retning linje (tail→head extended) som i den gamle fil
+                # Tegn robot retning linje (tail→head extended)
                 head_pos = robot_head["pos"] 
                 tail_pos = robot_tail["pos"]
                 dx = head_pos[0] - tail_pos[0]
@@ -171,7 +217,7 @@ def main():
                     cv2.line(display_frame, tail_pos, (end_x, end_y), (255, 0, 255), 2)
             
             if navigation_info:
-                draw_navigation_info(
+                camera.draw_navigation_info(
                     display_frame,
                     navigation_info["robot_center"],
                     balls[0] if balls else None,
@@ -184,8 +230,13 @@ def main():
                 CONFIDENCE_THRESHOLD, yolo_frame_count, frame_count), 
                 (10, 20), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 255, 0), 2)
             
-            display_status(display_frame, robot_head, robot_tail, balls, scale_factor, navigation_info)
-            cv2.imshow("YOLO OBB Detection - OPTIMERET", display_frame)  # Opdateret titel
+            # Add goal navigation status
+            if goal_navigation_active:
+                cv2.putText(display_frame, "GOAL NAVIGATION ACTIVE", 
+                          (10, 40), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 255, 255), 2)
+            
+            camera.display_status(display_frame, robot_head, robot_tail, balls, scale_factor, navigation_info)
+            cv2.imshow("YOLO OBB Detection - OPTIMERET", display_frame)
             
             # Status updates (mindre hyppigt for bedre performance)
             if current_time - last_print_time >= PRINT_INTERVAL:
@@ -207,7 +258,10 @@ def main():
                     print("*** MANGLER ROBOT-TAIL ***")
                 
                 if not balls:
-                    print("*** INGEN BOLDE FUNDET - MISSION COMPLETE? ***")
+                    if goal_navigation_active:
+                        print("*** GOAL NAVIGATION ACTIVE ***")
+                    else:
+                        print("*** INGEN BOLDE FUNDET - MISSION COMPLETE? ***")
                 else:
                     print("*** {} BOLDE SYNLIGE ***".format(len(balls)))
                 
@@ -218,14 +272,13 @@ def main():
                     
                 last_print_time = current_time
             
-            if cv2.waitKey(1) & 0xFF == ord('q'):  # 'q' som i den gamle fil
+            if cv2.waitKey(1) & 0xFF == 27:  # ESC key
                 break
                 
-    except KeyboardInterrupt:
-        print("camera released")
     finally:
-        camera.release()
+        camera.release()  # Use release() instead of cleanup()
         cv2.destroyAllWindows()
+        print("Vision app stopped")
 
 if __name__ == "__main__":
     main() 
