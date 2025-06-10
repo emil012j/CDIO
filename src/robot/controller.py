@@ -144,3 +144,15 @@ class RobotController:
         print("Cleaning up robot controller...")
         self.stop_all_motors()
         self.running = False 
+
+    def release_balls(self):
+        """Release balls by running harvester motor backwards"""
+        try:
+            print("Releasing balls...")
+            # Run harvester motor backwards at 50% speed for 8 rotations
+            self.harvester_motor.on_for_rotations(50, -8)  # Negative speed = backwards
+            print("Ball release complete")
+        except Exception as e:
+            print(f"Error releasing balls: {e}")
+        finally:
+            self.harvester_motor.stop() 
