@@ -39,9 +39,9 @@ COMMAND_COOLDOWN = 1.0  # Fra gamle ball_identification.py
 PRINT_INTERVAL = 5      # 5 sekunder som i den gamle fil
 TURN_THRESHOLD = 10     # mindste antal grader for at dreje.
 DISTANCE_THRESHOLD = 3  # cm - kør helt tæt på for at samle boldene
-MAX_FORWARD_DISTANCE = 20 # maks længde for fremadkørsel
+MAX_FORWARD_DISTANCE = 30 # maks længde for fremadkørsel
 
 
 ROBOT_TURN_SPEED = 40 # Motor hastighed til drejning
 ROBOT_FORWARD_SPEED = 30 # Motor hastighed til fremadkørsel  
-ESTIMATED_TURN_RATE = 115.0  # grader per sekund - til konvertering af duration til vinkel
+ESTIMATED_TURN_RATE = 130.0  # grader per sekund - til konvertering af duration til vinkel

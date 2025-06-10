@@ -44,6 +44,9 @@ def main():
     
     print("Starting main loop -  escape to exit")
     
+    # SIMPLE LØSNING: Gem bold positioner for når de forsvinder
+    last_ball_positions = []
+    
     last_print_time = time.time()
     frame_count = 0
     
@@ -65,17 +68,22 @@ def main():
             display_frame = frame.copy()
             robot_head, robot_tail, balls, log_info_list = process_detections_and_draw(results, model, display_frame, scale_factor)
             
+            # SIMPLE LØSNING: Opdater bold positioner når de er synlige
+            if balls:
+                last_ball_positions = balls[:]  # Kopier listen
+                print("Updated ball positions: {} balls saved".format(len(last_ball_positions)))
+            
             # Simple vision-baseret navigation som den gamle fil
             navigation_info = None
             
             # Tjek om mission er complete (ingen bolde synlige)
-            if robot_head and robot_tail and not balls:
+            if robot_head and robot_tail and not balls and not last_ball_positions:
                 if commander.can_send_command():
                     print("*** MISSION COMPLETE - STOPPING ROBOT ***")
                     commander.send_stop_command()
             
-            # Navigation kun hvis robot og bolde er synlige
-            elif robot_head and robot_tail and balls:
+            # Navigation - brug synlige bolde eller gemte positioner
+            elif robot_head and robot_tail and (balls or last_ball_positions):
                 closest_ball = min(balls, key=lambda b: 
                     ((robot_head["pos"][0] + robot_tail["pos"][0]) // 2 - b[0])**2 + 
                     ((robot_head["pos"][1] + robot_tail["pos"][1]) // 2 - b[1])**2
@@ -92,8 +100,8 @@ def main():
                     
                     print("Navigation: Angle diff={:.1f}°, Distance={:.1f}cm".format(angle_diff, distance_cm))
                     
-                    # TURN PHASE: Drej først til retningen er korrekt - PRÆCIST første gang
-                    if abs(angle_diff) > 10:  # Reduceret threshold for mere præcis navigation - de 10 % vi snakkede om?
+                    # TURN PHASE: Drej først til retningen er korrekt - STRIKT vinkel krav
+                    if abs(angle_diff) > 2:  # STRIKT threshold - robotten MÅ være rettet mod bolden 
                         direction = "right" if angle_diff > 0 else "left"
                         # Drej hele vinklen på én gang for præcision
                         turn_amount = abs(angle_diff)  # Fjernet 45° begrænsning - drej præcist!

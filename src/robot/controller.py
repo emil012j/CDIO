@@ -80,7 +80,7 @@ class RobotController:
         speed = ROBOT_TURN_SPEED
         
         # Minimal vinkel tærskel - EV3 motorer kan ikke dreje under ~5 grader pålideligt
-        min_angle = 5.0
+        min_angle = 2.0
         actual_angle = max(abs(angle_degrees), min_angle)
         
         # Beregn omdrejninger baseret på vinkel
@@ -91,7 +91,7 @@ class RobotController:
             direction, angle_degrees, actual_angle, rotations))
         
         # Spring over hvis vinkel er for lille
-        if rotations < 0.05:  # Under 0.05 omdrejninger = ingen bevægelse
+        if rotations < 0.01:  # Under 0.05 omdrejninger = ingen bevægelse
             print("Angle too small, skipping turn")
             return
         
