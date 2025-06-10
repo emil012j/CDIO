@@ -30,7 +30,7 @@ class VisionCommander:
             
         try:
             sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)  # Håndterer netværk forbindelse til EV3
-            sock.settimeout(2.0)  # Timeout og error handling
+            sock.settimeout(0.1)  # MUCH shorter timeout to prevent camera lag
             sock.connect((self.robot_ip, self.command_port))
             
             # Sender JSON kommandoer over TCP socket
@@ -61,6 +61,16 @@ class VisionCommander:
         }
         return self.send_command(command)
     
+    #sender en drejning kommando baseret på omdrejninger (rotation-baseret)
+    def send_turn_rotation_command(self, direction, rotations):
+        """Send a rotation-based turn command to the robot"""
+        command = {
+            "command": "simple_turn_rotation",
+            "direction": direction,
+            "rotations": rotations
+        }
+        return self.send_command(command)
+    
     #sender en fremad kommando ved at sende en JSON med kommandoen og afstanden. feks. {"command": "forward", "distance": 10}
     def send_forward_command(self, distance):
         """Send a forward movement command to the robot"""
@@ -70,10 +80,44 @@ class VisionCommander:
         }
         return self.send_command(command)
     
+    #sender en præcis fremad kommando UDEN overshoot til fine positioning
+    def send_forward_precise_command(self, distance):
+        """Send a precise forward movement command (no overshoot) to the robot"""
+        command = {
+            "command": "forward_precise", 
+            "distance": distance
+        }
+        return self.send_command(command)
+    
     #sender en stop kommando ved at sende en JSON med kommandoen. feks. {"command": "stop"}
     def send_stop_command(self):
         """Send a stop command to the robot"""
         command = {
             "command": "stop"
+        }
+        return self.send_command(command)
+    
+    #sender en bagud kommando ved at sende en JSON med kommandoen og afstanden. feks. {"command": "simple_backward", "distance": 10}
+    def send_backward_command(self, distance):
+        """Send a backward movement command to the robot"""
+        command = {
+            "command": "simple_backward",
+            "distance": distance
+        }
+        return self.send_command(command)
+    
+    #sender en 180 graders drejning kommando ved at sende en JSON med kommandoen. feks. {"command": "turn_180"}
+    def send_turn_180_command(self):
+        """Send a 180 degree turn command to the robot"""
+        command = {
+            "command": "turn_180"
+        }
+        return self.send_command(command)
+    
+    #sender blind ball collection kommando - kører frem, bakker, drejer 180
+    def send_blind_ball_collection_command(self):
+        """Send blind ball collection sequence command to the robot"""
+        command = {
+            "command": "blind_ball_collection"
         }
         return self.send_command(command) 

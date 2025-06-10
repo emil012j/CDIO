@@ -23,6 +23,12 @@ def execute_movement_command(robot_controller, command):
                 duration, angle_degrees, ESTIMATED_TURN_RATE))
             robot_controller.simple_turn(direction, angle_degrees)
             
+        elif cmd_type == "simple_turn_rotation":
+            direction = command.get('direction', 'left')
+            rotations = command.get('rotations', 0.5)
+            print("Rotation-based turn: {} {:.3f} rotations".format(direction, rotations))
+            robot_controller.simple_turn_rotation(direction, rotations)
+            
         elif cmd_type == "simple_forward":
             distance = command.get('distance', 10)
             robot_controller.simple_forward(distance)
@@ -30,6 +36,18 @@ def execute_movement_command(robot_controller, command):
         elif cmd_type == "forward":
             distance = command.get('distance', 10)
             robot_controller.simple_forward(distance)
+            
+
+            
+        elif cmd_type == "simple_backward":
+            distance = command.get('distance', 10)
+            robot_controller.simple_backward(distance)
+            
+        elif cmd_type == "turn_180":
+            robot_controller.turn_180_degrees()
+            
+        elif cmd_type == "blind_ball_collection":
+            robot_controller.blind_ball_collection()
             
         elif cmd_type == "stop":
             robot_controller.stop_all_motors()
