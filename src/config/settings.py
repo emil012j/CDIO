@@ -19,7 +19,7 @@ YOLO_IMG_SIZE = 416  # Reduceret fra 640 - hurtigere inference
 ENABLE_THREADING = True  # Kør kamera og processing i separate threads
 
 # YOLO model indstillinger
-MODEL_PATH = "best.pt"
+MODEL_PATH = "my_model3.pt"
 
 # Object detection konstanter  
 CROSS_DIAMETER_MM = 200.0
