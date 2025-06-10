@@ -18,13 +18,14 @@ class RobotController:
         self.right_motor = LargeMotor('outD')
         self.tank_drive = MoveTank('outA', 'outD')
 
-        # Harvester motor (Motor C) - skal køre konstant baglæns
+        # Medium motor for collect mechanism
+        self.collect_motor = MediumMotor('outC')
+        
         try:
-            self.harvester_motor = MediumMotor('outC')
-            print("Harvester motor (Motor C) initialized")
+            self.collect_motor.on(speed=-50)  # Start immediately
+            print("Collect mechanism started (Port C)")
         except Exception as e:
-            self.harvester_motor = None
-            print("Warning: Could not initialize harvester motor: {}".format(e))
+            print("Failed to start collect mechanism:", e)
 
         # Initialiserer button (hvis tilgængelig)
         try:
@@ -57,10 +58,7 @@ class RobotController:
             self.tank_drive.off()
             self.left_motor.stop()
             self.right_motor.stop()
-            
-            # Stop harvester også
-            if self.harvester_motor:
-                self.harvester_motor.stop()
+            self.collect_motor.off()
          
             print("All motors stopped")
         except Exception as e:
@@ -148,9 +146,10 @@ class RobotController:
         
         # Begge motorer fremad (motorer er omvendt, så bruger negative værdier)
         self.tank_drive.on_for_rotations(-speed, -speed, rotations)
+        
+        print("Simple forward complete")
 
-        print("Simple forward complete - harvester still running")
-    
+ 
     def cleanup(self):
         """Afslutter robotten og stopper alle motorer"""
         print("Cleaning up robot controller...")

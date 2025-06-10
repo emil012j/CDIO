@@ -46,6 +46,7 @@ def get_class_id(class_name_lower, model):
             return idx
     return None
 
+
 #beregner skaleringsfaktor baseret på det røde kors
 def calculate_scale_factor(results, model):
     try:
@@ -72,6 +73,25 @@ def calculate_scale_factor(results, model):
     except Exception: 
         return None
 
+# Finder positionen af det røde kryds i billedet
+def get_cross_position(results, model):
+    try:
+        if results is None or not hasattr(results, 'obb') or results.obb is None:
+            return None
+        cross_id_target = get_class_id('cross', model)
+        if cross_id_target is None:
+            return None
+        for i in range(len(results.obb.cls)):
+            cls_id = int(results.obb.cls[i])
+            if cls_id == cross_id_target:
+                box = results.obb.xyxy[i].cpu().numpy()
+                x_center = (box[0] + box[2]) / 2
+                y_center = (box[1] + box[3]) / 2
+                return (x_center, y_center)
+        return None
+    except Exception:
+        return None
+    
 #beregner vinklen på objektet
 def calculate_orientation(obb_results, index, label):
     try:

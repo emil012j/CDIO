@@ -7,35 +7,28 @@ hovedprogrammet der skal køre på pc'en
 import cv2
 import time
 import math
-from typing import Optional, Dict, List, Tuple, Any
-from src.camera.detection import load_yolo_model, run_detection, process_detections_and_draw, calculate_scale_factor
-from src.camera.coordinate_calculation import calculate_navigation_command
-from src.camera.camera_manager import CameraManager
+from shapely.geometry import LineString, Point
+from src.camera.detection import load_yolo_model, run_detection, process_detections_and_draw, calculate_scale_factor, get_cross_position
+from src.camera.coordinate_calculation import calculate_navigation_command, create_turn_command, create_forward_command
+from src.camera.camera_manager import CameraManager, draw_detection_box, draw_navigation_info, display_status
 from src.communication.vision_commander import VisionCommander
 from src.navigation.goal_navigation import GoalNavigation
 from src.robot.controller import RobotController
 from src.config.settings import *
 
-# Vision Command Adapter - NO ROBOT HARDWARE NEEDED (runs on PC)
-class VisionCommanderAdapter:
-    """Adapter that sends commands over network instead of controlling hardware directly"""
-    
-    def __init__(self, commander: VisionCommander):
-        self.commander = commander
-        # No robot hardware initialization - this runs on PC!
+def is_cross_blocking_path(robot_head, robot_tail, ball_pos, cross_pos):
+    if not cross_pos:
+        return False
+    robot_x = (robot_head["pos"][0] + robot_tail["pos"][0]) // 2
+    robot_y = (robot_head["pos"][1] + robot_tail["pos"][1]) // 2
+    path = LineString([(robot_x, robot_y), ball_pos])
+    return path.distance(Point(cross_pos)) < CROSS_AVOID_RADIUS
 
-    def send_turn_command(self, direction: str, duration: float) -> None:
-        self.commander.send_turn_command(direction, duration)
-
-    def send_forward_command(self, distance_cm: float) -> None:
-        self.commander.send_forward_command(distance_cm)
-
-    def stop_all_motors(self) -> None:
-        self.commander.send_stop_command()
-
-    def release_balls(self) -> None:
-        # Send a special command to release balls
-        self.commander.send_command({"command": "release_balls"})
+def choose_unblocked_ball(robot_head, robot_tail, balls, cross_pos):
+    for ball in balls:
+        if not is_cross_blocking_path(robot_head, robot_tail, ball, cross_pos):
+            return ball
+    return balls[0]  # fallback
 
 def main():
     print("Loader YOLO model...")
@@ -82,43 +75,16 @@ def main():
             frame_count += 1
             current_time = time.time()
             
-            # FRAME SKIPPING OPTIMIZATION: Kun kør YOLO på hver X frame!
-            should_run_yolo = (frame_count % YOLO_FRAME_SKIP == 0)
+            # Detekterer robot (head/tail) og bolde i real-time
+            results = run_detection(model, frame)
+            scale_factor = calculate_scale_factor(results, model)
+            cross_pos = get_cross_position(results, model)
+
+            # Process detections og tegn på frame som i den gamle fil
+            display_frame = frame.copy()
+            robot_head, robot_tail, balls, log_info_list = process_detections_and_draw(results, model, display_frame, scale_factor)
             
-            if should_run_yolo:
-                # Detekterer robot (head/tail) og bolde - KUN på udvalgte frames
-                yolo_frame_count += 1
-                results = run_detection(model, frame)
-                scale_factor = calculate_scale_factor(results, model)
-                
-                # Process detections og tegn på frame
-                display_frame = frame.copy()
-                robot_head, robot_tail, balls, log_info_list = process_detections_and_draw(results, model, display_frame, scale_factor)
-                
-                # Update ball collection state
-                if not balls:
-                    no_balls_frames += 1
-                    if no_balls_frames >= NO_BALLS_THRESHOLD and not ball_collection_complete:
-                        print("*** NO BALLS VISIBLE FOR {} FRAMES - BALL COLLECTION COMPLETE ***".format(NO_BALLS_THRESHOLD))
-                        ball_collection_complete = True
-                else:
-                    no_balls_frames = 0  # Reset counter if we see balls again
-                
-                # Cache resultaterne til brug i mellemliggende frames
-                cached_results = results
-                cached_robot_head = robot_head
-                cached_robot_tail = robot_tail
-                cached_balls = balls
-                cached_scale_factor = scale_factor
-            else:
-                # Brug cached resultater og tegn kun UI overlay (meget hurtigere!)
-                display_frame = frame.copy()
-                robot_head = cached_robot_head
-                robot_tail = cached_robot_tail
-                balls = cached_balls
-                scale_factor = cached_scale_factor
-            
-            # Navigation logic
+            # Simple vision-baseret navigation som den gamle fil
             navigation_info = None
             
             if should_run_yolo:  # Navigation kun når vi har fresh data
@@ -196,19 +162,11 @@ def main():
                 robot_center_y = (robot_head["pos"][1] + robot_tail["pos"][1]) // 2
                 robot_center = (robot_center_x, robot_center_y)
                 
-                if goal_navigation_active:
-                    # Draw goal navigation state
-                    cv2.putText(display_frame, "GOAL NAV: {}".format(goal_nav.current_state), 
-                              (10, 60), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 255, 255), 2)
-                elif balls:
-                    # Find nærmeste bold
-                    closest_ball = min(balls, key=lambda b: 
-                        (robot_center_x - b[0])**2 + 
-                        (robot_center_y - b[1])**2
-                    )
-                    
-                    # Tegn linje til målet
-                    cv2.line(display_frame, robot_center, closest_ball, (0, 255, 255), 2)
+                # Find nærmeste bold
+                closest_ball = choose_unblocked_ball(robot_head, robot_tail, balls, cross_pos)
+                
+                # Tegn linje til målet som i den gamle fil
+                cv2.line(display_frame, robot_center, closest_ball, (0, 255, 255), 2)
                 
                 # Tegn robot retning linje (tail→head extended)
                 head_pos = robot_head["pos"] 
