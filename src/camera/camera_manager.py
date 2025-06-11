@@ -9,7 +9,7 @@ import math
 import threading
 import numpy as np
 from ..config.settings import *
-from .track_calibration import TrackCalibrator
+from .Goal_Calibrator import GoalCalibrator
 
 #kamera manager, der håndterer kameraet og viser det på skærmen - MED PERFORMANCE OPTIMERING
 class CameraManager:
@@ -20,7 +20,7 @@ class CameraManager:
         self.is_initialized = False
         self.last_frame_time = 0
         self.target_frame_interval = 1.0 / TARGET_FPS # FPS begrænsning
-        self.track_calibrator = TrackCalibrator()
+        self.goal_calibrator = GoalCalibrator()
         
     #initialiserer kameraet med de rigtige indstillinger - OPTIMERET
     def initialize_camera(self):
@@ -100,12 +100,13 @@ class CameraManager:
         """Cleanup when object is destroyed"""
         self.release()
 
-    def calibrate_track(self) -> bool:
-        """Start track calibration process"""
+    def calibrate_goal(self):
+        """Start goal calibration process"""
         if self.cap is None:
             print("Camera not initialized for calibration")
             return False
-        return self.track_calibrator.start_calibration(self.cap)
+        # Note: start_calibration doesn't return a value, it handles its own UI loop
+        self.goal_calibrator.start_calibration(self.cap)
 
     #tegner detection bokse
     def draw_detection_box(self, frame, position, label, color):
