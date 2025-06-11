@@ -7,6 +7,7 @@ hovedprogrammet der skal køre på pc'en
 import cv2
 import time
 import math
+import time
 from shapely.geometry import LineString, Point
 from src.camera.detection import load_yolo_model, run_detection, process_detections_and_draw, calculate_scale_factor, get_cross_position
 from src.camera.coordinate_calculation import calculate_navigation_command, create_turn_command, create_forward_command
@@ -112,8 +113,8 @@ def main():
             display_frame = frame.copy()
             robot_head, robot_tail, balls, log_info_list = process_detections_and_draw(results, model, display_frame, scale_factor)
             
-            # Debug: vis antal bolde
-            print(f"[DEBUG] Balls detected: {len(balls)} -> {balls}")
+            
+            
             if not mission_started and balls:
                 mission_started = True
 
@@ -151,13 +152,19 @@ def main():
                         dur = abs(angle_diff) / ESTIMATED_TURN_RATE
                         print(f"DREJ {cmd} i {dur:.2f}s")
                         commander.send_turn_command(cmd, dur)
+                        # --- vent på at robotten færdiggør drejet ---
+                        time.sleep(dur + 0.1)
+
                     # SMÅ FORWARD STEP
                     elif distance_cm > SMALL_FORWARD_STEP_CM:
                         print(f"KØR {SMALL_FORWARD_STEP_CM}cm fremad")
                         commander.send_forward_command(SMALL_FORWARD_STEP_CM)
+                        # --- giv robotten tid til skridtet ---
+                        time.sleep(SMALL_FORWARD_STEP_CM / FORWARD_SPEED_CM_PER_SEC + 0.1)
                     elif distance_cm > 0:
-                        print(f"KØR {distance_cm:.1f}cm fremad")
+                        print(f"Kør {distance_cm:.1f}cm fremad")
                         commander.send_forward_command(distance_cm)
+                        time.sleep(distance_cm / FORWARD_SPEED_CM_PER_SEC + 0.1)
             
             # Tegn robot retning og navigation linje som i den gamle fil
             if robot_head and robot_tail and balls:

@@ -34,8 +34,8 @@ class CameraManager:
             self.cap.set(cv2.CAP_PROP_FRAME_WIDTH, width)
             self.cap.set(cv2.CAP_PROP_FRAME_HEIGHT, height)
             self.cap.set(cv2.CAP_PROP_AUTOFOCUS, 0)
-            self.cap.set(cv2.CAP_PROP_AUTO_EXPOSURE, 0.25)
-            self.cap.set(cv2.CAP_PROP_EXPOSURE, -5)
+            self.cap.set(cv2.CAP_PROP_AUTO_EXPOSURE, 1)
+            self.cap.set(cv2.CAP_PROP_EXPOSURE, -6)
             
             # Test frame capture
             ret, frame = self.cap.read()

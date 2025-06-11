@@ -45,6 +45,7 @@ MAX_FORWARD_DISTANCE = 30 # maks længde for fremadkørsel
 ROBOT_TURN_SPEED = 40 # Motor hastighed til drejning
 ROBOT_FORWARD_SPEED = 30 # Motor hastighed til fremadkørsel  
 ESTIMATED_TURN_RATE = 90  # grader per sekund - til konvertering af duration til vinkel
+FORWARD_SPEED_CM_PER_SEC = 10
 
 # Hvor langt robotten kører per “små skridt” i forward‐fasen
 SMALL_FORWARD_STEP_CM = 5  # centimeter
