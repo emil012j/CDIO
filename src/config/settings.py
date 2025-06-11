@@ -4,7 +4,7 @@ Indstillinger for robotten, feks. IP, port, kamera, modeller, farver, etc.
 """
 
 # Netværk indstillinger (IP, port)
-ROBOT_IP = "192.168.8.97"
+ROBOT_IP = "169.254.122.67"
 COMMAND_PORT = 1233
 
 # Kamera indstillinger (resolution, confidence)
@@ -35,8 +35,8 @@ ORIENTED_OBJECTS = ["robothead", "robottail", "egg", "cross"]
 EGG_OBB_ASPECT_RATIO_THRESHOLD = 1.3
 
 # Navigation parametre - ingen sensorer, kun vision navigation
-COMMAND_COOLDOWN = 2.0  # Increased to prevent network spam that causes lag
-PRINT_INTERVAL = 5      # 5 sekunder som i den gamle fil
+COMMAND_COOLDOWN = 0.3  # HURTIGERE: Reduceret fra 2.0 til 0.3 for hurtigere kommandoer
+PRINT_INTERVAL = 3      # Hurtigere status updates
 TURN_THRESHOLD = 10     # mindste antal grader for at dreje.
 DISTANCE_THRESHOLD = 30 # cm - stop 30 cm fra bolden for præcis korrektion
 MAX_FORWARD_DISTANCE = 30 # maks længde for fremadkørsel
@@ -45,6 +45,6 @@ MAX_FORWARD_DISTANCE = 30 # maks længde for fremadkørsel
 PICKUP_FORWARD_DISTANCE = 35  # cm - afstand at køre frem for at samle bold
 PICKUP_BACKWARD_DISTANCE = 35  # cm - afstand at bakke efter opsamling
 
-ROBOT_TURN_SPEED = 10 # Motor hastighed til drejning
-ROBOT_FORWARD_SPEED = 30 # Motor hastighed til fremadkørsel  
+ROBOT_TURN_SPEED = 25 # HURTIGERE: Motor hastighed til drejning (øget fra 10 til 25)
+ROBOT_FORWARD_SPEED = 50 # HURTIGERE: Motor hastighed til fremadkørsel (øget fra 30 til 50)  
 ESTIMATED_TURN_RATE = 180.0  # grader per sekund - opdateret baseret på hjul kalibrering (halv rotation = 90°)

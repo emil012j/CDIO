@@ -101,8 +101,8 @@ def main():
                     print("Navigation: Angle diff={:.1f}deg, Distance={:.1f}cm".format(angle_diff, distance_cm))
                     
                     # PRECISE HITTING ZONE: Kun kør frem hvis angle_diff er i præcis rammezone
-                    hitting_zone_min = -5.0  # Udvidet: Minimum præcis angle for at ramme bolden
-                    hitting_zone_max = 10.0  # Udvidet: Maximum præcis angle for at ramme bolden
+                    hitting_zone_min = -3.0  # Strammere: Minimum præcis angle for at ramme bolden
+                    hitting_zone_max = 3.0   # Strammere: Maximum præcis angle for at ramme bolden
                     in_hitting_zone = hitting_zone_min <= angle_diff <= hitting_zone_max
                     
                     # DEBUG: Show current state vs thresholds every frame
@@ -119,15 +119,22 @@ def main():
                         else:  # angle_diff < hitting_zone_min
                             turn_amount = hitting_zone_min - angle_diff  # Drej til min hitting zone
                         
-                        # DIREKTE ROTATION: 90° = 0.5 rotations, 180° = 1.0 rotations
-                        rotations = turn_amount / 90.0 * 0.5
+                        # KORRIGERET ROTATION: 180° = 0.5 rotations (mere realistisk for EV3)
+                        rotations = turn_amount / 180.0 * 0.5
+                        
+                        # BEGRÆNS ROTATION: Max 0.35 rotations (63°) ad gangen - øget for hurtigere drejning
+                        max_rotations = 0.35
+                        if rotations > max_rotations:
+                            rotations = max_rotations
+                            print("WARNING: Rotation begranset til {:.3f} (var {:.3f})".format(max_rotations, turn_amount / 180.0 * 0.5))
+                        
                         print("ANGLE CORRECTION: {:.1f}deg -> hitting zone [{:.1f}, {:.1f}] -> {:.3f} rotations".format(
                             angle_diff, hitting_zone_min, hitting_zone_max, rotations))
                         commander.send_turn_rotation_command(direction, rotations)
                     
                     # FORWARD PHASE: Kun kør frem hvis i hitting zone og ikke for tæt på  
                     elif distance_cm > 29:  # Stop når vi er 29 cm væk for blind collection
-                        move_distance = min(distance_cm - 29, 10)  # Kør til 29 cm væk, max 10 cm ad gangen
+                        move_distance = min(distance_cm - 29, 8)  # HURTIGERE: Øget fra 5 til 8 cm ad gangen for hurtigere fremgang
                         print("IN HITTING ZONE - DRIVING FORWARD {:.1f} cm (angle_diff={:.1f}deg PERFECT)".format(
                             move_distance, angle_diff))
                         commander.send_forward_command(move_distance)

@@ -58,7 +58,7 @@ class RobotServer:
             except Exception as e:
                 if self.server_running:
                     print("Error handling connection: {}".format(e))
-                sleep(0.1)
+                sleep(0.02)  # HURTIGERE: Reduceret fra 0.1 til 0.02
     
     #håndterer en enkelt kommando fra forbindelsen
     def _handle_command(self, conn):

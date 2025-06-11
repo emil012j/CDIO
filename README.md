@@ -6,8 +6,8 @@
 
 ### ved opdatering af filer:
 ```bash
-scp robot_app.py robot@192.168.8.97:/home/robot/
-scp -r src/ robot@192.168.8.97:/home/robot/
+scp robot_app.py robot@169.254.138.37:/home/robot/
+scp -r src/ robot@169.254.138.37:/home/robot/
 ```
 
 ### 1. På Robot:

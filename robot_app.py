@@ -38,8 +38,8 @@ def main():
                 if robot.check_buttons():
                     break
                 
-                #små delay for at undgå at CPU'en bliver for belastet
-                sleep(0.1)
+                #HURTIGERE: Reduceret delay for hurtigere respons (fra 0.1 til 0.02)
+                sleep(0.02)
                 
         except KeyboardInterrupt:
             print("\nKeyboard interrupt received")
