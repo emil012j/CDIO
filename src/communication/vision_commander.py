@@ -30,7 +30,7 @@ class VisionCommander:
             
         try:
             sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)  # Håndterer netværk forbindelse til EV3
-            sock.settimeout(0.1)  # MUCH shorter timeout to prevent camera lag
+            sock.settimeout(0.5)  # Longer timeout to allow robot processing
             sock.connect((self.robot_ip, self.command_port))
             
             # Sender JSON kommandoer over TCP socket

@@ -273,7 +273,9 @@ def main():
                     angle_diff = navigation_info["angle_diff"]
                     distance_cm = navigation_info["distance_cm"]
                     
-                    print("Navigation: Angle diff={:.1f}deg, Distance={:.1f}cm".format(angle_diff, distance_cm))
+                    target_info = "({},{})".format(target_ball[0], target_ball[1]) if target_ball else "None"
+                    print("Navigation: Target={} Angle diff={:.1f}deg, Distance={:.1f}cm".format(
+                        target_info, angle_diff, distance_cm))
                     
                     # PRECISE HITTING ZONE: Strammere zone for bedre præcision
                     hitting_zone_min = -2.0  # Strammere: Minimum præcis angle for at ramme bolden
@@ -302,6 +304,12 @@ def main():
                             # KORRIGERET ROTATION: 180° = 0.5 rotations (mere realistisk for EV3)
                             rotations = turn_amount / 180.0 * 0.5
                             
+                            # MINIMUM ROTATION: Rund små rotationer op til 0.01 for at sikre motor bevægelse
+                            min_rotation = 0.01
+                            if rotations < min_rotation:
+                                print("WARNING: Rotation {:.6f} for lille - rundet op til {:.3f}".format(rotations, min_rotation))
+                                rotations = min_rotation
+                            
                             # BEGRÆNS ROTATION: Mindre rotationer for fin-justering
                             # Store justeringer først, så fine justeringer
                             if abs(angle_diff) > 15.0:
@@ -329,11 +337,11 @@ def main():
                         else:  # <5cm væk - meget forsigtig
                             move_distance = min(distance_cm - 15, 1)  # 1 cm steps
                         
-                        print("IN HITTING ZONE - CAREFUL FORWARD {:.1f} cm (distance:{:.1f}cm, angle:{:.1f}deg)".format(
+                        print("IN HITTING ZONE - CAREFUL FORWARD {:.1f} cm (distance:{:.1f}cm, angle:{:.1f}deg) [Wall approach active]".format(
                             move_distance, distance_cm, angle_diff))
                         
-                        # Brug præcis kommando for at undgå overshoot
-                        commander.send_forward_precise_command(move_distance)
+                        # Brug normal forward kommando (forward_precise findes ikke på robotten)
+                        commander.send_forward_command(move_distance)
                     
                     # BLIND BALL COLLECTION: I hitting zone OG ≤15 cm væk - start blind collection
                     else:
