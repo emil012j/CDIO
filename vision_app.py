@@ -28,6 +28,8 @@ class RouteManager:
         self.route = []  # Liste af (x, y) koordinater
         self.current_target_index = 0
         self.route_created = False
+        self.collection_attempts = 0  # Tæl forsøg på nuværende target
+        self.max_attempts = 3  # Max forsøg før vi giver op på en bold
         
     def create_route_from_balls(self, balls, robot_center, walls=None, cross_pos=None):
         """Lav en fast rute fra robot position til alle bolde med kollisionsundgåelse"""
@@ -142,8 +144,20 @@ class RouteManager:
     def advance_to_next_target(self):
         """Gå til næste punkt i ruten"""
         self.current_target_index += 1
+        self.collection_attempts = 0  # Reset attempts for new target
         print("🎯 ADVANCING TO NEXT TARGET: {}/{}".format(
             self.current_target_index + 1, len(self.route)))
+            
+    def increment_collection_attempts(self):
+        """Øg antal forsøg på nuværende target"""
+        self.collection_attempts += 1
+        print("⚠️  Collection attempt {}/{} for current target".format(
+            self.collection_attempts, self.max_attempts))
+        return self.collection_attempts >= self.max_attempts
+        
+    def should_skip_current_target(self):
+        """Tjek om vi skal give op på nuværende target"""
+        return self.collection_attempts >= self.max_attempts
         
     def is_route_complete(self):
         """Tjek om ruten er færdig"""
@@ -154,6 +168,7 @@ class RouteManager:
         self.route = []
         self.current_target_index = 0
         self.route_created = False
+        self.collection_attempts = 0
         print("🔄 ROUTE RESET")
 
 # Global route manager
@@ -272,26 +287,31 @@ def main():
                     
                     # TURN PHASE: Korriger vinkel hvis ikke i hitting zone (INGEN BEGRÆNSNING - op til 180°)
                     if not in_hitting_zone:  # Kun drej hvis IKKE i hitting zone
-                        direction = "right" if angle_diff > hitting_zone_max else "left"
-                        
-                        # Beregn hvor meget der skal drejes for at komme i hitting zone
-                        if angle_diff > hitting_zone_max:
-                            turn_amount = angle_diff - hitting_zone_max  # Drej til max hitting zone
-                        else:  # angle_diff < hitting_zone_min
-                            turn_amount = hitting_zone_min - angle_diff  # Drej til min hitting zone
-                        
-                        # KORRIGERET ROTATION: 180° = 0.5 rotations (mere realistisk for EV3)
-                        rotations = turn_amount / 180.0 * 0.5
-                        
-                        # BEGRÆNS ROTATION: Max 0.35 rotations (63°) ad gangen - øget for hurtigere drejning
-                        max_rotations = 0.35
-                        if rotations > max_rotations:
-                            rotations = max_rotations
-                            print("WARNING: Rotation begranset til {:.3f} (var {:.3f})".format(max_rotations, turn_amount / 180.0 * 0.5))
-                        
-                        print("ANGLE CORRECTION: {:.1f}deg -> hitting zone [{:.1f}, {:.1f}] -> {:.3f} rotations".format(
-                            angle_diff, hitting_zone_min, hitting_zone_max, rotations))
-                        commander.send_turn_rotation_command(direction, rotations)
+                        # Tjek om vi har prøvet for mange gange på denne target
+                        if route_manager.should_skip_current_target():
+                            print("🚫 TOO MANY ATTEMPTS ON THIS TARGET - SKIPPING")
+                            route_manager.advance_to_next_target()
+                        else:
+                            direction = "right" if angle_diff > hitting_zone_max else "left"
+                            
+                            # Beregn hvor meget der skal drejes for at komme i hitting zone
+                            if angle_diff > hitting_zone_max:
+                                turn_amount = angle_diff - hitting_zone_max  # Drej til max hitting zone
+                            else:  # angle_diff < hitting_zone_min
+                                turn_amount = hitting_zone_min - angle_diff  # Drej til min hitting zone
+                            
+                            # KORRIGERET ROTATION: 180° = 0.5 rotations (mere realistisk for EV3)
+                            rotations = turn_amount / 180.0 * 0.5
+                            
+                            # BEGRÆNS ROTATION: Max 0.35 rotations (63°) ad gangen - øget for hurtigere drejning
+                            max_rotations = 0.35
+                            if rotations > max_rotations:
+                                rotations = max_rotations
+                                print("WARNING: Rotation begranset til {:.3f} (var {:.3f})".format(max_rotations, turn_amount / 180.0 * 0.5))
+                            
+                            print("ANGLE CORRECTION: {:.1f}deg -> hitting zone [{:.1f}, {:.1f}] -> {:.3f} rotations".format(
+                                angle_diff, hitting_zone_min, hitting_zone_max, rotations))
+                            commander.send_turn_rotation_command(direction, rotations)
                     
                     # FORWARD PHASE: Kun kør frem hvis i hitting zone og ikke for tæt på  
                     elif distance_cm > 29:  # Stop når vi er 29 cm væk for blind collection
@@ -317,6 +337,11 @@ def main():
                                 route_manager.advance_to_next_target()
                             else:
                                 print("❌ Failed to send blind collection command!")
+                                # Øg antal forsøg og tjek om vi skal give op
+                                should_skip = route_manager.increment_collection_attempts()
+                                if should_skip:
+                                    print("🚫 MAX ATTEMPTS REACHED - SKIPPING TO NEXT TARGET")
+                                    route_manager.advance_to_next_target()
                         else:
                             print("❌ NOT IN HITTING ZONE - NEED ANGLE ADJUSTMENT FIRST")
                             print("   Angle {:.1f}° is outside [{:.1f}°, {:.1f}°]".format(
@@ -394,8 +419,9 @@ def main():
             
             # RUTE STATUS på skærm
             if route_manager.route:
-                route_text = "ROUTE: {}/{} waypoints".format(
-                    route_manager.current_target_index + 1, len(route_manager.route))
+                route_text = "ROUTE: {}/{} waypoints (attempts: {}/{})".format(
+                    route_manager.current_target_index + 1, len(route_manager.route),
+                    route_manager.collection_attempts, route_manager.max_attempts)
                 cv2.putText(display_frame, route_text, (10, 220), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 255), 2)
             cv2.imshow("YOLO OBB Detection", display_frame)
             

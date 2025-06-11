@@ -4,7 +4,7 @@ Indstillinger for robotten, feks. IP, port, kamera, modeller, farver, etc.
 """
 
 # Netværk indstillinger (IP, port)
-ROBOT_IP = "169.254.122.67"
+ROBOT_IP = "192.168.65.158"
 COMMAND_PORT = 1233
 
 # Kamera indstillinger (resolution, confidence)
