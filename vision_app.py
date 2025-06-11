@@ -157,7 +157,7 @@ def main():
                             time.sleep(cmd["duration"] + 0.1)
             
                     else:
-                    # Drejning nødvendig
+                        # Drejning nødvendig
                         if abs(angle_diff) > TURN_THRESHOLD:
                             direction = "right" if angle_diff > 0 else "left"
                             duration = abs(angle_diff) / ESTIMATED_TURN_RATE
