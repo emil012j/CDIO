@@ -7,7 +7,7 @@ from time import sleep
 from ..config.settings import *
 
 # Simple movement metoder er nu i robot controller
-
+#dfgdfg
 #udfører kommandoer fra vision system
 def execute_movement_command(robot_controller, command):
     try:
