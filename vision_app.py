@@ -17,19 +17,59 @@ from src.config.settings import *
 # BOLD LOCKING - vælg EN bold og hold fokus
 target_ball = None  # Global variabel
 
-def is_cross_blocking_path(robot_head, robot_tail, ball_pos, cross_pos):
-    if not cross_pos:
-        return False
-    robot_x = (robot_head["pos"][0] + robot_tail["pos"][0]) // 2
-    robot_y = (robot_head["pos"][1] + robot_tail["pos"][1]) // 2
-    path = LineString([(robot_x, robot_y), ball_pos])
-    return path.distance(Point(cross_pos)) < CROSS_AVOID_RADIUS
+def compute_detour_point(robot_center, ball_pos, cross_pos, avoid_r):
+    """
+    Beregn tangent-waypoint rundt om krydsets cirkel (radius=avoid_r).
+    Returnerer det tangentpunkt, som minimerer total afstand R→T→B.
+    """
+    Rx, Ry = robot_center
+    Cx, Cy = cross_pos
+    Bx, By = ball_pos
 
-def choose_unblocked_ball(robot_head, robot_tail, balls, cross_pos):
-    for ball in balls:
-        if not is_cross_blocking_path(robot_head, robot_tail, ball, cross_pos):
-            return ball
-    return balls[0]  # fallback
+    # afstand R→C og vinkel
+    dx, dy = Cx-Rx, Cy-Ry
+    d = math.hypot(dx, dy)
+    if d <= avoid_r + 1e-6:
+        # vi er allerede oveni – fallback til direkte bold
+        return ball_pos
+
+    theta = math.atan2(dy, dx)
+    alpha = math.acos(avoid_r / d)
+
+    candidates = []
+    for sign in (+1, -1):
+        ang = theta + sign*alpha
+        Tx = Cx + avoid_r * math.cos(ang)
+        Ty = Cy + avoid_r * math.sin(ang)
+        total_dist = math.hypot(Tx-Rx, Ty-Ry) + math.hypot(Bx-Tx, By-Ty)
+        candidates.append(((Tx, Ty), total_dist))
+
+    # vælg punkt med kortest R→T→B
+    detour_pt, _ = min(candidates, key=lambda x: x[1])
+    return (int(detour_pt[0]), int(detour_pt[1]))
+
+def choose_unblocked_target(robot_head, robot_tail, balls, cross_pos):
+    """
+    Returnerer enten:
+      - den nærmeste bold, hvis path ikke krydser krydset, ell.
+      - et omkørings-waypoint indtil videre, hvis direkte path er blokeret.
+    """
+    # robotcentrum i pixel
+    rx = (robot_head["pos"][0] + robot_tail["pos"][0]) // 2
+    ry = (robot_head["pos"][1] + robot_tail["pos"][1]) // 2
+    robot_center = (rx, ry)
+
+    # find nærmeste bold geometrisk
+    balls_sorted = sorted(balls, key=lambda b: math.hypot(b[0]-rx, b[1]-ry))
+    
+    for b in balls_sorted:
+        # tjek om kryds blokerer
+        path = LineString([robot_center, b])
+        if not cross_pos or path.distance(Point(cross_pos)) >= CROSS_AVOID_RADIUS:
+            return b
+
+    # alle boldene er blokeret – lav omkøringspunkt rundt om krydset ift. den nærmeste bold
+    return compute_detour_point(robot_center, balls_sorted[0], cross_pos, CROSS_AVOID_RADIUS)
 
 def main():
     print("Loader YOLO model...")
@@ -71,10 +111,6 @@ def main():
             display_frame = frame.copy()
             robot_head, robot_tail, balls, log_info_list = process_detections_and_draw(results, model, display_frame, scale_factor)
             
-            # BOLD LOCKING: Vælg EN bold og hold fokus
-            if not target_ball and balls:
-                target_ball = balls[0]  # Tag første bold
-                print("LOCKING onto ball at position {}".format(target_ball))
             
             # Simple vision-baseret navigation
             navigation_info = None
@@ -84,15 +120,18 @@ def main():
                 if commander.can_send_command():
                     print("*** MISSION COMPLETE - STOPPING ROBOT ***")
                     commander.send_stop_command()
+                continue
             
             # Navigation kun hvis robot og target bold
-            elif robot_head and robot_tail and target_ball:
+            elif robot_head and robot_tail and balls:
+                # vælg en sikker target bold
+                target_ball = choose_unblocked_target(robot_head, robot_tail, balls, cross_pos)
                 navigation_info = calculate_navigation_command(robot_head, robot_tail, target_ball, scale_factor)
                 
                 # Hvis vi er meget tæt på, bold er samlet - find ny target
-                if navigation_info and navigation_info["distance_cm"] < 5:
+                if navigation_info and navigation_info["distance_cm"] < DISTANCE_THRESHOLD:
                     print("Ball collected! Looking for next ball...")
-                    target_ball = None  # Reset - find ny bold næste gang
+                    
                 
                 # Simple navigation: TURN først til retning passer, så FORWARD
                 if navigation_info and commander.can_send_command():
@@ -101,25 +140,18 @@ def main():
                     
                     print("Navigation: Angle diff={:.1f}°, Distance={:.1f}cm".format(angle_diff, distance_cm))
                     
-                    # TURN PHASE: Drej først til retningen er korrekt - STRIKT vinkel krav
-                    if abs(angle_diff) > 5:  # STRIKT threshold - robotten MÅ være rettet mod bolden 
-                        direction = "right" if angle_diff > 0 else "left"
-                        # Drej hele vinklen på én gang for præcision
-                        turn_amount = abs(angle_diff)  # Fjernet 45° begrænsning - drej præcist!
-                        duration = turn_amount / ESTIMATED_TURN_RATE
-                        print("PRECISE TURNING {} for {:.2f} seconds ({:.1f} degrees)".format(direction, duration, turn_amount))
-                        commander.send_turn_command(direction, duration)
-                    
-                    # FORWARD PHASE: Kør frem når retningen er nogenlunde korrekt
-                    elif distance_cm > 3:  # Kør helt tæt på for at samle boldene
-                        move_distance = min(distance_cm, 20)  # Længere distance for at nå boldene
-                        print("DRIVING FORWARD {:.1f} cm".format(move_distance))  
-                        commander.send_forward_command(move_distance)
-                    
-                    # TARGET VERY CLOSE: Kort burst for at samle bolden
-                    else:
-                        print("TARGET VERY CLOSE - final push")
-                        commander.send_forward_command(5)  # Kort fremad for at samle
+                    if abs(angle_diff) > TURN_THRESHOLD:
+                        cmd = "right" if angle_diff > 0 else "left"
+                        dur = abs(angle_diff) / ESTIMATED_TURN_RATE
+                        print(f"DREJ {cmd} i {dur:.2f}s")
+                        commander.send_turn_command(cmd, dur)
+                    # SMÅ FORWARD STEP
+                    elif distance_cm > SMALL_FORWARD_STEP_CM:
+                        print(f"KØR {SMALL_FORWARD_STEP_CM}cm fremad")
+                        commander.send_forward_command(SMALL_FORWARD_STEP_CM)
+                    elif distance_cm > 0:
+                        print(f"KØR {distance_cm:.1f}cm fremad")
+                        commander.send_forward_command(distance_cm)
             
             # Tegn robot retning og navigation linje som i den gamle fil
             if robot_head and robot_tail and balls:
@@ -130,7 +162,7 @@ def main():
                 )
                 
                 # Find nærmeste bold
-                closest_ball = choose_unblocked_ball(robot_head, robot_tail, balls, cross_pos)
+                closest_ball = choose_unblocked_target(robot_head, robot_tail, balls, cross_pos)
                 
                 # Tegn linje til målet som i den gamle fil
                 cv2.line(display_frame, robot_center, closest_ball, (0, 255, 255), 2)

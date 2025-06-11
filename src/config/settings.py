@@ -18,7 +18,7 @@ MODEL_PATH = "my_model3.pt"
 # Object detection konstanter  
 CROSS_DIAMETER_MM = 200.0
 EGG_SIZE_THRESHOLD_MM = 58.0
-CROSS_AVOID_RADIUS = 100  # Tune as needed. Bliver brugt til at undgå at robotten kører ind i krydset.
+CROSS_AVOID_RADIUS = 50  # Tune as needed. Bliver brugt til at undgå at robotten kører ind i krydset.
 
 # Farver til visualization
 CLASS_COLORS = {
@@ -37,11 +37,14 @@ EGG_OBB_ASPECT_RATIO_THRESHOLD = 1.3
 # Navigation parametre - ingen sensorer, kun vision navigation
 COMMAND_COOLDOWN = 1.0  # Fra gamle ball_identification.py
 PRINT_INTERVAL = 5      # 5 sekunder som i den gamle fil
-TURN_THRESHOLD = 10     # mindste antal grader for at dreje.
-DISTANCE_THRESHOLD = 3  # cm - kør helt tæt på for at samle boldene
+TURN_THRESHOLD = 3     # mindste antal grader for at dreje.
+DISTANCE_THRESHOLD = 5  # cm - kør helt tæt på for at samle boldene
 MAX_FORWARD_DISTANCE = 30 # maks længde for fremadkørsel
 
 
 ROBOT_TURN_SPEED = 40 # Motor hastighed til drejning
 ROBOT_FORWARD_SPEED = 30 # Motor hastighed til fremadkørsel  
-ESTIMATED_TURN_RATE = 130.0  # grader per sekund - til konvertering af duration til vinkel
+ESTIMATED_TURN_RATE = 90  # grader per sekund - til konvertering af duration til vinkel
+
+# Hvor langt robotten kører per “små skridt” i forward‐fasen
+SMALL_FORWARD_STEP_CM = 5  # centimeter
