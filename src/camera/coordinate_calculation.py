@@ -5,6 +5,8 @@ Beregner robot heading, target heading, vinkel forskel, afstand til mål, laver 
 
 import math
 from ..config.settings import *
+from ..camera.detection import *
+
 
 #beregner afstand mellem to punkter
 def calculate_distance(pos1, pos2):
@@ -41,7 +43,7 @@ def calculate_angle_difference(current_angle, target_angle):
     return diff
 
 #beregner navigation kommandoer baseret på robotens position og målet, til at bevæge sig mod målet.
-def calculate_navigation_command(robot_head, robot_tail, target_ball, scale_factor):
+def calculate_navigation_command(robot_head, robot_tail, target_ball, scale_factor, cross_pos):
     if not robot_head or not robot_tail or not target_ball:
         return None
     
@@ -65,12 +67,17 @@ def calculate_navigation_command(robot_head, robot_tail, target_ball, scale_fact
     distance_pixels = calculate_distance(robot_center, target_ball)
     distance_cm = (distance_pixels * scale_factor) / 10.0 if scale_factor else distance_pixels / 10.0
     
+    # Hvis der er et kryds, så undgå det
+    cross_distance = calculate_distance(robot_center, cross_pos) if cross_pos else float("inf")
+    avoid_cross = cross_distance < CROSS_AVOID_RADIUS
+
     return {
         "robot_center": robot_center,
         "robot_heading": robot_heading,
         "target_heading": target_heading,
         "angle_diff": angle_diff,
-        "distance_cm": distance_cm
+        "distance_cm": distance_cm,
+        "avoid_cross": avoid_cross
     }
 
 #laver turn kommandoer baseret på vinkel forskel

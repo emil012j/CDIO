@@ -133,8 +133,10 @@ def main():
             if robot_head and robot_tail and balls:
                 # vælg en sikker target bold
                 target_ball = choose_unblocked_target(robot_head, robot_tail, balls, cross_pos)
-                navigation_info = calculate_navigation_command(robot_head, robot_tail, target_ball, scale_factor)
-                
+                navigation_info = calculate_navigation_command(robot_head, robot_tail, target_ball, cross_pos, scale_factor)
+
+        
+
                 # Hvis vi er meget tæt på, bold er samlet - find ny target
                 if navigation_info and navigation_info["distance_cm"] < DISTANCE_THRESHOLD:
                     print("Ball collected! Looking for next ball...")
@@ -147,24 +149,32 @@ def main():
                     
                     print("Navigation: Angle diff={:.1f}°, Distance={:.1f}cm".format(angle_diff, distance_cm))
                     
-                    if abs(angle_diff) > TURN_THRESHOLD:
-                        cmd = "right" if angle_diff > 0 else "left"
-                        dur = abs(angle_diff) / ESTIMATED_TURN_RATE
-                        print(f"DREJ {cmd} i {dur:.2f}s")
-                        commander.send_turn_command(cmd, dur)
-                        # --- vent på at robotten færdiggør drejet ---
-                        time.sleep(dur + 0.1)
+                    if navigation_info["avoid_cross"]:
+                        print("Afviger for rødt kryds!")
+                        cmd = create_turn_command(45)  # fx fast drej væk
+                        if cmd:
+                            commander.send_command(cmd)
+                            time.sleep(cmd["duration"] + 0.1)
+            
+                    else:
+                    # Drejning nødvendig
+                        if abs(angle_diff) > TURN_THRESHOLD:
+                            direction = "right" if angle_diff > 0 else "left"
+                            duration = abs(angle_diff) / ESTIMATED_TURN_RATE
+                            print(f"DREJ {direction} i {duration:.2f}s")
+                            commander.send_turn_command(direction, duration)
+                            time.sleep(duration + 0.1)
 
-                    # SMÅ FORWARD STEP
-                    elif distance_cm > SMALL_FORWARD_STEP_CM:
-                        print(f"KØR {SMALL_FORWARD_STEP_CM}cm fremad")
-                        commander.send_forward_command(SMALL_FORWARD_STEP_CM)
-                        # --- giv robotten tid til skridtet ---
-                        time.sleep(SMALL_FORWARD_STEP_CM / FORWARD_SPEED_CM_PER_SEC + 0.1)
-                    elif distance_cm > 0:
-                        print(f"Kør {distance_cm:.1f}cm fremad")
-                        commander.send_forward_command(distance_cm)
-                        time.sleep(distance_cm / FORWARD_SPEED_CM_PER_SEC + 0.1)
+                        # Fremadbevægelse
+                        elif distance_cm > SMALL_FORWARD_STEP_CM:
+                            print(f"KØR {SMALL_FORWARD_STEP_CM}cm fremad")
+                            commander.send_forward_command(SMALL_FORWARD_STEP_CM)
+                            time.sleep(SMALL_FORWARD_STEP_CM / FORWARD_SPEED_CM_PER_SEC + 0.1)
+
+                        elif distance_cm > 0:
+                            print(f"Kør {distance_cm:.1f}cm fremad")
+                            commander.send_forward_command(distance_cm)
+                            time.sleep(distance_cm / FORWARD_SPEED_CM_PER_SEC + 0.1)
             
             # Tegn robot retning og navigation linje som i den gamle fil
             if robot_head and robot_tail and balls:
