@@ -74,7 +74,11 @@ def calculate_navigation_command(robot_head, robot_tail, target_ball, scale_fact
         distance_cm = distance_pixels / 10.0
     
     # Hvis der er et kryds, så undgå det
-    cross_distance = calculate_distance(robot_center, cross_pos) if cross_pos else float("inf")
+    if isinstance(cross_pos, tuple) and len(cross_pos) == 2:
+        cross_distance = calculate_distance(robot_center, cross_pos)
+    else:
+        cross_distance = float("inf")
+        
     avoid_cross = cross_distance < CROSS_AVOID_RADIUS
 
     return {

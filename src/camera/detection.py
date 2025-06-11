@@ -68,8 +68,9 @@ def calculate_scale_factor(results, model):
                 if obb_w_px is not None and obb_h_px is not None:
                     cross_obb_size_px = (obb_w_px + obb_h_px) / 2.0
                     if cross_obb_size_px > 1: 
-                        return CROSS_DIAMETER_MM / cross_obb_size_px  # Beregner scale factor baseret på cross størrelse
-        return None
+                        scale = CROSS_DIAMETER_MM / cross_obb_size_px
+                        return float(scale)  # Beregner scale factor baseret på cross størrelse
+                        
     except Exception: 
         return None
 
@@ -84,10 +85,11 @@ def get_cross_position(results, model):
         for i in range(len(results.obb.cls)):
             cls_id = int(results.obb.cls[i])
             if cls_id == cross_id_target:
-                box = results.obb.xyxy[i].cpu().numpy()
-                x_center = (box[0] + box[2]) / 2
-                y_center = (box[1] + box[3]) / 2
-                return (x_center, y_center)
+                if hasattr(results.obb, 'xyxy') and results.obb.xyxy is not None and len(results.obb.xyxy) > i:
+                    box = results.obb.xyxy[i].cpu().numpy()
+                    x_center = (box[0] + box[2]) / 2
+                    y_center = (box[1] + box[3]) / 2
+                    return (x_center, y_center)
         return None
     except Exception:
         return None
