@@ -12,23 +12,17 @@ from src.camera.detection import load_yolo_model, run_detection, process_detecti
 from src.camera.coordinate_calculation import calculate_navigation_command, create_turn_command, create_forward_command
 from src.camera.camera_manager import CameraManager, draw_detection_box, draw_navigation_info, display_status
 from src.communication.vision_commander import VisionCommander
+from src.camera.Goal_Calibrator import GoalCalibrator
+from src.camera.Goal_utils import GoalUtils
 from src.config.settings import *
 
-def is_cross_blocking_path(robot_head, robot_tail, ball_pos, cross_pos):
-    if not cross_pos:
-        return False
-    robot_x = (robot_head["pos"][0] + robot_tail["pos"][0]) // 2
-    robot_y = (robot_head["pos"][1] + robot_tail["pos"][1]) // 2
-    path = LineString([(robot_x, robot_y), ball_pos])
-    return path.distance(Point(cross_pos)) < CROSS_AVOID_RADIUS
-
-def choose_unblocked_ball(robot_head, robot_tail, balls, cross_pos):
-    for ball in balls:
-        if not is_cross_blocking_path(robot_head, robot_tail, ball, cross_pos):
-            return ball
-    return balls[0]  # fallback
 
 def main():
+    # Goal calibration setup
+    print("Setting up goal position...")
+    calibrator = GoalCalibrator()
+    goal_utils = GoalUtils()
+    
     print("Loader YOLO model...")
     model = load_yolo_model()  # Starter kamera og YOLO model
     if model is None:
