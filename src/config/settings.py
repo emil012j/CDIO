@@ -27,7 +27,8 @@ CLASS_COLORS = {
     "orange ball": (0, 140, 255), 
     "white ball": (255, 255, 255), 
     "robothead": (0, 0, 255), 
-    "robottail": (255, 0, 255)
+    "robottail": (255, 0, 255),
+    "wall": (0, 0, 255)  # RØD for vægge
 }
 
 # Vision system indstillinger

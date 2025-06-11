@@ -29,15 +29,49 @@ class RouteManager:
         self.current_target_index = 0
         self.route_created = False
         
-    def create_route_from_balls(self, balls, robot_center):
-        """Lav en fast rute fra robot position til alle bolde"""
+    def create_route_from_balls(self, balls, robot_center, walls=None, cross_pos=None):
+        """Lav en fast rute fra robot position til alle bolde med kollisionsundgåelse"""
         if self.route_created or not balls:
             return
             
         print("🗺️  CREATING BALL COLLECTION ROUTE...")
         
+        # Filtrer bolde der er for tæt på vægge eller kors
+        safe_balls = []
+        if walls is None:
+            walls = []
+        
+        for ball in balls:
+            is_safe = True
+            
+            # Tjek afstand til vægge (undgå bolde tættere end 30 cm)
+            for wall in walls:
+                distance_to_wall = math.sqrt((ball[0] - wall[0])**2 + (ball[1] - wall[1])**2)
+                if distance_to_wall < 150:  # 30 cm i pixels (ca 5 mm/px)
+                    print("⚠️  Ball at ({}, {}) too close to wall at ({}, {}) - distance: {:.1f}px".format(
+                        ball[0], ball[1], wall[0], wall[1], distance_to_wall))
+                    is_safe = False
+                    break
+            
+            # Tjek afstand til kors (undgå bolde tættere end 50 cm)
+            if is_safe and cross_pos:
+                distance_to_cross = math.sqrt((ball[0] - cross_pos[0])**2 + (ball[1] - cross_pos[1])**2)
+                if distance_to_cross < 250:  # 50 cm i pixels
+                    print("⚠️  Ball at ({}, {}) too close to cross at ({}, {}) - distance: {:.1f}px".format(
+                        ball[0], ball[1], cross_pos[0], cross_pos[1], distance_to_cross))
+                    is_safe = False
+            
+            if is_safe:
+                safe_balls.append(ball)
+        
+        print("📍 Safe balls: {}/{}".format(len(safe_balls), len(balls)))
+        
+        if not safe_balls:
+            print("❌ No safe balls found!")
+            return
+        
         # Start med robot position som udgangspunkt
-        remaining_balls = list(balls)  # Kopier listen
+        remaining_balls = list(safe_balls)  # Kopier listen
         route_points = []
         current_pos = robot_center
         
@@ -65,6 +99,45 @@ class RouteManager:
         if not self.route or self.current_target_index >= len(self.route):
             return None
         return self.route[self.current_target_index]
+        
+    def get_wall_approach_point(self, ball_pos, walls, scale_factor):
+        """Beregn optimal tilgangspunkt for bold tæt på væg (vinkelret tilgang)"""
+        if not walls or scale_factor is None:
+            return ball_pos
+            
+        # Find nærmeste væg til bolden
+        closest_wall = None
+        min_distance = float('inf')
+        
+        for wall in walls:
+            distance = math.sqrt((ball_pos[0] - wall[0])**2 + (ball_pos[1] - wall[1])**2)
+            if distance < min_distance:
+                min_distance = distance
+                closest_wall = wall
+        
+        # Hvis bold er tættere end 75 px (ca 15 cm) til væg, beregn vinkelret tilgang
+        if closest_wall and min_distance < 75:
+            # Beregn vektor fra væg til bold
+            wall_to_ball_x = ball_pos[0] - closest_wall[0]
+            wall_to_ball_y = ball_pos[1] - closest_wall[1]
+            
+            # Normaliser vektor
+            length = math.sqrt(wall_to_ball_x**2 + wall_to_ball_y**2)
+            if length > 0:
+                norm_x = wall_to_ball_x / length
+                norm_y = wall_to_ball_y / length
+                
+                # Tilgangspunkt er 25 px (ca 5 cm) bag bolden i vinkelret retning fra væg
+                approach_x = int(ball_pos[0] + norm_x * 25)  # 5 cm bag bolden
+                approach_y = int(ball_pos[1] + norm_y * 25)
+                
+                print("🧱 WALL APPROACH: Ball at ({}, {}) near wall at ({}, {})".format(
+                    ball_pos[0], ball_pos[1], closest_wall[0], closest_wall[1]))
+                print("   → Approach point: ({}, {}) - 5cm behind ball, perpendicular to wall".format(approach_x, approach_y))
+                
+                return (approach_x, approach_y)
+        
+        return ball_pos
         
     def advance_to_next_target(self):
         """Gå til næste punkt i ruten"""
@@ -140,7 +213,7 @@ def main():
 
             # Process detections og tegn på frame som i den gamle fil
             display_frame = frame.copy()
-            robot_head, robot_tail, balls, log_info_list = process_detections_and_draw(results, model, display_frame, scale_factor)
+            robot_head, robot_tail, balls, walls, log_info_list = process_detections_and_draw(results, model, display_frame, scale_factor)
             
             # Simple vision-baseret navigation
             navigation_info = None
@@ -163,11 +236,15 @@ def main():
                     (robot_head["pos"][1] + robot_tail["pos"][1]) // 2
                 )
                 
-                # Opret rute første gang vi ser bolde
-                route_manager.create_route_from_balls(balls, robot_center)
+                # Opret rute første gang vi ser bolde (med kollisionsundgåelse)
+                route_manager.create_route_from_balls(balls, robot_center, walls, cross_pos)
                 
                 # Få nuværende mål fra ruten
                 target_ball = route_manager.get_current_target()
+                
+                # Juster target for bolde tæt på vægge (vinkelret tilgang)
+                if target_ball:
+                    target_ball = route_manager.get_wall_approach_point(target_ball, walls, scale_factor)
                 
                 if target_ball is None:
                     # Ingen flere mål - mission complete
@@ -280,6 +357,13 @@ def main():
                         cv2.putText(display_frame, str(i + 1), (waypoint[0] - 5, waypoint[1] + 5), 
                                    cv2.FONT_HERSHEY_SIMPLEX, 0.4, (255, 0, 0), 1)
                 
+                # TEGN VÆGGE (kun markering, ingen cirkler da vægge er aflange)
+                for wall in walls:
+                    # Væg som lille rød firkant
+                    cv2.rectangle(display_frame, (wall[0]-10, wall[1]-10), (wall[0]+10, wall[1]+10), (0, 0, 255), -1)
+                    cv2.putText(display_frame, "WALL", (wall[0] + 15, wall[1]), 
+                               cv2.FONT_HERSHEY_SIMPLEX, 0.4, (0, 0, 255), 1)
+                
                 # Tegn robot retning linje (tail→head extended)
                 head_pos = robot_head["pos"] 
                 tail_pos = robot_tail["pos"]
@@ -321,11 +405,12 @@ def main():
             
             # Status updates
             if current_time - last_print_time >= PRINT_INTERVAL:
-                print("STATUS - Frame: {}, Robot: {}/{}, Balls: {}, Scale: {:.2f}".format(
+                print("STATUS - Frame: {}, Robot: {}/{}, Balls: {}, Walls: {}, Scale: {:.2f}".format(
                     frame_count,
                     "YES" if robot_head else "NO",
                     "YES" if robot_tail else "NO", 
                     len(balls),
+                    len(walls),
                     scale_factor if scale_factor else 0
                 ))
                 
