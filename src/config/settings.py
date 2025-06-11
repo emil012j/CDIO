@@ -9,7 +9,7 @@ COMMAND_PORT = 1233
 
 # Kamera indstillinger (resolution, confidence)
 CAMERA_SOURCE = 1
-CAMERA_RESOLUTION = (1280, 720)  # REDUCED from 1280x720 for better performance
+CAMERA_RESOLUTION = (1280, 720)  
 CONFIDENCE_THRESHOLD = 0.35 #0.35
 
 # YOLO model indstillinger
