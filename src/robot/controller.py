@@ -5,8 +5,8 @@ Robot controller der håndterer motorer og grundlæggende operationer (ingen sen
 
 from ev3dev2.motor import LargeMotor, MoveTank, MediumMotor
 from ev3dev2.button import Button
-from ev3dev2.sensor.lego import ColorSensor
-from ev3dev2.sensor import INPUT_1
+from ev3dev2.sensor.lego import ColorSensor, TouchSensor
+from ev3dev2.sensor import INPUT_1, INPUT_4
 from time import sleep
 from ..config.settings import *
 
@@ -36,6 +36,13 @@ class RobotController:
         except:
             self.button = None
             print("No button available")
+
+        try:
+            self.touch_sensor = TouchSensor(INPUT_4)
+            print("Touch sensor initialized on INPUT_3")
+        except Exception as e:
+            self.touch_sensor = None
+            print("Touch sensor not available:", e)
         
         # State
         self.running = True
@@ -133,7 +140,9 @@ class RobotController:
         wheel_diameter_cm = 6.8  # Præcis måling af hjul diameter
         wheel_circumference_cm = 3.14159 * wheel_diameter_cm  # π × diameter ≈ 21.36 cm
         rotations = total_distance / wheel_circumference_cm
-        degrees_target = rotations * 360
+        total_rotations = total_distance / wheel_circumference_cm
+
+
         
         print("Simple forward: {:.1f} cm + {:.1f} cm overshoot = {:.1f} cm total ({:.3f} rotations)".format(
             distance_cm, overshoot_cm, total_distance, rotations))
@@ -141,36 +150,23 @@ class RobotController:
         # Begge motorer fremad (motorer er omvendt, så bruger negative værdier)
         self.tank_drive.on_for_rotations(-speed, -speed, rotations)
         
-        try:
-            while True:
-                # Stop og bak hvis rød registreres
-                if self.check_red_and_reverse():
-                    print("Red detected – aborting forward motion")
-                    return
-                    
-                left_pos = abs(self.left_motor.position)
-                right_pos = abs(self.right_motor.position)
-                if left_pos >= degrees_target and right_pos >= degrees_target:
-                    break
-                sleep(0.05)
-        finally:
-            self.tank_drive.off()
-            
-        print("Simple forward complete")
-        print("Simple forward complete")
-    
-    def check_red_and_reverse(self):
-        try:
-            color = self.color_sensor.color_name
-            print("Detected color:", color)
-            if color.lower() == "red":
-                print("Red detected – backing up")
-                self.tank_drive.on_for_seconds(-20, -20, 1.5)  # reverse for 1.5 seconds
+        step = 0.2
+        done = 0.0
+
+        while done < total_rotations:
+            # Check for collision
+            if self.touch_sensor and self.touch_sensor.is_pressed:
+                print("Touch sensor pressed – backing up")
+                self.tank_drive.on_for_seconds(-20, -20, 1.5)
                 self.tank_drive.off()
-                return True
-        except Exception as e:
-            print("Color sensor error:", e)
-        return False
+                return
+
+            # Move a small step forward
+            remaining = total_rotations - done
+            step_rot = min(step, remaining)
+            self.tank_drive.on_for_rotations(-speed, -speed, step_rot)
+            done += step_rot
+        
 
  
     def cleanup(self):
