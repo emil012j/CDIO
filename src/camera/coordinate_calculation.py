@@ -65,7 +65,13 @@ def calculate_navigation_command(robot_head, robot_tail, target_ball, scale_fact
     
     # Beregner afstand til mål
     distance_pixels = calculate_distance(robot_center, target_ball)
-    distance_cm = (distance_pixels * scale_factor) / 10.0 if scale_factor else distance_pixels / 10.0
+    
+    # Sikrer scale_factor er en float
+    if isinstance(scale_factor, (int, float)) and scale_factor > 0:
+        distance_cm = (distance_pixels * scale_factor) / 10.0
+    else:
+        print(f"[ADVARSEL] scale_factor={scale_factor} er ikke brugbar. Bruger fallback.")
+        distance_cm = distance_pixels / 10.0
     
     # Hvis der er et kryds, så undgå det
     cross_distance = calculate_distance(robot_center, cross_pos) if cross_pos else float("inf")
