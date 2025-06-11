@@ -22,6 +22,70 @@ def is_cross_blocking_path(robot_head, robot_tail, ball_pos, cross_pos):
     path = LineString([(robot_x, robot_y), ball_pos])
     return path.distance(Point(cross_pos)) < CROSS_AVOID_RADIUS
 
+# RUTE-BASERET NAVIGATION: Erstatter "nærmeste bold" med fast rute
+class RouteManager:
+    def __init__(self):
+        self.route = []  # Liste af (x, y) koordinater
+        self.current_target_index = 0
+        self.route_created = False
+        
+    def create_route_from_balls(self, balls, robot_center):
+        """Lav en fast rute fra robot position til alle bolde"""
+        if self.route_created or not balls:
+            return
+            
+        print("🗺️  CREATING BALL COLLECTION ROUTE...")
+        
+        # Start med robot position som udgangspunkt
+        remaining_balls = list(balls)  # Kopier listen
+        route_points = []
+        current_pos = robot_center
+        
+        # Simpel "nærmeste punkt" rute algoritme
+        while remaining_balls:
+            # Find nærmeste bold fra nuværende position
+            distances = [math.sqrt((ball[0] - current_pos[0])**2 + (ball[1] - current_pos[1])**2) 
+                        for ball in remaining_balls]
+            nearest_index = distances.index(min(distances))
+            nearest_ball = remaining_balls.pop(nearest_index)
+            
+            route_points.append(nearest_ball)
+            current_pos = nearest_ball
+            
+        self.route = route_points
+        self.current_target_index = 0
+        self.route_created = True
+        
+        print("✅ ROUTE CREATED: {} waypoints".format(len(self.route)))
+        for i, point in enumerate(self.route):
+            print("   Point {}: ({}, {})".format(i+1, point[0], point[1]))
+            
+    def get_current_target(self):
+        """Få nuværende mål i ruten"""
+        if not self.route or self.current_target_index >= len(self.route):
+            return None
+        return self.route[self.current_target_index]
+        
+    def advance_to_next_target(self):
+        """Gå til næste punkt i ruten"""
+        self.current_target_index += 1
+        print("🎯 ADVANCING TO NEXT TARGET: {}/{}".format(
+            self.current_target_index + 1, len(self.route)))
+        
+    def is_route_complete(self):
+        """Tjek om ruten er færdig"""
+        return self.current_target_index >= len(self.route)
+        
+    def reset_route(self):
+        """Reset rute for ny mission"""
+        self.route = []
+        self.current_target_index = 0
+        self.route_created = False
+        print("🔄 ROUTE RESET")
+
+# Global route manager
+route_manager = RouteManager()
+
 def choose_unblocked_ball(robot_head, robot_tail, balls, cross_pos):
     for ball in balls:
         if not is_cross_blocking_path(robot_head, robot_tail, ball, cross_pos):
@@ -83,15 +147,35 @@ def main():
             
             # Tjek om mission er complete (ingen bolde)
             if robot_head and robot_tail and not balls:
+                # Reset rute hvis ingen bolde er synlige (mission complete eller ny scene)
+                if route_manager.route_created:
+                    route_manager.reset_route()
+                    
                 if commander.can_send_command():
                     print("*** MISSION COMPLETE - NO BALLS VISIBLE - STOPPING ROBOT ***")
                     commander.send_stop_command()
             
-            # Navigation til nærmeste bold (stop 30 cm væk og udfør pickup sekvens)
+            # RUTE-BASERET NAVIGATION: Følg fast rute i stedet for "nærmeste bold"
             elif robot_head and robot_tail and balls:
-                # Find nærmeste bold (ikke blokeret af kryds)
-                target_ball = choose_unblocked_ball(robot_head, robot_tail, balls, cross_pos)
-                navigation_info = calculate_navigation_command(robot_head, robot_tail, target_ball, scale_factor)
+                # Beregn robot centrum for rute planlægning
+                robot_center = (
+                    (robot_head["pos"][0] + robot_tail["pos"][0]) // 2,
+                    (robot_head["pos"][1] + robot_tail["pos"][1]) // 2
+                )
+                
+                # Opret rute første gang vi ser bolde
+                route_manager.create_route_from_balls(balls, robot_center)
+                
+                # Få nuværende mål fra ruten
+                target_ball = route_manager.get_current_target()
+                
+                if target_ball is None:
+                    # Ingen flere mål - mission complete
+                    print("🎉 *** ROUTE COMPLETE - ALL TARGETS VISITED ***")
+                    if commander.can_send_command():
+                        commander.send_stop_command()
+                else:
+                    navigation_info = calculate_navigation_command(robot_head, robot_tail, target_ball, scale_factor)
                 
                 # Navigation: TURN først, så FORWARD til 30 cm, så pickup sekvens
                 if navigation_info and commander.can_send_command():
@@ -152,6 +236,8 @@ def main():
                             success = commander.send_blind_ball_collection_command()
                             if success:
                                 print("✅ Blind collection command sent successfully!")
+                                # GÅ TIL NÆSTE PUNKT I RUTEN efter collection
+                                route_manager.advance_to_next_target()
                             else:
                                 print("❌ Failed to send blind collection command!")
                         else:
@@ -160,18 +246,39 @@ def main():
                                 angle_diff, hitting_zone_min, hitting_zone_max))
             
             # Tegn robot retning og navigation linje
-            if robot_head and robot_tail and balls:
+            if robot_head and robot_tail:
                 # Beregn robot centrum
                 robot_center = (
                     (robot_head["pos"][0] + robot_tail["pos"][0]) // 2,
                     (robot_head["pos"][1] + robot_tail["pos"][1]) // 2
                 )
                 
-                # Find nærmeste bold
-                closest_ball = choose_unblocked_ball(robot_head, robot_tail, balls, cross_pos)
+                # TEGN RUTE: Vis hele ruten og nuværende mål
+                current_target = route_manager.get_current_target()
+                if current_target:
+                    # Tegn linje til nuværende mål (GUL)
+                    cv2.line(display_frame, robot_center, current_target, (0, 255, 255), 3)
+                    # Tegn nuværende mål som stor cirkel (GUL)
+                    cv2.circle(display_frame, current_target, 15, (0, 255, 255), 3)
+                    cv2.putText(display_frame, "TARGET {}".format(route_manager.current_target_index + 1), 
+                               (current_target[0] + 20, current_target[1] - 20), 
+                               cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 255, 255), 2)
                 
-                # Tegn linje til målet
-                cv2.line(display_frame, robot_center, closest_ball, (0, 255, 255), 2)
+                # Tegn hele ruten som farvede cirkler
+                for i, waypoint in enumerate(route_manager.route):
+                    if i < route_manager.current_target_index:
+                        # Besøgte punkter: GRØN
+                        cv2.circle(display_frame, waypoint, 8, (0, 255, 0), -1)
+                        cv2.putText(display_frame, "✓", (waypoint[0] - 5, waypoint[1] + 5), 
+                                   cv2.FONT_HERSHEY_SIMPLEX, 0.4, (255, 255, 255), 1)
+                    elif i == route_manager.current_target_index:
+                        # Nuværende mål: allerede tegnet ovenfor
+                        pass
+                    else:
+                        # Fremtidige mål: BLÅ
+                        cv2.circle(display_frame, waypoint, 8, (255, 0, 0), 2)
+                        cv2.putText(display_frame, str(i + 1), (waypoint[0] - 5, waypoint[1] + 5), 
+                                   cv2.FONT_HERSHEY_SIMPLEX, 0.4, (255, 0, 0), 1)
                 
                 # Tegn robot retning linje (tail→head extended)
                 head_pos = robot_head["pos"] 
@@ -200,6 +307,12 @@ def main():
             cv2.putText(display_frame, "Conf: {:.2f}".format(CONFIDENCE_THRESHOLD), (10, 20), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 0, 255), 2)
             
             display_status(display_frame, robot_head, robot_tail, balls, scale_factor, navigation_info)
+            
+            # RUTE STATUS på skærm
+            if route_manager.route:
+                route_text = "ROUTE: {}/{} waypoints".format(
+                    route_manager.current_target_index + 1, len(route_manager.route))
+                cv2.putText(display_frame, route_text, (10, 220), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 255), 2)
             cv2.imshow("YOLO OBB Detection", display_frame)
             
             # DISABLED: Explicit cleanup might be causing issues
