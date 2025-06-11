@@ -23,7 +23,7 @@ class RobotController:
         
         # Re-enabled: Harvester motor needed for ball collection
         try:
-            self.collect_motor.on(speed=-50)  # HURTIGERE: Øget collect speed fra -30 til -50
+            self.collect_motor.on(speed=-100)  # HURTIGERE: Øget collect speed fra -30 til -50
             print("Collect mechanism started (Port C) - speed -50")
         except Exception as e:
             print("Failed to start collect mechanism:", e)

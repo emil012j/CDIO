@@ -283,7 +283,7 @@ def main():
                     in_hitting_zone = hitting_zone_min <= angle_diff <= hitting_zone_max
                     
                     # DEBUG: Show current state vs thresholds every frame
-                    print("  DEBUG: Distance={:.1f}cm (≤15cm?), Angle={:.1f}° in [{:.1f}°,{:.1f}°]? = {}".format(
+                    print("  DEBUG: Distance={:.1f}cm (≤22cm?), Angle={:.1f}° in [{:.1f}°,{:.1f}°]? = {}".format(
                         distance_cm, angle_diff, hitting_zone_min, hitting_zone_max, in_hitting_zone))
                     
                     # TURN PHASE: Korriger vinkel hvis ikke i hitting zone (INGEN BEGRÆNSNING - op til 180°)
@@ -328,14 +328,14 @@ def main():
                             commander.send_turn_rotation_command(direction, rotations)
                     
                     # FORWARD PHASE: Forsigtig fremadkørsel når i hitting zone
-                    elif distance_cm > 15:  # Stop når vi er 15 cm væk for blind collection
+                    elif distance_cm > 22:  # Stop når vi er 22 cm væk for blind collection (7 cm tidligere)
                         # Adaptive afstand baseret på nærhed til mål
                         if distance_cm > 50:  # >10cm væk - normal hastighed
-                            move_distance = min(distance_cm - 15, 3)  # 3 cm steps
-                        elif distance_cm > 25:  # 5-10cm væk - langsommere
-                            move_distance = min(distance_cm - 15, 2)  # 2 cm steps
-                        else:  # <5cm væk - meget forsigtig
-                            move_distance = min(distance_cm - 15, 1)  # 1 cm steps
+                            move_distance = min(distance_cm - 22, 3)  # 3 cm steps til 22 cm
+                        elif distance_cm > 35:  # 7-10cm væk - langsommere
+                            move_distance = min(distance_cm - 22, 2)  # 2 cm steps til 22 cm
+                        else:  # <7cm væk - meget forsigtig
+                            move_distance = min(distance_cm - 22, 1)  # 1 cm steps til 22 cm
                         
                         print("IN HITTING ZONE - CAREFUL FORWARD {:.1f} cm (distance:{:.1f}cm, angle:{:.1f}deg) [Wall approach active]".format(
                             move_distance, distance_cm, angle_diff))
@@ -343,13 +343,13 @@ def main():
                         # Brug normal forward kommando (forward_precise findes ikke på robotten)
                         commander.send_forward_command(move_distance)
                     
-                    # BLIND BALL COLLECTION: I hitting zone OG ≤15 cm væk - start blind collection
+                    # BLIND BALL COLLECTION: I hitting zone OG ≤22 cm væk - start blind collection
                     else:
                         print("=== READY FOR BLIND COLLECTION ===")
-                        print("Distance: {:.1f}cm ≤ 15cm, Angle: {:.1f}deg".format(distance_cm, angle_diff))
+                        print("Distance: {:.1f}cm ≤ 22cm, Angle: {:.1f}deg".format(distance_cm, angle_diff))
                         print("Hitting zone: [{:.1f}, {:.1f}], In zone: {}".format(
                             hitting_zone_min, hitting_zone_max, in_hitting_zone))
-                        print("Robot position good: distance ≤ 15cm AND in hitting zone")
+                        print("Robot position good: distance ≤ 22cm AND in hitting zone")
                         
                         if in_hitting_zone:
                             print("🎯 *** EXECUTING BLIND BALL COLLECTION *** 🎯")
