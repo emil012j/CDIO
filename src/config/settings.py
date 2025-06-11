@@ -36,7 +36,7 @@ ORIENTED_OBJECTS = ["robothead", "robottail", "egg", "cross"]
 EGG_OBB_ASPECT_RATIO_THRESHOLD = 1.3
 
 # Navigation parametre - ingen sensorer, kun vision navigation
-COMMAND_COOLDOWN = 0.3  # HURTIGERE: Reduceret fra 2.0 til 0.3 for hurtigere kommandoer
+COMMAND_COOLDOWN = 0.5  # FORSIGTIG: Øget fra 0.3 til 0.5 for bedre måling mellem kommandoer
 PRINT_INTERVAL = 3      # Hurtigere status updates
 TURN_THRESHOLD = 10     # mindste antal grader for at dreje.
 DISTANCE_THRESHOLD = 30 # cm - stop 30 cm fra bolden for præcis korrektion
