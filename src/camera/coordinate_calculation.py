@@ -30,14 +30,7 @@ def calculate_robot_heading(robot_head, robot_tail):
 
 #beregner vinkel forskel mellem to vinkler. Hvis vinklen er 0, så peger robotten i retningen af målet.
 def calculate_angle_difference(current_angle, target_angle):
-    diff = target_angle - current_angle
-    
-    # Normalize to [-180, 180]
-    while diff > 180:
-        diff -= 360
-    while diff < -180:
-        diff += 360
-    
+    diff = (target_angle - current_angle + 180) % 360 - 180
     return diff
 
 #beregner navigation kommandoer baseret på robotens position og målet, til at bevæge sig mod målet.
@@ -47,8 +40,8 @@ def calculate_navigation_command(robot_head, robot_tail, target_ball, scale_fact
     
     #beregner robotens midtpunkt og heading
     robot_center = (
-        (robot_head["pos"][0] + robot_tail["pos"][0]) // 2,
-        (robot_head["pos"][1] + robot_tail["pos"][1]) // 2
+        round((robot_head["pos"][0] + robot_tail["pos"][0]) / 2),
+        round((robot_head["pos"][1] + robot_tail["pos"][1]) / 2)
     )
     
     robot_heading = calculate_robot_heading(robot_head, robot_tail)

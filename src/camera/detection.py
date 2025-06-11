@@ -27,6 +27,15 @@ def get_obb_dimensions_from_obb_results(obb_results, index):
             return None, None
     except Exception: 
         return None, None
+    
+# Til at tjekke om der nærmes kryds
+def is_close_to_cross(ball_pos, cross_pos, min_distance_px=50):
+    if cross_pos is None:
+        return False
+    dx = ball_pos[0] - cross_pos[0]
+    dy = ball_pos[1] - cross_pos[1]
+    distance = math.sqrt(dx**2 + dy**2)
+    return distance < min_distance_px
 
 #checker om det er en egg
 def is_likely_egg_by_obb_shape_idx(obb_results, index):
@@ -300,5 +309,13 @@ def process_detections_and_draw(results, model, frame, scale_factor=None):
 
 #SIMPLIFIED PROCESSER FOR COMPATIBILITY  
 def process_detections(results, model):
-    robot_head, robot_tail, balls, _ = process_detections_and_draw(results, model, np.zeros((480, 640, 3), dtype=np.uint8))
-    return robot_head, robot_tail, balls, 0 
+    dummy_frame = np.zeros((480, 640, 3), dtype=np.uint8)
+    robot_head, robot_tail, balls, _ = process_detections_and_draw(results, model, dummy_frame)
+
+    # Hent krydsets position
+    cross_pos = get_cross_position(results, model)
+
+    # Filtrer bolde for tæt på krydset
+    safe_balls = [ball for ball in balls if not is_close_to_cross(ball, cross_pos, min_distance_px=50)]
+
+    return robot_head, robot_tail, safe_balls, 0
