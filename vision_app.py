@@ -6,178 +6,18 @@ hovedprogrammet der skal køre på pc'en
 
 import cv2
 import time
-import math
-from shapely.geometry import LineString, Point
 from src.camera.detection import load_yolo_model, run_detection, process_detections_and_draw, calculate_scale_factor, get_cross_position
-from src.camera.coordinate_calculation import calculate_navigation_command, create_turn_command, create_forward_command
-from src.camera.camera_manager import CameraManager, draw_detection_box, draw_navigation_info, display_status
+from src.camera.coordinate_calculation import calculate_navigation_command
+from src.camera.camera_manager import CameraManager, draw_navigation_info, display_status
 from src.communication.vision_commander import VisionCommander
+from src.navigation.route_manager import RouteManager
+from src.navigation.navigation_logic import handle_robot_navigation
+from src.visualization.route_visualization import draw_route_and_targets, draw_robot_heading, draw_route_status
+from src.utils.vision_helpers import choose_unblocked_ball
 from src.config.settings import *
-
-def is_cross_blocking_path(robot_head, robot_tail, ball_pos, cross_pos):
-    if not cross_pos:
-        return False
-    robot_x = (robot_head["pos"][0] + robot_tail["pos"][0]) // 2
-    robot_y = (robot_head["pos"][1] + robot_tail["pos"][1]) // 2
-    path = LineString([(robot_x, robot_y), ball_pos])
-    return path.distance(Point(cross_pos)) < CROSS_AVOID_RADIUS
-
-# RUTE-BASERET NAVIGATION: Erstatter "nærmeste bold" med fast rute
-class RouteManager:
-    def __init__(self):
-        self.route = []  # Liste af (x, y) koordinater
-        self.current_target_index = 0
-        self.route_created = False
-        self.collection_attempts = 0  # Tæl forsøg på nuværende target
-        self.max_attempts = 3  # Max forsøg før vi giver op på en bold
-        
-    def create_route_from_balls(self, balls, robot_center, walls=None, cross_pos=None):
-        """Lav en fast rute fra robot position til alle bolde med kollisionsundgåelse"""
-        if self.route_created or not balls:
-            return
-            
-        print("🗺️  CREATING BALL COLLECTION ROUTE...")
-        
-        # Filtrer kun bolde der er for tæt på kors (vægge er OK med vinkelret tilgang)
-        safe_balls = []
-        if walls is None:
-            walls = []
-        
-        for ball in balls:
-            is_safe = True
-            
-            # Tjek kun afstand til kors (undgå bolde tættere end 50 cm til kors)
-            if cross_pos:
-                distance_to_cross = math.sqrt((ball[0] - cross_pos[0])**2 + (ball[1] - cross_pos[1])**2)
-                if distance_to_cross < 250:  # 50 cm i pixels
-                    print("⚠️  Ball at ({}, {}) too close to cross at ({}, {}) - distance: {:.1f}px".format(
-                        ball[0], ball[1], cross_pos[0], cross_pos[1], distance_to_cross))
-                    is_safe = False
-            
-            # Bolde tæt på vægge er OK - vi bruger vinkelret tilgang
-            if is_safe:
-                # Tjek om bold er tæt på væg (for info)
-                for wall in walls:
-                    distance_to_wall = math.sqrt((ball[0] - wall[0])**2 + (ball[1] - wall[1])**2)
-                    if distance_to_wall < 150:  # 30 cm i pixels
-                        print("🧱 Ball at ({}, {}) near wall - will use perpendicular approach".format(ball[0], ball[1]))
-                        break
-                
-                safe_balls.append(ball)
-        
-        print("📍 Accessible balls: {}/{}".format(len(safe_balls), len(balls)))
-        
-        if not safe_balls:
-            print("❌ No accessible balls found!")
-            return
-        
-        # Start med robot position som udgangspunkt
-        remaining_balls = list(safe_balls)  # Kopier listen
-        route_points = []
-        current_pos = robot_center
-        
-        # Simpel "nærmeste punkt" rute algoritme
-        while remaining_balls:
-            # Find nærmeste bold fra nuværende position
-            distances = [math.sqrt((ball[0] - current_pos[0])**2 + (ball[1] - current_pos[1])**2) 
-                        for ball in remaining_balls]
-            nearest_index = distances.index(min(distances))
-            nearest_ball = remaining_balls.pop(nearest_index)
-            
-            route_points.append(nearest_ball)
-            current_pos = nearest_ball
-            
-        self.route = route_points
-        self.current_target_index = 0
-        self.route_created = True
-        
-        print("✅ ROUTE CREATED: {} waypoints".format(len(self.route)))
-        for i, point in enumerate(self.route):
-            print("   Point {}: ({}, {})".format(i+1, point[0], point[1]))
-            
-    def get_current_target(self):
-        """Få nuværende mål i ruten"""
-        if not self.route or self.current_target_index >= len(self.route):
-            return None
-        return self.route[self.current_target_index]
-        
-    def get_wall_approach_point(self, ball_pos, walls, scale_factor):
-        """Beregn optimal tilgangspunkt for bold tæt på væg (vinkelret tilgang)"""
-        if not walls or scale_factor is None:
-            return ball_pos
-            
-        # Find nærmeste væg til bolden
-        closest_wall = None
-        min_distance = float('inf')
-        
-        for wall in walls:
-            distance = math.sqrt((ball_pos[0] - wall[0])**2 + (ball_pos[1] - wall[1])**2)
-            if distance < min_distance:
-                min_distance = distance
-                closest_wall = wall
-        
-        # Hvis bold er tættere end 150 px (ca 30 cm) til væg, beregn vinkelret tilgang
-        if closest_wall and min_distance < 150:
-            # Beregn vektor fra væg til bold
-            wall_to_ball_x = ball_pos[0] - closest_wall[0]
-            wall_to_ball_y = ball_pos[1] - closest_wall[1]
-            
-            # Normaliser vektor
-            length = math.sqrt(wall_to_ball_x**2 + wall_to_ball_y**2)
-            if length > 0:
-                norm_x = wall_to_ball_x / length
-                norm_y = wall_to_ball_y / length
-                
-                # Tilgangspunkt er 50 px (ca 10 cm) bag bolden i vinkelret retning fra væg
-                approach_x = int(ball_pos[0] + norm_x * 50)  # 10 cm bag bolden
-                approach_y = int(ball_pos[1] + norm_y * 50)
-                
-                print("🧱 WALL APPROACH: Ball at ({}, {}) near wall at ({}, {})".format(
-                    ball_pos[0], ball_pos[1], closest_wall[0], closest_wall[1]))
-                print("   → Approach point: ({}, {}) - 10cm behind ball, perpendicular to wall".format(approach_x, approach_y))
-                
-                return (approach_x, approach_y)
-        
-        return ball_pos
-        
-    def advance_to_next_target(self):
-        """Gå til næste punkt i ruten"""
-        self.current_target_index += 1
-        self.collection_attempts = 0  # Reset attempts for new target
-        print("🎯 ADVANCING TO NEXT TARGET: {}/{}".format(
-            self.current_target_index + 1, len(self.route)))
-            
-    def increment_collection_attempts(self):
-        """Øg antal forsøg på nuværende target"""
-        self.collection_attempts += 1
-        print("⚠️  Collection attempt {}/{} for current target".format(
-            self.collection_attempts, self.max_attempts))
-        return self.collection_attempts >= self.max_attempts
-        
-    def should_skip_current_target(self):
-        """Tjek om vi skal give op på nuværende target"""
-        return self.collection_attempts >= self.max_attempts
-        
-    def is_route_complete(self):
-        """Tjek om ruten er færdig"""
-        return self.current_target_index >= len(self.route)
-        
-    def reset_route(self):
-        """Reset rute for ny mission"""
-        self.route = []
-        self.current_target_index = 0
-        self.route_created = False
-        self.collection_attempts = 0
-        print("🔄 ROUTE RESET")
 
 # Global route manager
 route_manager = RouteManager()
-
-def choose_unblocked_ball(robot_head, robot_tail, balls, cross_pos):
-    for ball in balls:
-        if not is_cross_blocking_path(robot_head, robot_tail, ball, cross_pos):
-            return ball
-    return balls[0]  # fallback
 
 def main():
     print("Loader YOLO model...")
@@ -208,17 +48,6 @@ def main():
             frame_count += 1
             current_time = time.time()
             
-            # DISABLED PERFORMANCE FEATURES - THEY MIGHT BE CAUSING LAG
-            # if frame_count % 3 != 0:
-            #     cv2.imshow("YOLO OBB Detection", frame)
-            #     if cv2.waitKey(1) & 0xFF == ord('q'):
-            #         break
-            #     continue
-            
-            # if current_time - last_gc_time > 10:
-            #     import gc
-            #     gc.collect()
-            #     last_gc_time = current_time
             
             # Detekterer robot (head/tail) og bolde i real-time
             results = run_detection(model, frame)
@@ -268,181 +97,12 @@ def main():
                 else:
                     navigation_info = calculate_navigation_command(robot_head, robot_tail, target_ball, scale_factor)
                 
-                # Navigation: TURN først, så FORWARD til 30 cm, så pickup sekvens
-                if navigation_info and commander.can_send_command():
-                    angle_diff = navigation_info["angle_diff"]
-                    distance_cm = navigation_info["distance_cm"]
-                    
-                    target_info = "({},{})".format(target_ball[0], target_ball[1]) if target_ball else "None"
-                    print("Navigation: Target={} Angle diff={:.1f}deg, Distance={:.1f}cm".format(
-                        target_info, angle_diff, distance_cm))
-                    
-                    # PRECISE HITTING ZONE: Strammere zone for bedre præcision
-                    hitting_zone_min = -2.0  # Strammere: Minimum præcis angle for at ramme bolden
-                    hitting_zone_max = 2.0   # Strammere: Maximum præcis angle for at ramme bolden
-                    in_hitting_zone = hitting_zone_min <= angle_diff <= hitting_zone_max
-                    
-                    # DEBUG: Show current state vs thresholds every frame
-                    print("  DEBUG: Distance={:.1f}cm (≤22cm?), Angle={:.1f}° in [{:.1f}°,{:.1f}°]? = {}".format(
-                        distance_cm, angle_diff, hitting_zone_min, hitting_zone_max, in_hitting_zone))
-                    
-                    # TURN PHASE: Korriger vinkel hvis ikke i hitting zone (INGEN BEGRÆNSNING - op til 180°)
-                    if not in_hitting_zone:  # Kun drej hvis IKKE i hitting zone
-                        # Tjek om vi har prøvet for mange gange på denne target
-                        if route_manager.should_skip_current_target():
-                            print("🚫 TOO MANY ATTEMPTS ON THIS TARGET - SKIPPING")
-                            route_manager.advance_to_next_target()
-                        else:
-                            direction = "right" if angle_diff > hitting_zone_max else "left"
-                            
-                            # Beregn hvor meget der skal drejes for at komme i hitting zone
-                            if angle_diff > hitting_zone_max:
-                                turn_amount = angle_diff - hitting_zone_max  # Drej til max hitting zone
-                            else:  # angle_diff < hitting_zone_min
-                                turn_amount = hitting_zone_min - angle_diff  # Drej til min hitting zone
-                            
-                            # KORRIGERET ROTATION: 180° = 0.5 rotations (mere realistisk for EV3)
-                            rotations = turn_amount / 180.0 * 0.5
-                            
-                            # MINIMUM ROTATION: Rund små rotationer op til 0.01 for at sikre motor bevægelse
-                            min_rotation = 0.01
-                            if rotations < min_rotation:
-                                print("WARNING: Rotation {:.6f} for lille - rundet op til {:.3f}".format(rotations, min_rotation))
-                                rotations = min_rotation
-                            
-                            # BEGRÆNS ROTATION: Mindre rotationer for fin-justering
-                            # Store justeringer først, så fine justeringer
-                            if abs(angle_diff) > 15.0:
-                                max_rotations = 0.20  # Store korrektioner
-                            elif abs(angle_diff) > 5.0:
-                                max_rotations = 0.10  # Mellem korrektioner  
-                            else:
-                                max_rotations = 0.05  # Fine justeringer
-                                
-                            if rotations > max_rotations:
-                                rotations = max_rotations
-                                print("WARNING: Rotation begranset til {:.3f} for præcision (var {:.3f})".format(max_rotations, turn_amount / 180.0 * 0.5))
-                            
-                            print("ANGLE CORRECTION: {:.1f}deg -> hitting zone [{:.1f}, {:.1f}] -> {:.3f} rotations".format(
-                                angle_diff, hitting_zone_min, hitting_zone_max, rotations))
-                            commander.send_turn_rotation_command(direction, rotations)
-                    
-                    # FORWARD PHASE: Forsigtig fremadkørsel når i hitting zone
-                    elif distance_cm > 22:  # Stop når vi er 22 cm væk for blind collection (7 cm tidligere)
-                        # Adaptive afstand baseret på nærhed til mål
-                        if distance_cm > 50:  # >10cm væk - normal hastighed
-                            move_distance = min(distance_cm - 22, 3)  # 3 cm steps til 22 cm
-                        elif distance_cm > 35:  # 7-10cm væk - langsommere
-                            move_distance = min(distance_cm - 22, 2)  # 2 cm steps til 22 cm
-                        else:  # <7cm væk - meget forsigtig
-                            move_distance = min(distance_cm - 22, 1)  # 1 cm steps til 22 cm
-                        
-                        print("IN HITTING ZONE - CAREFUL FORWARD {:.1f} cm (distance:{:.1f}cm, angle:{:.1f}deg) [Wall approach active]".format(
-                            move_distance, distance_cm, angle_diff))
-                        
-                        # Brug normal forward kommando (forward_precise findes ikke på robotten)
-                        commander.send_forward_command(move_distance)
-                    
-                    # BLIND BALL COLLECTION: I hitting zone OG ≤22 cm væk - start blind collection
-                    else:
-                        print("=== READY FOR BLIND COLLECTION ===")
-                        print("Distance: {:.1f}cm ≤ 22cm, Angle: {:.1f}deg".format(distance_cm, angle_diff))
-                        print("Hitting zone: [{:.1f}, {:.1f}], In zone: {}".format(
-                            hitting_zone_min, hitting_zone_max, in_hitting_zone))
-                        print("Robot position good: distance ≤ 22cm AND in hitting zone")
-                        
-                        if in_hitting_zone:
-                            print("🎯 *** EXECUTING BLIND BALL COLLECTION *** 🎯")
-                            success = commander.send_blind_ball_collection_command()
-                            if success:
-                                print("✅ Blind collection command sent successfully!")
-                                # GÅ TIL NÆSTE PUNKT I RUTEN efter collection
-                                route_manager.advance_to_next_target()
-                            else:
-                                print("❌ Failed to send blind collection command!")
-                                # Øg antal forsøg og tjek om vi skal give op
-                                should_skip = route_manager.increment_collection_attempts()
-                                if should_skip:
-                                    print("🚫 MAX ATTEMPTS REACHED - SKIPPING TO NEXT TARGET")
-                                    route_manager.advance_to_next_target()
-                        else:
-                            print("❌ NOT IN HITTING ZONE - NEED ANGLE ADJUSTMENT FIRST")
-                            print("   Angle {:.1f}° is outside [{:.1f}°, {:.1f}°]".format(
-                                angle_diff, hitting_zone_min, hitting_zone_max))
+                # Ny modulær navigation
+                handle_robot_navigation(navigation_info, commander, route_manager)
             
-            # Tegn robot retning og navigation linje
-            if robot_head and robot_tail:
-                # Beregn robot centrum
-                robot_center = (
-                    (robot_head["pos"][0] + robot_tail["pos"][0]) // 2,
-                    (robot_head["pos"][1] + robot_tail["pos"][1]) // 2
-                )
-                
-                # TEGN RUTE: Vis hele ruten og nuværende mål
-                current_target = route_manager.get_current_target()
-                if current_target:
-                    # Tjek om dette er en væg-tilgang (adjusted target)
-                    original_target = route_manager.route[route_manager.current_target_index] if route_manager.current_target_index < len(route_manager.route) else current_target
-                    is_wall_approach = (current_target != original_target)
-                    
-                    # Tegn linje til nuværende mål (GUL)
-                    cv2.line(display_frame, robot_center, current_target, (0, 255, 255), 3)
-                    
-                    if is_wall_approach:
-                        # Tegn original bold position (CYAN)
-                        cv2.circle(display_frame, original_target, 8, (255, 255, 0), 2)
-                        cv2.putText(display_frame, "BALL", (original_target[0] + 10, original_target[1] - 10), 
-                                   cv2.FONT_HERSHEY_SIMPLEX, 0.4, (255, 255, 0), 1)
-                        # Tegn approach point (GUL)
-                        cv2.circle(display_frame, current_target, 15, (0, 255, 255), 3)
-                        cv2.putText(display_frame, "WALL APPROACH {}".format(route_manager.current_target_index + 1), 
-                                   (current_target[0] + 20, current_target[1] - 20), 
-                                   cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 255, 255), 2)
-                        # Tegn linje fra approach til bold
-                        cv2.line(display_frame, current_target, original_target, (255, 255, 0), 2)
-                    else:
-                        # Normal bold target
-                        cv2.circle(display_frame, current_target, 15, (0, 255, 255), 3)
-                        cv2.putText(display_frame, "TARGET {}".format(route_manager.current_target_index + 1), 
-                                   (current_target[0] + 20, current_target[1] - 20), 
-                                   cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 255, 255), 2)
-                
-                # Tegn hele ruten som farvede cirkler
-                for i, waypoint in enumerate(route_manager.route):
-                    if i < route_manager.current_target_index:
-                        # Besøgte punkter: GRØN
-                        cv2.circle(display_frame, waypoint, 8, (0, 255, 0), -1)
-                        cv2.putText(display_frame, "✓", (waypoint[0] - 5, waypoint[1] + 5), 
-                                   cv2.FONT_HERSHEY_SIMPLEX, 0.4, (255, 255, 255), 1)
-                    elif i == route_manager.current_target_index:
-                        # Nuværende mål: allerede tegnet ovenfor
-                        pass
-                    else:
-                        # Fremtidige mål: BLÅ
-                        cv2.circle(display_frame, waypoint, 8, (255, 0, 0), 2)
-                        cv2.putText(display_frame, str(i + 1), (waypoint[0] - 5, waypoint[1] + 5), 
-                                   cv2.FONT_HERSHEY_SIMPLEX, 0.4, (255, 0, 0), 1)
-                
-                # TEGN VÆGGE (kun markering, ingen cirkler da vægge er aflange)
-                for wall in walls:
-                    # Væg som lille rød firkant
-                    cv2.rectangle(display_frame, (wall[0]-10, wall[1]-10), (wall[0]+10, wall[1]+10), (0, 0, 255), -1)
-                    cv2.putText(display_frame, "WALL", (wall[0] + 15, wall[1]), 
-                               cv2.FONT_HERSHEY_SIMPLEX, 0.4, (0, 0, 255), 1)
-                
-                # Tegn robot retning linje (tail→head extended)
-                head_pos = robot_head["pos"] 
-                tail_pos = robot_tail["pos"]
-                dx = head_pos[0] - tail_pos[0]
-                dy = head_pos[1] - tail_pos[1]
-                if abs(dx) > 1e-6 or abs(dy) > 1e-6:
-                    length = math.sqrt(dx*dx + dy*dy)
-                    norm_dx = dx / length
-                    norm_dy = dy / length
-                    # Tegn linje fra tail gennem head og videre
-                    end_x = int(head_pos[0] + norm_dx * 200)
-                    end_y = int(head_pos[1] + norm_dy * 200)
-                    cv2.line(display_frame, tail_pos, (end_x, end_y), (255, 0, 255), 2)
+            # Tegn rute og navigation visualization
+            draw_route_and_targets(display_frame, robot_head, robot_tail, route_manager, walls)
+            draw_robot_heading(display_frame, robot_head, robot_tail)
             
             if navigation_info:
                 draw_navigation_info(
@@ -459,11 +119,7 @@ def main():
             display_status(display_frame, robot_head, robot_tail, balls, scale_factor, navigation_info)
             
             # RUTE STATUS på skærm
-            if route_manager.route:
-                route_text = "ROUTE: {}/{} waypoints (attempts: {}/{})".format(
-                    route_manager.current_target_index + 1, len(route_manager.route),
-                    route_manager.collection_attempts, route_manager.max_attempts)
-                cv2.putText(display_frame, route_text, (10, 220), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 255), 2)
+            draw_route_status(display_frame, route_manager)
             cv2.imshow("YOLO OBB Detection", display_frame)
             
             # DISABLED: Explicit cleanup might be causing issues
