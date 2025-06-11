@@ -92,7 +92,8 @@ def main():
     
     last_print_time = time.time()
     frame_count = 0
-    
+    mission_started = False
+
     try:
         while True:
             frame = camera.read_frame()
@@ -111,19 +112,24 @@ def main():
             display_frame = frame.copy()
             robot_head, robot_tail, balls, log_info_list = process_detections_and_draw(results, model, display_frame, scale_factor)
             
+            # Debug: vis antal bolde
+            print(f"[DEBUG] Balls detected: {len(balls)} -> {balls}")
+            if not mission_started and balls:
+                mission_started = True
+
+            # Stop kun hvis mission er startet og ingen bolde tilbage
+            if robot_head and robot_tail and mission_started and not balls:
+                if commander.can_send_command():
+                    print("*** MISSION COMPLETE - STOPPING ROBOT ***")
+                    commander.send_stop_command()
+                break
             
             # Simple vision-baseret navigation
             navigation_info = None
             
-            # Tjek om mission er complete (ingen target bold)
-            if robot_head and robot_tail and not target_ball:
-                if commander.can_send_command():
-                    print("*** MISSION COMPLETE - STOPPING ROBOT ***")
-                    commander.send_stop_command()
-                continue
             
             # Navigation kun hvis robot og target bold
-            elif robot_head and robot_tail and balls:
+            if robot_head and robot_tail and balls:
                 # vælg en sikker target bold
                 target_ball = choose_unblocked_target(robot_head, robot_tail, balls, cross_pos)
                 navigation_info = calculate_navigation_command(robot_head, robot_tail, target_ball, scale_factor)
