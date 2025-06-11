@@ -76,4 +76,12 @@ class VisionCommander:
         command = {
             "command": "stop"
         }
+        return self.send_command(command)
+    
+    #sender en ball release kommando ved at sende en JSON med kommandoen. feks. {"command": "release_balls"}
+    def send_release_command(self):
+        """Send a ball release command to the robot"""
+        command = {
+            "command": "release_balls"
+        }
         return self.send_command(command) 
