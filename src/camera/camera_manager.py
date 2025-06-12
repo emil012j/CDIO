@@ -6,6 +6,8 @@
 import cv2
 import time
 import math
+import pickle
+import numpy as np
 from ..config.settings import *
 
 #kamera manager, der håndterer kameraet og viser det på skærmen
@@ -15,7 +17,36 @@ class CameraManager:
         self.camera_source = camera_source
         self.cap = None
         self.is_initialized = False
+        self.camera_matrix = None
+        self.distortion_coefficients = None
+        self.load_calibration_data()
         
+    def load_calibration_data(self):
+        """Load camera calibration data from text files"""
+        try:
+            self.camera_matrix = np.loadtxt('src/camera/camera_matrix.txt')
+            self.distortion_coefficients = np.loadtxt('src/camera/distortion_coefficients.txt')
+            print("Successfully loaded calibration data from text files")
+        except Exception as e:
+            print(f"Could not load calibration data: {e}")
+            self.camera_matrix = None
+            self.distortion_coefficients = None
+
+    def save_calibration_data(self, camera_matrix, distortion_coefficients):
+        """Save camera calibration data to pickle file"""
+        try:
+            calibration_data = {
+                'camera_matrix': camera_matrix,
+                'distortion_coefficients': distortion_coefficients
+            }
+            with open('src/camera/calibration_data.pkl', 'wb') as f:
+                pickle.dump(calibration_data, f)
+            print("Successfully saved calibration data")
+            return True
+        except Exception as e:
+            print(f"Could not save calibration data: {e}")
+            return False
+
     #initialiserer kameraet med de rigtige indstillinger
     def initialize_camera(self):
         print("Initializing camera...")
@@ -63,7 +94,8 @@ class CameraManager:
         try:
             ret, frame = self.cap.read()  # Læser frames fra kamera
             if ret and frame is not None:
-                return frame
+                # Apply undistortion if calibration data is available
+                return self.undistort_frame(frame)
             return None
         except Exception:
             return None
@@ -78,6 +110,95 @@ class CameraManager:
     def __del__(self):
         """Destructor to ensure camera is released"""
         self.release()
+
+    def calibrate_camera(self, num_images=10, pattern_size=(9,6), square_size=20.0):
+        """
+        Calibrate camera using chessboard pattern
+        num_images: Number of calibration images to capture
+        pattern_size: Size of chessboard pattern (width, height)
+        square_size: Size of each square in mm
+        """
+        if not self.is_initialized:
+            print("Camera not initialized")
+            return False
+
+        # Prepare object points
+        objp = np.zeros((pattern_size[0] * pattern_size[1], 3), np.float32)
+        objp[:,:2] = np.mgrid[0:pattern_size[0], 0:pattern_size[1]].T.reshape(-1,2)
+        objp = objp * square_size
+
+        # Arrays to store object points and image points
+        objpoints = [] # 3D points in real world space
+        imgpoints = [] # 2D points in image plane
+
+        print("Starting camera calibration...")
+        print("Press 'c' to capture calibration image, 'q' to quit")
+
+        images_captured = 0
+        while images_captured < num_images:
+            frame = self.read_frame()
+            if frame is None:
+                continue
+
+            gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+            ret, corners = cv2.findChessboardCorners(gray, pattern_size, None)
+
+            # Draw and display the corners
+            if ret:
+                cv2.drawChessboardCorners(frame, pattern_size, corners, ret)
+                cv2.putText(frame, f"Found pattern! Press 'c' to capture ({images_captured}/{num_images})", 
+                           (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 0), 2)
+            else:
+                cv2.putText(frame, "No pattern found", (10, 30), 
+                           cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 255), 2)
+
+            cv2.imshow('Calibration', frame)
+            key = cv2.waitKey(1) & 0xFF
+
+            if key == ord('c') and ret:
+                objpoints.append(objp)
+                imgpoints.append(corners)
+                images_captured += 1
+                print(f"Captured image {images_captured}/{num_images}")
+            elif key == ord('q'):
+                break
+
+        cv2.destroyAllWindows()
+
+        if len(objpoints) < 3:
+            print("Not enough calibration images captured")
+            return False
+
+        print("Calculating camera matrix and distortion coefficients...")
+        # Convert to numpy arrays and ensure correct types
+        objpoints = [np.array(points, dtype=np.float32) for points in objpoints]
+        imgpoints = [np.array(points, dtype=np.float32) for points in imgpoints]
+        image_size = tuple(gray.shape[::-1])
+        
+        # Initialize camera matrix and distortion coefficients
+        camera_matrix = np.zeros((3, 3), dtype=np.float32)
+        dist_coeffs = np.zeros((5, 1), dtype=np.float32)
+        
+        ret, mtx, dist, rvecs, tvecs = cv2.calibrateCamera(
+            objpoints, imgpoints, image_size, camera_matrix, dist_coeffs
+        )
+
+        if ret:
+            print("Calibration successful!")
+            # Save calibration data
+            if self.save_calibration_data(mtx, dist):
+                self.camera_matrix = mtx
+                self.distortion_coefficients = dist
+                return True
+        else:
+            print("Calibration failed")
+            return False
+
+    def undistort_frame(self, frame):
+        """Undistort frame using calibration data"""
+        if self.camera_matrix is None or self.distortion_coefficients is None:
+            return frame
+        return cv2.undistort(frame, self.camera_matrix, self.distortion_coefficients)
 
     #tegner detection bokse
 def draw_detection_box(frame, position, label, color):
