@@ -95,10 +95,12 @@ def main():
             
             # RUTE-BASERET NAVIGATION: Følg fast rute i stedet for "nærmeste bold"
             elif robot_head and robot_tail and balls:
-                # Beregn robot centrum for rute planlægning
+                # Beregn robot centrum for rute planlægning, robot centrum er biased lidt, 
+                # ved at give en lidt større vægtning på fronten robotten da den er tættere på target
+                
                 robot_center = (
-                    (robot_head["pos"][0] + robot_tail["pos"][0]) // 2,
-                    (robot_head["pos"][1] + robot_tail["pos"][1]) // 2
+                    int(0.6 * robot_head["pos"][0] + 0.4 * robot_tail["pos"][0]),
+                    int(0.6 * robot_head["pos"][1] + 0.4 * robot_tail["pos"][1])
                 )
                 
                 # Opret rute første gang vi ser bolde (med kollisionsundgåelse)
