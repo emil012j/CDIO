@@ -24,9 +24,17 @@ class CameraManager:
     def load_calibration_data(self):
         """Load camera calibration data from text files"""
         try:
-            self.camera_matrix = np.loadtxt('src/camera/camera_matrix.txt')
-            self.distortion_coefficients = np.loadtxt('src/camera/distortion_coefficients.txt')
-            print("Successfully loaded calibration data from text files")
+            # Load camera matrix and reshape to 3x3
+            self.camera_matrix = np.loadtxt('src/camera/camera_matrix.txt').reshape(3, 3)
+            # Load distortion coefficients and reshape to 5x1
+            self.distortion_coefficients = np.loadtxt('src/camera/distortion_coefficients.txt').reshape(5, 1)
+            
+            print("Successfully loaded calibration data:")
+            print("Camera Matrix shape:", self.camera_matrix.shape)
+            print("Distortion Coefficients shape:", self.distortion_coefficients.shape)
+            print("Camera Matrix:\n", self.camera_matrix)
+            print("Distortion Coefficients:\n", self.distortion_coefficients)
+            
         except Exception as e:
             print(f"Could not load calibration data: {e}")
             self.camera_matrix = None
@@ -198,7 +206,26 @@ class CameraManager:
         """Undistort frame using calibration data"""
         if self.camera_matrix is None or self.distortion_coefficients is None:
             return frame
-        return cv2.undistort(frame, self.camera_matrix, self.distortion_coefficients)
+            
+        try:
+            # Get optimal camera matrix
+            h, w = frame.shape[:2]
+            newcameramtx, roi = cv2.getOptimalNewCameraMatrix(
+                self.camera_matrix, self.distortion_coefficients, (w,h), 1, (w,h)
+            )
+            
+            # Undistort
+            dst = cv2.undistort(frame, self.camera_matrix, self.distortion_coefficients, None, newcameramtx)
+            
+            # Crop the image
+            x, y, w, h = roi
+            if all(v > 0 for v in [x, y, w, h]):
+                dst = dst[y:y+h, x:x+w]
+                
+            return dst
+        except Exception as e:
+            print(f"Error during undistortion: {e}")
+            return frame
 
     #tegner detection bokse
 def draw_detection_box(frame, position, label, color):
