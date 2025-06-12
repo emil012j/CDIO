@@ -139,6 +139,13 @@ class RouteManager:
     def should_skip_current_target(self):
         """Tjek om vi skal give op på nuværende target"""
         return self.collection_attempts >= self.max_attempts
+    
+    def override_route_with_goal(self, goal_position):
+        """Glem rute for at aflevere bolde efter 2 er samlet op """
+        if goal_position:
+            self.current_route = [goal_position]
+            self.route_created = True
+            self.route_index = 0
         
     def is_route_complete(self):
         """Tjek om ruten er færdig"""

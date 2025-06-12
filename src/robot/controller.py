@@ -167,6 +167,22 @@ class RobotController:
         
         print("Simple forward complete")
     
+    def reverse_harvester(self, speed=50, duration_sec=2):
+        """
+        Run the harvester motor in reverse to unload or reset.
+        speed: positive speed value to reverse motor (default 50)
+        duration_sec: time to run the motor in seconds (default 2 seconds)
+        """
+        try:
+            print(f"Reversing harvester at speed {speed} for {duration_sec} seconds")
+            self.collect_motor.on(speed)
+            sleep(duration_sec)
+            self.collect_motor.off()
+            print("Harvester reverse complete")
+            return True
+        except Exception as e:
+            print(f"Failed to reverse harvester: {e}")
+            return False
 
 
     def simple_backward(self, distance_cm):

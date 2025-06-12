@@ -38,6 +38,9 @@ def main():
     last_print_time = time.time()
     frame_count = 0
     last_gc_time = time.time()
+    previous_ball_count = 0
+    ball_delivery_threshold = 2
+    delivering_to_goal = False
     
     try:
         while True:
@@ -58,6 +61,25 @@ def main():
             display_frame = frame.copy()
             robot_head, robot_tail, balls, walls, log_info_list = process_detections_and_draw(results, model, display_frame, scale_factor)
             
+            # Tjek efter om der er samlet 2 bolde, så den skal aflevere
+            if robot_head and robot_tail:
+                current_ball_count = len(balls)
+            else:
+                current_ball_count = previous_ball_count
+
+            if not delivering_to_goal:
+                if previous_ball_count - current_ball_count >= ball_delivery_threshold:
+                    goal_pos = get_cross_position(results, model)
+                    if goal_pos:
+                        print(" 2 balls collected — overriding route with goal position:", goal_pos)
+                        route_manager.override_route_with_goal(goal_pos)
+                        delivering_to_goal = True
+                        previous_ball_count = current_ball_count  # Reset
+            elif current_ball_count > previous_ball_count:
+                # Reset after delivery if new balls appear (optional)
+                delivering_to_goal = False
+
+            previous_ball_count = current_ball_count
             # Simple vision-baseret navigation
             navigation_info = None
             
@@ -88,14 +110,19 @@ def main():
                 # Juster target for bolde tæt på vægge (vinkelret tilgang)
                 if target_ball:
                     target_ball = route_manager.get_wall_approach_point(target_ball, walls, scale_factor)
+                    navigation_info = calculate_navigation_command(robot_head, robot_tail, target_ball, scale_factor)
+                else:
+                    navigation_info = None
                 
                 if target_ball is None:
-                    # Ingen flere mål - mission complete
-                    print("🎉 *** ROUTE COMPLETE - ALL TARGETS VISITED ***")
-                    if commander.can_send_command():
-                        commander.send_stop_command()
-                else:
-                    navigation_info = calculate_navigation_command(robot_head, robot_tail, target_ball, scale_factor)
+                    if delivering_to_goal:
+                        print("Delivered to goal — resuming ball collection...")
+                        delivering_to_goal = False
+                        route_manager.reset_route()
+                    else:
+                        print(" *** ROUTE COMPLETE - ALL TARGETS VISITED ***")
+                        if commander.can_send_command():
+                            commander.send_stop_command()
                 
                 # Ny modulær navigation
                 handle_robot_navigation(navigation_info, commander, route_manager)
