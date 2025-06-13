@@ -3,6 +3,7 @@
 Robot controller der håndterer motorer og grundlæggende operationer (ingen sensorer)
 """
 
+import time
 from ev3dev2.motor import LargeMotor, MoveTank, MediumMotor
 from ev3dev2.button import Button
 from time import sleep
@@ -218,6 +219,13 @@ class RobotController:
         self.turn_180_degrees()
         
         print("*** BLIND BALL COLLECTION COMPLETE ***")
+
+    
+    def release_ball(self):
+        motor = MediumMotor('outC')  # Update port if needed
+        motor.on_for_rotations(speed=20, rotations=0.5)  # Open
+        time.sleep(1)
+        motor.on_for_rotations(speed=-20, rotations=0.5)  # Close
 
     def cleanup(self):
         """Afslutter robotten og stopper alle motorer"""

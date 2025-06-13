@@ -92,6 +92,8 @@ def get_cross_position(results, model):
     except Exception:
         return None
     
+
+    
 #beregner vinklen på objektet
 def calculate_orientation(obb_results, index, label):
     try:
@@ -305,3 +307,22 @@ def process_detections_and_draw(results, model, frame, scale_factor=None):
 def process_detections(results, model):
     robot_head, robot_tail, balls, walls, _ = process_detections_and_draw(results, model, np.zeros((480, 640, 3), dtype=np.uint8))
     return robot_head, robot_tail, balls, 0 
+
+def detect_goal(frame):
+    """
+    Detects a red-colored goal object in the frame.
+    Returns the pixel center (cx, cy) or None if not found.
+    """
+    hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
+    lower_red = (0, 120, 70)
+    upper_red = (10, 255, 255)
+    mask = cv2.inRange(hsv, lower_red, upper_red)
+
+    contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    if contours:
+        largest = max(contours, key=cv2.contourArea)
+        x, y, w, h = cv2.boundingRect(largest)
+        cx = x + w // 2
+        cy = y + h // 2
+        return (cx, cy)
+    return None

@@ -151,3 +151,7 @@ class RouteManager:
         self.route_created = False
         self.collection_attempts = 0
         print("🔄 ROUTE RESET") 
+    
+    def append_goal(self, goal_coords):
+        self.route.append(goal_coords)
+        self.route_created = True

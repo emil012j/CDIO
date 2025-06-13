@@ -41,6 +41,7 @@ PRINT_INTERVAL = 3      # Hurtigere status updates
 TURN_THRESHOLD = 10     # mindste antal grader for at dreje.
 DISTANCE_THRESHOLD = 30 # cm - stop 30 cm fra bolden for præcis korrektion
 MAX_FORWARD_DISTANCE = 30 # maks længde for fremadkørsel
+DROP_OFF_POINT = (170, 222)
 
 # Ball pickup sekvens - hardcoded afstande
 PICKUP_FORWARD_DISTANCE = 35  # cm - afstand at køre frem for at samle bold

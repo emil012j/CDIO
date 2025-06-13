@@ -3,6 +3,8 @@
 tidbaseret drejning/fremad, udfører kommandoer den får fra camera
 """
 
+
+import time
 from time import sleep
 from ..config.settings import *
 

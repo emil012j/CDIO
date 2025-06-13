@@ -18,6 +18,20 @@ def calculate_angle_from_positions(from_pos, to_pos):
     angle_deg = math.degrees(angle_rad)
     return angle_deg
 
+def pixel_to_world_coordinates(pixel_coords):
+    # EXAMPLE: apply scaling, offset, and coordinate transformation
+    # You need to replace this with your actual transformation logic!
+    x_pixel, y_pixel = pixel_coords
+    SCALE = 0.5  # cm per pixel, for example
+    OFFSET_X = 0
+    OFFSET_Y = 0
+    return (x_pixel * SCALE + OFFSET_X, y_pixel * SCALE + OFFSET_Y)
+
+def get_goal_world_coordinates(pixel_coords):
+    if pixel_coords is None:
+        return None
+    return pixel_to_world_coordinates(pixel_coords)
+
 #beregner robot heading (retning fra tail til head) ved at bruge vinklen mellem to punkter, feks. 0 grader er retningen til højre, 90 grader er retningen opad.
 def calculate_robot_heading(robot_head, robot_tail):
     if not robot_head or not robot_tail:
@@ -72,6 +86,7 @@ def calculate_navigation_command(robot_head, robot_tail, target_ball, scale_fact
         "angle_diff": angle_diff,
         "distance_cm": distance_cm
     }
+
 
 #laver turn kommandoer baseret på vinkel forskel
 def create_turn_command(angle_diff):

@@ -4,6 +4,7 @@ Navigation logik for robotten - håndterer turning og forward kommandoer
 """
 
 import time
+from route_manager import *
 
 def handle_robot_navigation(navigation_info, commander, route_manager):
     """Hovednavigations logik - håndterer drejning og fremadkørsel"""
@@ -32,6 +33,12 @@ def handle_robot_navigation(navigation_info, commander, route_manager):
     # FORWARD PHASE: Forsigtig fremadkørsel når i hitting zone
     elif distance_cm > 22:  # Stop når vi er 22 cm væk for blind collection
         return handle_forward_movement(distance_cm, angle_diff, commander)
+    
+    elif route_manager.is_route_complete():
+        if distance_cm <= 20 and in_hitting_zone:
+            print("🎯 Goal reached — releasing ball!")
+            commander.send_command("release_ball")
+            return route_manager.advance_to_next_target()
     
     # BLIND BALL COLLECTION: I hitting zone OG ≤22 cm væk - start blind collection
     else:

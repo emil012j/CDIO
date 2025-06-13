@@ -121,3 +121,10 @@ class VisionCommander:
             "command": "blind_ball_collection"
         }
         return self.send_command(command) 
+    
+    def send_release_ball_command(self):
+        """Send a release ball command to the robot"""
+        command = {
+            "command": "release_ball"
+        }
+        return self.send_command(command)
