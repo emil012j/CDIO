@@ -7,6 +7,11 @@ from ev3dev2.motor import LargeMotor, MoveTank, MediumMotor
 from ev3dev2.button import Button
 from time import sleep
 from ..config.settings import *
+import math
+import numpy as np
+from numpy import linalg as LA
+
+
 
 class RobotController:
     
@@ -153,3 +158,65 @@ class RobotController:
             print("Release mechanism started - motor running at speed 30")
         except Exception as e:
             print("Failed to start release mechanism:", e)
+
+    def compute_staging_point_from_direction(self, goal, tail, head, distance_cm=30):
+        """
+        Compute a staging point behind the goal along the robot's current direction
+        """
+        import numpy as np
+
+        goal = np.array(goal)
+        tail = np.array(tail)
+        head = np.array(head)
+
+        # Vector from tail to head (robot's direction)
+        direction = head - tail
+        direction = direction / np.linalg.norm(direction)
+
+        # Approach direction is reversed (we want to approach from the front)
+        approach_vector = -direction
+
+        # Staging point is some distance behind the goal in the direction of approach
+        staging_point = goal + approach_vector * distance_cm
+        return tuple(staging_point)
+
+    def approach_and_deliver_to_goal_with_pose(self, tail, head, goal):
+        """
+        Move to a point in front of the goal, align with it, and drive straight in.
+        """
+        from numpy import linalg as LA
+
+        # Step 1: Compute staging point
+        staging_point = self.compute_staging_point_from_direction(goal, tail, head)
+
+        # Step 2: Move to staging point
+        robot_pos = tail  # Assume tail is ground-contact point
+        dx = staging_point[0] - robot_pos[0]
+        dy = staging_point[1] - robot_pos[1]
+        distance = math.sqrt(dx**2 + dy**2)
+
+        angle_to_staging = math.degrees(math.atan2(dy, dx))
+        robot_dir = np.array(head) - np.array(tail)
+        robot_angle = math.degrees(math.atan2(robot_dir[1], robot_dir[0]))
+
+        angle_diff = self.normalize_angle(angle_to_staging - robot_angle)
+        direction = "right" if angle_diff > 0 else "left"
+        self.simple_turn(direction, abs(angle_diff))
+        self.simple_forward(distance)
+
+        # Step 3: Align with goal
+        dx_goal = goal[0] - staging_point[0]
+        dy_goal = goal[1] - staging_point[1]
+        goal_angle = math.degrees(math.atan2(dy_goal, dx_goal))
+
+        new_robot_pos = staging_point
+        new_robot_dir = np.array(goal) - np.array(staging_point)
+        new_robot_angle = math.degrees(math.atan2(new_robot_dir[1], new_robot_dir[0]))
+
+        final_angle_diff = self.normalize_angle(goal_angle - new_robot_angle)
+        final_direction = "right" if final_angle_diff > 0 else "left"
+        self.simple_turn(final_direction, abs(final_angle_diff))
+
+        # Step 4: Move straight in and deliver
+        self.simple_forward(20)
+        self.release_balls()

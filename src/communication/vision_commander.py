@@ -85,3 +85,21 @@ class VisionCommander:
             "command": "release_balls"
         }
         return self.send_command(command) 
+    
+    def send_goal_delivery_command(self, tail, head, goal):
+        """
+        Send a special goal delivery command with tail, head, and goal coordinates (all in pixels).
+        """
+        command = {
+            "command": "goal_delivery",
+            "goal_delivery": True,
+            "coordinates": {
+                "target_x": goal[0],
+                "target_y": goal[1],
+                "current_x": tail[0],
+                "current_y": tail[1]
+            },
+            "head": head,
+            "tail": tail
+        }
+        return self.send_command(command)

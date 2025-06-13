@@ -4,7 +4,10 @@ tidbaseret drejning/fremad, udfører kommandoer den får fra camera
 """
 
 from time import sleep
+import math
 from ..config.settings import *
+from ..robot.controller import *
+
 
 # Simple movement metoder er nu i robot controller
 
@@ -51,6 +54,7 @@ def execute_coordinate_command(robot_controller, command):
     try:
         if 'coordinates' in command:
             coords = command['coordinates']
+            goal_mode = command.get('goal_delivery', False)
             print("\nReceived coordinates: {}".format(coords))
             
             # Koordinater kommer i mm, konverter til cm for beregning
@@ -58,12 +62,19 @@ def execute_coordinate_command(robot_controller, command):
             target_y = coords['target_y'] / 10.0  
             current_x = coords['current_x'] / 10.0
             current_y = coords['current_y'] / 10.0
+
+            if goal_mode and 'head' in command and 'tail' in command:
+                head = tuple(coord / 10.0 for coord in command['head'])  # Convert mm to cm
+                tail = tuple(coord / 10.0 for coord in command['tail'])  # Convert mm to cm
+                goal = (target_x, target_y)
+                robot_controller.approach_and_deliver_to_goal_with_pose(tail, head, goal)
+                return
             
             dx = target_x - current_x
             dy = target_y - current_y
             
             # Beregn target vinkel og normaliser den
-            import math
+            
             target_angle = math.degrees(math.atan2(dy, dx))
             target_angle = robot_controller.normalize_angle(target_angle)
             

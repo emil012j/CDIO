@@ -150,42 +150,21 @@ def main():
                 
                 elif current_state == DELIVERING:
                     # Goal navigation using existing coordinate calculation system
+                   
                     goal_position = goal_utils.get_goal_position()
-                    if goal_position:
-                        # Use same navigation system as ball collection, but with goal as target
-                        navigation_info = calculate_navigation_command(
-                            robot_head, robot_tail, goal_position, scale_factor
-                        )
-                        
-                        # Same navigation logic as ball collection
-                        if navigation_info and commander.can_send_command():
-                            angle_diff = navigation_info["angle_diff"]
-                            distance_cm = navigation_info["distance_cm"]
-                            
-                            print("DELIVERING: Angle diff={:.1f}°, Distance={:.1f}cm to GOAL".format(angle_diff, distance_cm))
-                            
-                            # TURN PHASE: Same as ball collection
-                            if abs(angle_diff) > 10:
-                                direction = "right" if angle_diff > 0 else "left"
-                                turn_amount = abs(angle_diff)
-                                duration = turn_amount / ESTIMATED_TURN_RATE
-                                print("GOAL TURNING {} for {:.2f} seconds ({:.1f} degrees)".format(direction, duration, turn_amount))
-                                commander.send_turn_command(direction, duration)
-                            
-                            # FORWARD PHASE: Approach goal (different threshold than balls)
-                            elif distance_cm > 8:  # Stay further from goal than balls (8cm vs 3cm)
-                                move_distance = min(distance_cm, 15)  # Smaller steps near goal
-                                print("GOAL APPROACH: Moving forward {:.1f} cm".format(move_distance))
-                                commander.send_forward_command(move_distance)
-                            
-                            # AT GOAL: Switch to releasing state
-                            else:
-                                print("*** REACHED GOAL - READY TO RELEASE ***")
-                                current_state = RELEASING
+                    if goal_position and commander.can_send_command():
+                        print("*** INITIATING GOAL DELIVERY COMMAND ***")
+
+                        tail_px = robot_tail["pos"]
+                        head_px = robot_head["pos"]
+                        goal_px = goal_position  # Already in pixel coordinates
+
+                        # Send full delivery command via VisionCommander
+                        commander.send_goal_delivery_command(tail=tail_px, head=head_px, goal=goal_px)
+
+                        current_state = RELEASING  # Can also delay this if needed
                     else:
                         print("ERROR: No goal position set - cannot navigate to goal!")
-                        print("Press 'c' to calibrate goal position")
-                        # Could add timeout here to prevent spam
                     
                 elif current_state == RELEASING:
                     # Simple ball release using existing robot mechanism
