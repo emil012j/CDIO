@@ -95,10 +95,10 @@ class CameraManager:
         """Destructor to ensure camera is released"""
         self.release()
 
-    def undistort_frame(self, frame):
+    def undistort_frame(self, frame): # Denne funktion var den som printede det lort med "WARNING: Camera calibration data not found"
         """Undistort frame using calibration data"""
         if self.camera_matrix is None or self.distortion_coefficients is None:
-            print("WARNING: No calibration data available, returning original frame")
+            
             return frame
             
         try:
@@ -150,7 +150,7 @@ def calibrate_goal(self):
             return False
         # Note: start_calibration doesn't return a value, it handles its own UI loop
         self.goal_calibrator.start_calibration(self.cap)
-        
+
 #tegner navigation information som feks. vinklen mellem robot og bold, og afstanden til bold
 def draw_navigation_info(frame, robot_center, target_ball, robot_heading, target_heading, navigation_info=None):
     try:
