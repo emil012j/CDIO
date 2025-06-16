@@ -10,6 +10,7 @@ class RouteManager:
         self.route = []  # Liste af (x, y) koordinater
         self.current_target_index = 0
         self.route_created = False
+        self.collected_balls_count = 0
         self.collection_attempts = 0  # Tæl forsøg på nuværende target
         self.max_attempts = 3  # Max forsøg før vi giver op på en bold
         
@@ -125,6 +126,7 @@ class RouteManager:
     def advance_to_next_target(self):
         """Gå til næste punkt i ruten"""
         self.current_target_index += 1
+        self.collected_balls_count += 1
         self.collection_attempts = 0  # Reset attempts for new target
         print("🎯 ADVANCING TO NEXT TARGET: {}/{}".format(
             self.current_target_index + 1, len(self.route)))

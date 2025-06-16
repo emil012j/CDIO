@@ -19,6 +19,8 @@ MODEL_PATH = "my_model3.pt"
 CROSS_DIAMETER_MM = 200.0
 EGG_SIZE_THRESHOLD_MM = 58.0
 CROSS_AVOID_RADIUS = 100  # Tune as needed. Bliver brugt til at undgå at robotten kører ind i krydset.
+GOAL_LEFT = (0, 300) # Venstre mål position i pixels
+GOAL_RIGHT = (1279, 300) # Højre mål position i pixels
 
 # Farver til visualization
 CLASS_COLORS = {
