@@ -7,41 +7,60 @@ import math
 from ..config.settings import *
 
 # Camera and object heights in cm
-CAMERA_HEIGHT = 162.0  # Camera mounted at 162cm height
-ROBOT_HEIGHT = 20.0   # Robot is 20cm tall
-BALL_HEIGHT = 4.0    # Balls are 4cm tall
+CAMERA_HEIGHT = 162.0  # Camera mounted at 162cm height above ground
+ROBOT_HEIGHT = 20.0    # Robot markers are 20cm tall
+BALL_HEIGHT = 4.0      # Balls are 4cm tall
+GROUND_LEVEL = 0.0     # Reference level (ground)
 
-def correct_for_height_difference(pos1, pos2, height1, height2, camera_height):
+# Camera parameters (these should be calibrated, but reasonable estimates)
+IMAGE_WIDTH = 640     # Typical camera resolution
+IMAGE_HEIGHT = 480
+CAMERA_CENTER_X = IMAGE_WIDTH // 2   # Optical center X
+CAMERA_CENTER_Y = IMAGE_HEIGHT // 2  # Optical center Y
+
+def correct_position_to_ground_level(pos, object_height, camera_height):
     """
-    Correct for height difference between two objects in camera view
-    pos1, pos2: (x,y) pixel coordinates
-    height1, height2: heights of objects in cm
+    Correct object position from its actual height to ground level
+    pos: (x,y) pixel coordinates of object at its height
+    object_height: height of object in cm
     camera_height: height of camera in cm
-    Returns: (x,y) corrected coordinates for pos2
+    Returns: (x,y) corrected coordinates as if object was at ground level
     """
-    # Calculate distance from camera to each point in pixels
-    dx = pos2[0] - pos1[0]
-    dy = pos2[1] - pos1[1]
-    pixel_distance = math.sqrt(dx*dx + dy*dy)
+    # Calculate distances from camera center (optical center)
+    dx_from_center = pos[0] - CAMERA_CENTER_X
+    dy_from_center = pos[1] - CAMERA_CENTER_Y
     
-    if pixel_distance < 1:  # Too close to calculate
-        return pos2
+    # Distance from camera center in pixels
+    radial_distance = math.sqrt(dx_from_center**2 + dy_from_center**2)
+    
+    if radial_distance < 1:  # At camera center, no correction needed
+        return pos
+    
+    # Height difference from ground level
+    height_diff = object_height - GROUND_LEVEL  # e.g., robot(20) - ground(0) = 20cm
+    
+    # The perspective correction is proportional to:
+    # 1. Distance from camera center (more distortion at edges)
+    # 2. Height above ground
+    # 3. Inverse of camera height (closer camera = more distortion)
+    
+    # Correction factor: how much the height affects position
+    # Objects higher than ground appear closer to camera center
+    correction_magnitude = (height_diff / camera_height) * (radial_distance / 200.0)
+    
+    # Apply correction away from camera center
+    # (higher objects appear closer to center, so correct outward to get ground position)
+    if radial_distance > 0:
+        correction_x = (dx_from_center / radial_distance) * correction_magnitude
+        correction_y = (dy_from_center / radial_distance) * correction_magnitude
         
-    # Calculate height difference ratio
-    height_diff = height2 - height1
-    height_ratio = height_diff / camera_height
+        # Apply correction - move AWAY from center to get ground position
+        corrected_x = pos[0] + correction_x
+        corrected_y = pos[1] + correction_y
+        
+        return (int(corrected_x), int(corrected_y))
     
-    # Calculate correction vector
-    # The correction is proportional to distance and height difference
-    correction_factor = pixel_distance * height_ratio
-    correction_x = dx * correction_factor
-    correction_y = dy * correction_factor
-    
-    # Apply correction
-    corrected_x = pos2[0] - correction_x
-    corrected_y = pos2[1] - correction_y
-    
-    return (int(corrected_x), int(corrected_y))
+    return pos
 
 #beregner afstand mellem to punkter
 def calculate_distance(pos1, pos2):
@@ -82,33 +101,36 @@ def calculate_navigation_command(robot_head, robot_tail, target_ball, scale_fact
     if not robot_head or not robot_tail or not target_ball:
         return None
     
-    # Calculate robot center
+    # Correct ALL positions to ground level for consistent calculation
+    corrected_head = correct_position_to_ground_level(
+        robot_head["pos"], ROBOT_HEIGHT, CAMERA_HEIGHT
+    )
+    corrected_tail = correct_position_to_ground_level(
+        robot_tail["pos"], ROBOT_HEIGHT, CAMERA_HEIGHT  
+    )
+    corrected_ball = correct_position_to_ground_level(
+        target_ball, BALL_HEIGHT, CAMERA_HEIGHT
+    )
+    
+    # Calculate robot center using corrected positions
     robot_center = (
-        (robot_head["pos"][0] + robot_tail["pos"][0]) // 2,
-        (robot_head["pos"][1] + robot_tail["pos"][1]) // 2
+        (corrected_head[0] + corrected_tail[0]) // 2,
+        (corrected_head[1] + corrected_tail[1]) // 2
     )
     
-    # Correct target position for height difference
-    corrected_target = correct_for_height_difference(
-        robot_center, 
-        target_ball,
-        ROBOT_HEIGHT,
-        BALL_HEIGHT,
-        CAMERA_HEIGHT
-    )
-    
-    robot_heading = calculate_robot_heading(robot_head, robot_tail)
+    # Calculate robot heading using corrected head/tail positions
+    robot_heading = calculate_angle_from_positions(corrected_tail, corrected_head)
     if robot_heading is None:
         return None
     
-    # Calculate target heading using corrected position
-    target_heading = calculate_angle_from_positions(robot_center, corrected_target)
+    # Calculate target heading using corrected positions
+    target_heading = calculate_angle_from_positions(robot_center, corrected_ball)
     
     # Calculate angle difference
     angle_diff = calculate_angle_difference(robot_heading, target_heading)
     
-    # Calculate distance using corrected position
-    distance_pixels = calculate_distance(robot_center, corrected_target)
+    # Calculate distance using corrected positions
+    distance_pixels = calculate_distance(robot_center, corrected_ball)
     distance_cm = (distance_pixels * scale_factor) / 10.0 if scale_factor else distance_pixels / 10.0
     
     return {
@@ -118,7 +140,9 @@ def calculate_navigation_command(robot_head, robot_tail, target_ball, scale_fact
         "angle_diff": angle_diff,
         "distance_cm": distance_cm,
         "original_target": target_ball,  # Keep original for visualization
-        "corrected_target": corrected_target  # Add corrected for debugging
+        "corrected_target": corrected_ball,  # Add corrected for debugging
+        "corrected_head": corrected_head,    # For debugging
+        "corrected_tail": corrected_tail     # For debugging
     }
 
 #laver turn kommandoer baseret på vinkel forskel
