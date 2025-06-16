@@ -183,6 +183,19 @@ def main():
                 ))
                 last_print_time = current_time
 
+            key = cv2.waitKey(1) & 0xFF
+            if key == ord('q'):  # 'q' to quit
+                break
+            elif key == ord('c'):  # 'c' to calibrate goal
+                print("*** STARTING GOAL CALIBRATION ***")
+                calibrator.start_calibration(frame)
+                # Reload goal position after calibration
+                goal_utils.load_goal()  # Refresh from file
+                goal_position = goal_utils.get_goal_position()
+                if goal_position:
+                    print("Goal calibration complete: {}".format(goal_position))
+                else:
+                    print("Goal calibration was cancelled or failed")
     except KeyboardInterrupt:
         print("camera released")
     finally:
