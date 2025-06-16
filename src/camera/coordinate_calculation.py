@@ -7,9 +7,9 @@ import math
 from ..config.settings import *
 
 # Camera and object heights in cm
-CAMERA_HEIGHT = 162.0  # Camera mounted at 162cm height above ground
-ROBOT_HEIGHT = 20.0    # Robot markers are 20cm tall
-BALL_HEIGHT = 4.0      # Balls are 4cm tall
+CAMERA_HEIGHT = 1620.0  # Camera mounted at 162cm height above ground
+ROBOT_HEIGHT = 200.0    # Robot markers are 20cm tall
+BALL_HEIGHT = 40.0      # Balls are 4cm tall
 GROUND_LEVEL = 0.0     # Reference level (ground)
 
 # Camera parameters (these should be calibrated, but reasonable estimates)
