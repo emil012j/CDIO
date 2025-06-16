@@ -6,6 +6,43 @@ Beregner robot heading, target heading, vinkel forskel, afstand til mål, laver 
 import math
 from ..config.settings import *
 
+# Camera and object heights in cm
+CAMERA_HEIGHT = 162.0  # Camera mounted at 162cm height
+ROBOT_HEIGHT = 20.0   # Robot is 20cm tall
+BALL_HEIGHT = 4.0    # Balls are 4cm tall
+
+def correct_for_height_difference(pos1, pos2, height1, height2, camera_height):
+    """
+    Correct for height difference between two objects in camera view
+    pos1, pos2: (x,y) pixel coordinates
+    height1, height2: heights of objects in cm
+    camera_height: height of camera in cm
+    Returns: (x,y) corrected coordinates for pos2
+    """
+    # Calculate distance from camera to each point in pixels
+    dx = pos2[0] - pos1[0]
+    dy = pos2[1] - pos1[1]
+    pixel_distance = math.sqrt(dx*dx + dy*dy)
+    
+    if pixel_distance < 1:  # Too close to calculate
+        return pos2
+        
+    # Calculate height difference ratio
+    height_diff = height2 - height1
+    height_ratio = height_diff / camera_height
+    
+    # Calculate correction vector
+    # The correction is proportional to distance and height difference
+    correction_factor = pixel_distance * height_ratio
+    correction_x = dx * correction_factor
+    correction_y = dy * correction_factor
+    
+    # Apply correction
+    corrected_x = pos2[0] - correction_x
+    corrected_y = pos2[1] - correction_y
+    
+    return (int(corrected_x), int(corrected_y))
+
 #beregner afstand mellem to punkter
 def calculate_distance(pos1, pos2):
     return math.sqrt((pos1[0] - pos2[0])**2 + (pos1[1] - pos2[1])**2)
@@ -45,24 +82,33 @@ def calculate_navigation_command(robot_head, robot_tail, target_ball, scale_fact
     if not robot_head or not robot_tail or not target_ball:
         return None
     
-    #beregner robotens midtpunkt og heading
+    # Calculate robot center
     robot_center = (
         (robot_head["pos"][0] + robot_tail["pos"][0]) // 2,
         (robot_head["pos"][1] + robot_tail["pos"][1]) // 2
+    )
+    
+    # Correct target position for height difference
+    corrected_target = correct_for_height_difference(
+        robot_center, 
+        target_ball,
+        ROBOT_HEIGHT,
+        BALL_HEIGHT,
+        CAMERA_HEIGHT
     )
     
     robot_heading = calculate_robot_heading(robot_head, robot_tail)
     if robot_heading is None:
         return None
     
-    # Beregner target heading (retning robot til bold)
-    target_heading = calculate_angle_from_positions(robot_center, target_ball)
+    # Calculate target heading using corrected position
+    target_heading = calculate_angle_from_positions(robot_center, corrected_target)
     
-    # Beregner vinkel forskel (hvor meget skal robotten dreje?)
+    # Calculate angle difference
     angle_diff = calculate_angle_difference(robot_heading, target_heading)
     
-    # Beregner afstand til mål
-    distance_pixels = calculate_distance(robot_center, target_ball)
+    # Calculate distance using corrected position
+    distance_pixels = calculate_distance(robot_center, corrected_target)
     distance_cm = (distance_pixels * scale_factor) / 10.0 if scale_factor else distance_pixels / 10.0
     
     return {
@@ -70,7 +116,9 @@ def calculate_navigation_command(robot_head, robot_tail, target_ball, scale_fact
         "robot_heading": robot_heading,
         "target_heading": target_heading,
         "angle_diff": angle_diff,
-        "distance_cm": distance_cm
+        "distance_cm": distance_cm,
+        "original_target": target_ball,  # Keep original for visualization
+        "corrected_target": corrected_target  # Add corrected for debugging
     }
 
 #laver turn kommandoer baseret på vinkel forskel

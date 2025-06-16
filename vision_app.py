@@ -68,7 +68,7 @@ def main():
                     route_manager.reset_route()
                     
                 if commander.can_send_command():
-                    print("*** MISSION COMPLETE - NO BALLS VISIBLE - STOPPING ROBOT ***")
+                    print("* MISSION COMPLETE - NO BALLS VISIBLE - STOPPING ROBOT *")
                     commander.send_stop_command()
             
             # RUTE-BASERET NAVIGATION: Følg fast rute i stedet for "nærmeste bold"
@@ -80,7 +80,7 @@ def main():
                 )
                 
                 # Opret rute første gang vi ser bolde (med kollisionsundgåelse)
-                route_manager.create_route_from_balls(balls, robot_center, walls, cross_pos)
+                route_manager.create_route_from_balls(balls, robot_center, walls, [cross_pos] if cross_pos else [])
                 
                 # Få nuværende mål fra ruten
                 target_ball = route_manager.get_current_target()
@@ -91,9 +91,8 @@ def main():
                 
                 if target_ball is None:
                     # Ingen flere mål - mission complete
-                    print("🎉 *** ROUTE COMPLETE - ALL TARGETS VISITED ***")
-                    if commander.can_send_command():
-                        commander.send_stop_command()
+                    print("* ROUTE COMPLETE - ALL TARGETS VISITED *")
+                    break
                 else:
                     navigation_info = calculate_navigation_command(robot_head, robot_tail, target_ball, scale_factor)
                 
@@ -105,12 +104,16 @@ def main():
             draw_robot_heading(display_frame, robot_head, robot_tail)
             
             if navigation_info:
+                # Use the target ball from navigation info
+                target_pos = navigation_info.get('original_target')  # Use original target for visualization
+                
                 draw_navigation_info(
                     display_frame,
                     navigation_info["robot_center"],
-                    balls[0] if balls else None,
+                    target_pos,
                     navigation_info["robot_heading"],
-                    navigation_info["target_heading"]
+                    navigation_info["target_heading"],
+                    navigation_info  # Pass full navigation info for height correction visualization
                 )
             
             # Tilføj confidence threshold tekst
@@ -139,16 +142,16 @@ def main():
                 
                 # Debug information og robot status
                 if not robot_head and not robot_tail:
-                    print("*** KAN IKKE SE ROBOTTEN ***")
+                    print("* KAN IKKE SE ROBOTTEN *")
                 elif not robot_head:
-                    print("*** MANGLER ROBOT-HEAD ***")
+                    print("* MANGLER ROBOT-HEAD *")
                 elif not robot_tail:
-                    print("*** MANGLER ROBOT-TAIL ***")
+                    print("* MANGLER ROBOT-TAIL *")
                 
                 if not balls:
-                    print("*** INGEN BOLDE FUNDET - MISSION COMPLETE? ***")
+                    print("* INGEN BOLDE FUNDET - MISSION COMPLETE? *")
                 else:
-                    print("*** {} BOLDE SYNLIGE ***".format(len(balls)))
+                    print("* {} BOLDE SYNLIGE *".format(len(balls)))
                 
                 # Print objekter koordinater
                 print("\n--- Objekter koordinater @ {} ---".format(time.strftime('%H:%M:%S')))
@@ -168,6 +171,7 @@ def main():
     finally:
         camera.release()
         cv2.destroyAllWindows()
-
+        
+        
 if __name__ == "__main__":
     main() 
