@@ -80,7 +80,7 @@ def main():
                 )
                 
                 # Opret rute første gang vi ser bolde (med kollisionsundgåelse)
-                route_manager.create_route_from_balls(balls, robot_center, walls, [cross_pos] if cross_pos else [])
+                route_manager.create_route_from_balls(balls, robot_center, walls, cross_pos)
                 
                 # Få nuværende mål fra ruten
                 target_ball = route_manager.get_current_target()
