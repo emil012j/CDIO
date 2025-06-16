@@ -10,30 +10,40 @@ from ..config.settings import *
 CAMERA_HEIGHT = 162.0  # Camera mounted at 162cm height
 ROBOT_HEIGHT = 20.0   # Robot is 20cm tall
 BALL_HEIGHT = 4.0    # Balls are 4cm tall
+CAMERA_FOV = 60.0    # Camera field of view in degrees
 
 def correct_for_height_difference(pos1, pos2, height1, height2, camera_height):
     """
-    Correct for height difference between two objects in camera view
+    Correct for height difference between two objects in camera view using perspective projection
     pos1, pos2: (x,y) pixel coordinates
     height1, height2: heights of objects in cm
     camera_height: height of camera in cm
     Returns: (x,y) corrected coordinates for pos2
     """
-    # Calculate distance from camera to each point in pixels
+    # Calculate distance from camera center to each point in pixels
     dx = pos2[0] - pos1[0]
     dy = pos2[1] - pos1[1]
     pixel_distance = math.sqrt(dx*dx + dy*dy)
     
     if pixel_distance < 1:  # Too close to calculate
         return pos2
-        
+    
+    # Calculate angle from camera center to point
+    angle_rad = math.atan2(pixel_distance, CAMERA_HEIGHT)
+    angle_deg = math.degrees(angle_rad)
+    
+    # Calculate perspective factor based on angle and FOV
+    # The further from center, the larger the correction needed
+    perspective_factor = math.tan(math.radians(angle_deg)) / math.tan(math.radians(CAMERA_FOV/2))
+    
     # Calculate height difference ratio
     height_diff = height2 - height1
     height_ratio = height_diff / camera_height
     
+    # Apply non-linear correction based on perspective
+    correction_factor = pixel_distance * height_ratio * perspective_factor
+    
     # Calculate correction vector
-    # The correction is proportional to distance and height difference
-    correction_factor = pixel_distance * height_ratio
     correction_x = dx * correction_factor
     correction_y = dy * correction_factor
     

@@ -43,6 +43,8 @@ class RobotServer:
         while self.server_running and self.robot_controller.running:
             try:
                 #accepter forbindelse med timeout
+                if self.command_socket is None:
+                    continue
                 self.command_socket.settimeout(1.0)
                 conn, addr = self.command_socket.accept() #accepter forbindelse
                 

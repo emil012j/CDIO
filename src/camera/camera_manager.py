@@ -16,49 +16,7 @@ class CameraManager:
     def __init__(self):
         self.cap = None
         self.is_initialized = False
-        self.camera_matrix = None
-        self.distortion_coefficients = None
-        self.mapx = None
-        self.mapy = None
-        self.load_calibration_data()
         
-    def load_calibration_data(self):
-        """Load camera calibration data from text files"""
-        try:
-            print("\n=== Loading Calibration Data ===")
-            # Load camera matrix and reshape to 3x3
-            self.camera_matrix = np.loadtxt('src/camera/camera_matrix.txt').reshape(3, 3)
-            # Load distortion coefficients and reshape to 5x1
-            dist_coeffs = np.loadtxt('src/camera/distortion_coefficients.txt').reshape(5, 1)
-            
-            print("\nCamera Matrix shape:", self.camera_matrix.shape)
-            print("Camera Matrix values:")
-            print(self.camera_matrix)
-            
-            print("\nOriginal Distortion Coefficients:")
-            print(dist_coeffs)
-            
-            # Create balanced distortion coefficients
-            # We'll keep a very small amount of k2 to help with aspect ratio
-            minimal_dist = np.zeros_like(dist_coeffs)
-            minimal_dist[0] = dist_coeffs[0] * 0.002  # k1 - primary radial
-            minimal_dist[1] = dist_coeffs[1] * 0.0005  # k2 - secondary radial (very small but not zero)
-            minimal_dist[2] = dist_coeffs[2] * 0.001  # p1 - tangential
-            minimal_dist[3] = dist_coeffs[3] * 0.001  # p2 - tangential
-            # k3 remains zero as it's the most problematic
-            
-            self.distortion_coefficients = minimal_dist
-            
-            print("\nBalanced Distortion Coefficients:")
-            print(self.distortion_coefficients)
-            
-            print("=== Calibration Data Loaded ===\n")
-            
-        except Exception as e:
-            print(f"ERROR: Could not load calibration data: {e}")
-            self.camera_matrix = None
-            self.distortion_coefficients = None
-
     def initialize_camera(self):
         print("Initializing camera...")
         try:
@@ -111,10 +69,7 @@ class CameraManager:
             
         try:
             ret, frame = self.cap.read()  # Læser frames fra kamera
-            if ret and frame is not None:
-                # Apply undistortion if calibration data is available
-                return self.undistort_frame(frame)
-            return None
+            return frame if ret and frame is not None else None
         except Exception:
             return None
     
@@ -129,46 +84,7 @@ class CameraManager:
         """Destructor to ensure camera is released"""
         self.release()
 
-    def undistort_frame(self, frame):
-        """Undistort frame using calibration data"""
-        if self.camera_matrix is None or self.distortion_coefficients is None:
-            print("WARNING: No calibration data available, returning original frame")
-            return frame
-            
-        try:
-            # Get frame dimensions
-            h, w = frame.shape[:2]
-            
-            # Calculate new camera matrix with balance between undistortion and keeping pixels
-            newcameramtx, roi = cv2.getOptimalNewCameraMatrix(
-                self.camera_matrix, 
-                self.distortion_coefficients,
-                (w, h), 
-                alpha=0.925  # Slight adjustment to help preserve proportions
-            )
-            
-            # Apply undistortion
-            undistorted = cv2.undistort(
-                frame,
-                self.camera_matrix,
-                self.distortion_coefficients,
-                None,
-                newcameramtx
-            )
-            
-            # Only crop if we have a very good ROI
-            x, y, w, h = roi
-            if all(v > 0 for v in [x, y, w, h]) and w > frame.shape[1]*0.9 and h > frame.shape[0]*0.9:
-                undistorted = undistorted[y:y+h, x:x+w]
-                undistorted = cv2.resize(undistorted, (frame.shape[1], frame.shape[0]))
-            
-            return undistorted
-            
-        except Exception as e:
-            print(f"ERROR during undistortion: {e}")
-            return frame
-
-    #tegner detection bokse
+#tegner detection bokse
 def draw_detection_box(frame, position, label, color):
     try:
         cv2.circle(frame, position, 10, color, -1)  # Tegner detection bokse
