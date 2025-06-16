@@ -9,6 +9,8 @@ import math
 import pickle
 import numpy as np
 from ..config.settings import *
+from ..camera.goal_calibrator import GoalCalibrator
+
 
 #kamera manager, der håndterer kameraet og viser det på skærmen
 class CameraManager:
@@ -20,44 +22,8 @@ class CameraManager:
         self.distortion_coefficients = None
         self.mapx = None
         self.mapy = None
-        self.load_calibration_data()
+        self.goal_calibrator = GoalCalibrator()
         
-    def load_calibration_data(self):
-        """Load camera calibration data from text files"""
-        try:
-            print("\n=== Loading Calibration Data ===")
-            # Load camera matrix and reshape to 3x3
-            self.camera_matrix = np.loadtxt('src/camera/camera_matrix.txt').reshape(3, 3)
-            # Load distortion coefficients and reshape to 5x1
-            dist_coeffs = np.loadtxt('src/camera/distortion_coefficients.txt').reshape(5, 1)
-            
-            print("\nCamera Matrix shape:", self.camera_matrix.shape)
-            print("Camera Matrix values:")
-            print(self.camera_matrix)
-            
-            print("\nOriginal Distortion Coefficients:")
-            print(dist_coeffs)
-            
-            # Create balanced distortion coefficients
-            # We'll keep a very small amount of k2 to help with aspect ratio
-            minimal_dist = np.zeros_like(dist_coeffs)
-            minimal_dist[0] = dist_coeffs[0] * 0.002  # k1 - primary radial
-            minimal_dist[1] = dist_coeffs[1] * 0.0005  # k2 - secondary radial (very small but not zero)
-            minimal_dist[2] = dist_coeffs[2] * 0.001  # p1 - tangential
-            minimal_dist[3] = dist_coeffs[3] * 0.001  # p2 - tangential
-            # k3 remains zero as it's the most problematic
-            
-            self.distortion_coefficients = minimal_dist
-            
-            print("\nBalanced Distortion Coefficients:")
-            print(self.distortion_coefficients)
-            
-            print("=== Calibration Data Loaded ===\n")
-            
-        except Exception as e:
-            print(f"ERROR: Could not load calibration data: {e}")
-            self.camera_matrix = None
-            self.distortion_coefficients = None
 
     def initialize_camera(self):
         print("Initializing camera...")
@@ -177,6 +143,14 @@ def draw_detection_box(frame, position, label, color):
     except Exception:
         pass
 
+def calibrate_goal(self):
+        """Start goal calibration process"""
+        if self.cap is None:
+            print("Camera not initialized for calibration")
+            return False
+        # Note: start_calibration doesn't return a value, it handles its own UI loop
+        self.goal_calibrator.start_calibration(self.cap)
+        
 #tegner navigation information som feks. vinklen mellem robot og bold, og afstanden til bold
 def draw_navigation_info(frame, robot_center, target_ball, robot_heading, target_heading, navigation_info=None):
     try:
