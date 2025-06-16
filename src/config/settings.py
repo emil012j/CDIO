@@ -49,5 +49,5 @@ PICKUP_FORWARD_DISTANCE = 35  # cm - afstand at køre frem for at samle bold
 PICKUP_BACKWARD_DISTANCE = 35  # cm - afstand at bakke efter opsamling
 
 ROBOT_TURN_SPEED = 25 # HURTIGERE: Motor hastighed til drejning (øget fra 10 til 25)
-ROBOT_FORWARD_SPEED = 50 # HURTIGERE: Motor hastighed til fremadkørsel (øget fra 30 til 50)  
+ROBOT_FORWARD_SPEED = 30 # Motor hastighed til fremadkørsel - set to 30 as requested  
 ESTIMATED_TURN_RATE = 180.0  # grader per sekund - opdateret baseret på hjul kalibrering (halv rotation = 90°)
