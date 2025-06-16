@@ -52,7 +52,7 @@ def main():
     COMPLETE = "complete"
     current_state = COLLECTING
     STORAGE_CAPACITY = 6
-    TOTAL_BALLS_ON_COURT = 11
+    TOTAL_BALLS_ON_COURT = 11 # Vigtigt vi skriver det korrekte antal bolde vi tester med
     current_run_balls = 0
     total_balls_collected = 0
     previous_ball_count = 0
