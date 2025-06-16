@@ -219,6 +219,21 @@ class RobotController:
         
         print("*** BLIND BALL COLLECTION COMPLETE ***")
 
+
+    def release_balls(self, duration=4):
+        """
+        Kør collect_motor i modsat retning for at frigive bolde.
+        duration: hvor længe motoren skal køre (sekunder)
+        """
+        print("Releasing balls")
+        try:
+            self.collect_motor.on(speed=100)  # Kør fremad (modsat af opsamling)
+            sleep(duration)
+            self.collect_motor.off()
+            print("Balls released")
+        except Exception as e:
+            print("Error releasing balls:", e)
+
     def cleanup(self):
         """Afslutter robotten og stopper alle motorer"""
         print("Cleaning up robot controller...")

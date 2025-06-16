@@ -120,8 +120,9 @@ def main():
                         navigation_info = calculate_navigation_command(robot_head, robot_tail, goal_position, scale_factor)
                         handle_robot_navigation(navigation_info, commander, route_manager)
                         # Check if close enough to goal to finish delivery
-                        if navigation_info and navigation_info.get("distance_cm", 999) < 8:
+                        if navigation_info and navigation_info.get("distance_cm", 999) < 5:
                             print("*** REACHED GOAL - READY TO RELEASE ***")
+                            commander.send_release_balls_command(duration=4)
                             current_run_balls = 0
                             if total_balls_collected >= TOTAL_BALLS_ON_COURT:
                                 current_state = COMPLETE
