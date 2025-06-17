@@ -81,6 +81,7 @@ def main():
             cross_pos = get_cross_position(results, model)
             display_frame = frame.copy()
             robot_head, robot_tail, balls, walls, log_info_list = process_detections_and_draw(results, model, display_frame, scale_factor)
+            
 
 
             if robot_head and robot_tail:
@@ -111,7 +112,7 @@ def main():
                     current_state = DELIVERING
                     print("*** STORAGE FULL - SWITCHING TO GOAL DELIVERY ***")
                     route_manager.reset_route()
-                elif not balls and total_balls_collected >= TOTAL_BALLS_ON_COURT:   #jeg har ændret her
+                elif not balls and total_balls_collected >= TOTAL_BALLS_ON_COURT:   
                     current_state = DELIVERING
                     print("*** ALL BALLS COLLECTED - DELIVERING NOW ***")
                     route_manager.reset_route()
@@ -123,7 +124,12 @@ def main():
                     # Route-based navigation for balls
                     remaining_balls = [b for b in balls if b not in collected_balls_positions]
                     print("[DEBUG] remaining_balls:", remaining_balls)
-                    route_manager.create_route_from_balls(remaining_balls, robot_center, walls, cross_pos)
+
+                    if not route_manager.route_created or route_manager.is_route_complete():
+                        print("[DEBUG] Creating new route from remaining balls...")
+                        route_manager.reset_route()
+                        route_manager.create_route_from_balls(remaining_balls, robot_center, walls, cross_pos)
+
                     target_ball = route_manager.get_current_target()
                     print("[DEBUG] target_ball:", target_ball)
                     if target_ball:
@@ -154,7 +160,7 @@ def main():
                     # Determine if robot is close enough to goal or needs to navigate
                     if current_distance_to_goal < 22 and current_distance_to_goal > 0: # Use 22cm as threshold for goal approach as well
                         print("*** REACHED GOAL APPROACH DISTANCE - READY TO RELEASE ***")
-                        commander.send_release_balls_command(duration=4))
+                        commander.send_release_balls_command(duration=4)
                         current_run_balls = 0
                         if total_balls_collected >= TOTAL_BALLS_ON_COURT:
                             current_state = COMPLETE

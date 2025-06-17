@@ -49,13 +49,18 @@ class RouteManager:
                 safe_balls.append(ball)
         
         print("📍 Accessible balls: {}/{}".format(len(safe_balls), len(balls)))
+        filtered_balls = self.filter_close_balls(safe_balls, min_distance=40)
+        print("✅ Filtered balls (no clustering): {}/{}".format(len(filtered_balls), len(safe_balls)))
+
+        # Sorter efter isolationsscore (mest isolerede først)
+        filtered_balls.sort(key=lambda b: -self.isolation_score(b, filtered_balls))
         
         if not safe_balls:
             print("❌ No accessible balls found!")
             return
         
         # Start med robot position som udgangspunkt
-        remaining_balls = list(safe_balls)  # Kopier listen
+        remaining_balls = list(filtered_balls)  # Kopier listen
         route_points = []
         current_pos = robot_center
         
@@ -153,3 +158,16 @@ class RouteManager:
         self.route_created = False
         self.collection_attempts = 0
         print("🔄 ROUTE RESET") 
+
+    def filter_close_balls(self, balls, min_distance=40):
+        """Fjern bolde der er for tæt på hinanden"""
+        filtered = []
+        for ball in balls:
+            if all(math.dist(ball, b) > min_distance for b in filtered):
+                filtered.append(ball)
+        return filtered
+
+    def isolation_score(self, ball, others):
+        """Returner minimumsafstand til andre bolde som et isolationsmål"""
+        distances = [math.dist(ball, other) for other in others if other != ball]
+        return min(distances) if distances else float('inf')
