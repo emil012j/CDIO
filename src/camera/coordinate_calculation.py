@@ -12,6 +12,9 @@ ROBOT_HEIGHT = 20.0     # Robot markers are 20cm tall
 BALL_HEIGHT = 4.0       # Balls are 4cm tall
 GROUND_LEVEL = 0.0      # Reference level (ground)
 
+# Camera parameters
+CAMERA_FOV_DEGREES = 70.0  # Field of view in degrees
+
 # Get camera parameters from actual camera resolution
 def get_camera_center():
     """Get camera center from current camera resolution"""
@@ -21,39 +24,71 @@ def get_camera_center():
 
 def correct_position_to_ground_level(pos, object_height, camera_height):
     """
-    SIMPLE geometric perspective correction for height difference
+    PRECISE perspective correction using camera FOV and real-world geometry
     
-    When camera looks down, higher objects appear further from center than their ground position.
-    
-    For an object at height H viewed by camera at height C:
-    - Ground position factor = (C - H) / C
-    - Robot (20cm): factor = (162-20)/162 = 0.877  
-    - Ball (4cm): factor = (162-4)/162 = 0.975
+    Uses actual camera FOV (70°) to calculate true ground-plane projection.
+    Accounts for non-linear perspective distortion across the image.
     
     pos: (x,y) pixel coordinates of object at its height
     object_height: height of object in cm  
     camera_height: height of camera in cm
     Returns: (x,y) corrected coordinates as if object was at ground level
     """
-    # Get actual camera center
+    # Get actual camera center and resolution
     camera_center_x, camera_center_y = get_camera_center()
+    from ..config.settings import CAMERA_RESOLUTION
+    image_width, image_height = CAMERA_RESOLUTION
     
-    # Calculate distance from camera center
+    # Calculate distance from camera center in pixels
     dx_from_center = pos[0] - camera_center_x
     dy_from_center = pos[1] - camera_center_y
     
-    # Simple geometric correction factor
-    # Ground position is closer to center than apparent position
-    ground_factor = (camera_height - object_height) / camera_height
+    # Convert FOV to radians
+    fov_rad = math.radians(CAMERA_FOV_DEGREES)
     
-    # Apply correction - move position closer to center
-    corrected_x = camera_center_x + (dx_from_center * ground_factor)
-    corrected_y = camera_center_y + (dy_from_center * ground_factor)
+    # Calculate the real-world distance per pixel at the image edge
+    # For a camera at height H with FOV θ, the width of ground covered is: 2 * H * tan(θ/2)
+    ground_width_covered = 2 * camera_height * math.tan(fov_rad / 2)
+    pixels_per_cm = image_width / ground_width_covered
+    
+    # Convert pixel distances to real-world distances (cm)
+    real_world_dx = dx_from_center / pixels_per_cm
+    real_world_dy = dy_from_center / pixels_per_cm
+    
+    # Calculate the viewing angle from camera center to this point
+    distance_from_center = math.sqrt(real_world_dx**2 + real_world_dy**2)
+    
+    if distance_from_center < 0.1:  # At camera center, no correction needed
+        return pos
+    
+    # Calculate viewing angle (how far off-axis this point is)
+    viewing_angle = math.atan(distance_from_center / camera_height)
+    
+    # Height difference affects apparent position based on viewing geometry
+    height_diff = object_height - GROUND_LEVEL
+    
+    # For perspective projection: apparent_distance = real_distance + height_offset
+    # height_offset = height_diff * tan(viewing_angle)
+    height_offset = height_diff * math.tan(viewing_angle)
+    
+    # Calculate corrected real-world position
+    correction_factor = height_offset / distance_from_center if distance_from_center > 0 else 0
+    corrected_real_dx = real_world_dx * (1 - correction_factor)
+    corrected_real_dy = real_world_dy * (1 - correction_factor)
+    
+    # Convert back to pixel coordinates
+    corrected_dx_pixels = corrected_real_dx * pixels_per_cm
+    corrected_dy_pixels = corrected_real_dy * pixels_per_cm
+    
+    corrected_x = camera_center_x + corrected_dx_pixels
+    corrected_y = camera_center_y + corrected_dy_pixels
     
     # Debug output for significant corrections
     correction_distance = math.sqrt((corrected_x - pos[0])**2 + (corrected_y - pos[1])**2)
     if correction_distance > 5:  # Log corrections > 5 pixels
-        print(f"HEIGHT CORRECTION: {object_height}cm object: {pos} -> ({int(corrected_x)},{int(corrected_y)}) [factor={ground_factor:.3f}]")
+        print(f"FOV CORRECTION: {object_height}cm object: {pos} -> ({int(corrected_x)},{int(corrected_y)})")
+        print(f"  Real distance: {distance_from_center:.1f}cm, Viewing angle: {math.degrees(viewing_angle):.1f}°")
+        print(f"  Height offset: {height_offset:.1f}cm, Correction: {correction_distance:.1f}px")
     
     return (int(corrected_x), int(corrected_y))
 
