@@ -215,7 +215,7 @@ class RobotController:
         
         # Step 3: Roter 180 grader for næste bold
         print("STEP 3: Rotating 180 degrees for next ball")
-        self.turn_180_degrees()
+        # self.turn_180_degrees()
         
         print("*** BLIND BALL COLLECTION COMPLETE ***")
 
@@ -229,7 +229,7 @@ class RobotController:
         try:
             self.collect_motor.on(speed=100)  # Kør fremad (modsat af opsamling)
             sleep(duration)
-            self.collect_motor.off()
+            self.collect_motor.on(-100)
             print("Balls released")
         except Exception as e:
             print("Error releasing balls:", e)

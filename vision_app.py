@@ -154,7 +154,7 @@ def main():
                     # Determine if robot is close enough to goal or needs to navigate
                     if current_distance_to_goal < 22 and current_distance_to_goal > 0: # Use 22cm as threshold for goal approach as well
                         print("*** REACHED GOAL APPROACH DISTANCE - READY TO RELEASE ***")
-                        commander.send_release_balls_command(duration=4)
+                        commander.send_release_balls_command(duration=4))
                         current_run_balls = 0
                         if total_balls_collected >= TOTAL_BALLS_ON_COURT:
                             current_state = COMPLETE
