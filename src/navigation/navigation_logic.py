@@ -112,6 +112,7 @@ def handle_ball_collection(distance_cm, angle_diff, hitting_zone_min, hitting_zo
             print("✅ Blind collection command sent successfully!")
             # GÅ TIL NÆSTE PUNKT I RUTEN efter collection
             route_manager.advance_to_next_target()
+            return True # Return True on successful command send
         else:
             print("❌ Failed to send blind collection command!")
             # Øg antal forsøg og tjek om vi skal give op
@@ -119,7 +120,9 @@ def handle_ball_collection(distance_cm, angle_diff, hitting_zone_min, hitting_zo
             if should_skip:
                 print("🚫 MAX ATTEMPTS REACHED - SKIPPING TO NEXT TARGET")
                 route_manager.advance_to_next_target()
+            return False # Return False if command failed to send
     else:
         print("❌ NOT IN HITTING ZONE - NEED ANGLE ADJUSTMENT FIRST")
         print("   Angle {:.1f}° is outside [{:.1f}°, {:.1f}°]".format(
             angle_diff, hitting_zone_min, hitting_zone_max))
+        return False # Not in hitting zone, no collection attempted
