@@ -207,7 +207,7 @@ class RobotController:
         
         # Step 1: Kør 20 cm frem (blind - ligemeget om bold forsvinder)
         print("STEP 1: Driving forward 20 cm (BLIND)")
-        self.simple_forward(20, overshoot_cm=0)  # Ingen overshoot - præcis 20 cm
+        self.simple_forward(5, overshoot_cm=0)  # Ingen overshoot - præcis 20 cm
         
         # Step 2: Bak 20 cm bagud
         print("STEP 2: Backing up 20 cm")
@@ -220,7 +220,7 @@ class RobotController:
         print("*** BLIND BALL COLLECTION COMPLETE ***")
 
 
-    def release_balls(self, duration=6):
+    def release_balls(self, duration=4):
         """
         Kør collect_motor i modsat retning for at frigive bolde.
         duration: hvor længe motoren skal køre (sekunder)
