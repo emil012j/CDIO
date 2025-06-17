@@ -101,10 +101,14 @@ def main():
 
                 # --- Proximity+time ball collection logic ---
                 if 'target_ball' in locals() and target_ball:
-                    if is_ball_collected(target_ball, robot_center, radius=COLLECTION_RADIUS):
-                        ball_proximity_counter[target_ball] = ball_proximity_counter.get(target_ball, 0) + 1
+                    if current_run_balls >= STORAGE_CAPACITY:
+                        print("[DEBUG] Storage full - skipping collection tracking")
+                        target_ball = None
                     else:
-                        ball_proximity_counter[target_ball] = 0
+                        if is_ball_collected(target_ball, robot_center, radius=COLLECTION_RADIUS):
+                            ball_proximity_counter[target_ball] = ball_proximity_counter.get(target_ball, 0) + 1
+                        else:
+                            ball_proximity_counter[target_ball] = 0
 
                     if ball_proximity_counter.get(target_ball, 0) >= COLLECTION_FRAMES and target_ball not in collected_balls_positions:
                         current_run_balls += 1
@@ -112,10 +116,13 @@ def main():
                         collected_balls_positions.append(target_ball)
                         print("*** BALL COLLECTED NEAR ROBOT (proximity+time)! Run: {}/{}, Total: {}/{} ***".format(
                             current_run_balls, STORAGE_CAPACITY, total_balls_collected, TOTAL_BALLS_ON_COURT))
+                        print(f"[DEBUG] current_run_balls after collection: {current_run_balls}")
                         del ball_proximity_counter[target_ball]
                         route_manager.advance_to_next_target()  # Move to next ball in the route
 
                         if current_run_balls >= STORAGE_CAPACITY:
+                            print("[DEBUG] Storage capacity reached. Skipping further collection.")
+                            target_ball = None
                             continue
 
                 navigation_info = None
