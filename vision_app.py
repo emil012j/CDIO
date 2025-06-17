@@ -52,7 +52,7 @@ def main():
     COMPLETE = "complete"
     current_state = COLLECTING
     STORAGE_CAPACITY = 6
-    TOTAL_BALLS_ON_COURT = 11 # Vigtigt vi skriver det korrekte antal bolde vi tester med
+    TOTAL_BALLS_ON_COURT = 3 # Vigtigt vi skriver det korrekte antal bolde vi tester med
     current_run_balls = 0
     total_balls_collected = 0
     previous_ball_count = 0
@@ -141,15 +141,19 @@ def main():
                 goal_position = goal_utils.get_goal_position()
                 print("[DEBUG] goal_position:", goal_position)  # <--- DEBUG
                 if goal_position:
+                    # Calculate navigation to goal
                     navigation_info = calculate_navigation_command(robot_head, robot_tail, goal_position, scale_factor)
                     print("Navigation info to goal:", navigation_info) # <--- DEBUG
+
+                    # Add detailed debug print for distance
+                    current_distance_to_goal = 999 # Default to a high value if navigation_info is None
                     if navigation_info:
-                        print("[DEBUG] Calling handle_robot_navigation for goal")  # <--- DEBUG
-                        handle_robot_navigation(navigation_info, commander, route_manager)
-                    
-                    # Check if close enough to goal to finish delivery
-                    if navigation_info and navigation_info.get("distance_cm", 999) < 5:
-                        print("*** REACHED GOAL - READY TO RELEASE ***")
+                        current_distance_to_goal = navigation_info.get("distance_cm", 999)
+                    print(f"[DEBUG] Current distance to goal: {current_distance_to_goal:.1f} cm") # New debug line
+
+                    # Determine if robot is close enough to goal or needs to navigate
+                    if current_distance_to_goal < 22 and current_distance_to_goal > 0: # Use 22cm as threshold for goal approach as well
+                        print("*** REACHED GOAL APPROACH DISTANCE - READY TO RELEASE ***")
                         commander.send_release_balls_command(duration=4)
                         current_run_balls = 0
                         if total_balls_collected >= TOTAL_BALLS_ON_COURT:
@@ -159,6 +163,9 @@ def main():
                             current_state = COLLECTING
                             print("*** BALLS RELEASED - STARTING NEW COLLECTION RUN ***")
                         route_manager.reset_route()
+                    elif navigation_info: # Only navigate if not yet at approach distance
+                        print("[DEBUG] Calling handle_robot_navigation for goal (DELIVERING state)")  # <--- DEBUG
+                        handle_robot_navigation(navigation_info, commander, route_manager)
                 else:
                     print("ERROR: No goal position set - cannot navigate to goal!")
 

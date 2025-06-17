@@ -220,7 +220,7 @@ class RobotController:
         print("*** BLIND BALL COLLECTION COMPLETE ***")
 
 
-    def release_balls(self, duration=4):
+    def release_balls(self, duration=6):
         """
         Kør collect_motor i modsat retning for at frigive bolde.
         duration: hvor længe motoren skal køre (sekunder)

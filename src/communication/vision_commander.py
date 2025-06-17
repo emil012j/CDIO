@@ -122,7 +122,7 @@ class VisionCommander:
         }
         return self.send_command(command) 
     
-    def send_release_balls_command(self, duration=4):
+    def send_release_balls_command(self, duration):
         """Send a command to release balls (run collect motor backwards)"""
         command = {
             "command": "release_balls",

@@ -49,6 +49,9 @@ def execute_movement_command(robot_controller, command):
         elif cmd_type == "blind_ball_collection":
             robot_controller.blind_ball_collection()
             
+        elif cmd_type == "release_balls":
+            robot_controller.release_balls()
+            
         elif cmd_type == "stop":
             robot_controller.stop_all_motors()
             print("Stop command executed")
