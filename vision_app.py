@@ -65,8 +65,6 @@ def main():
 
     collected_balls_positions = []
 
-    WARMUP_FRAMES = 20
-
 
     try:
         while True:
@@ -88,28 +86,13 @@ def main():
 
             if robot_head and robot_tail:
                 robot_center = (
-                    round((robot_head["pos"][0] + robot_tail["pos"][0]) / 2),
-                    round((robot_head["pos"][1] + robot_tail["pos"][1]) / 2)
+                    (robot_head["pos"][0] + robot_tail["pos"][0]) // 2,
+                    (robot_head["pos"][1] + robot_tail["pos"][1]) // 2
                 )
                 print("[DEBUG] robot_center:", robot_center)  # <--- DEBUG
 
             # Ball counting logic
             current_visible_balls = len(balls)
-            #Stabilize YOLO before starting
-            if frame_count < WARMUP_FRAMES:
-                previous_ball_count = current_visible_balls
-                cv2.putText(display_frame, "WARMING UP...", (20, 40), cv2.FONT_HERSHEY_SIMPLEX, 1.0, (0, 0, 255), 2)
-                cv2.imshow("YOLO OBB Detection", display_frame)
-                key = cv2.waitKey(1) & 0xFF
-                if key == ord('q'):
-                    break
-                elif key == ord('c'):
-                    print("*** STARTING GOAL CALIBRATION ***")
-                    calibrator.start_calibration(frame)
-                    goal_utils.load_goal()
-                    goal_position = goal_utils.get_goal_position()
-                continue
-
             if 'previous_ball_count' not in locals():
                 previous_ball_count = current_visible_balls
             if current_visible_balls < previous_ball_count:
