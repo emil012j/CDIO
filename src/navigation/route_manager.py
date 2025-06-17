@@ -41,7 +41,7 @@ class RouteManager:
             if is_safe:
                 for wall in walls:
                     distance_to_wall = math.hypot(ball[0] - wall[0], ball[1] - wall[1])
-                    if distance_to_wall < 150:
+                    if distance_to_wall < 50:
                         print(" Ball at ({}, {}) near wall - will use perpendicular approach".format(
                             ball[0], ball[1]))
                         break
@@ -94,27 +94,20 @@ class RouteManager:
         return self.route[self.current_target_index]
     
     def is_path_near_cross(self, start, end, cross_pos, min_distance):
-        """Check if a straight line from start to end passes near the cross"""
         if not cross_pos:
             return False
-
-        # Compute the distance from the cross to the line segment from start to end
         px, py = cross_pos
         x1, y1 = start
         x2, y2 = end
-
         line_len = math.hypot(x2 - x1, y2 - y1)
         if line_len == 0:
             return math.hypot(px - x1, py - y1) < min_distance
-
-        # Project point onto the line (clamped between x1,y1 and x2,y2)
         t = ((px - x1)*(x2 - x1) + (py - y1)*(y2 - y1)) / (line_len**2)
         t = max(0, min(1, t))
         closest_x = x1 + t * (x2 - x1)
         closest_y = y1 + t * (y2 - y1)
+        return math.hypot(px - closest_x, py - closest_y) < min_distance
 
-        distance = math.hypot(px - closest_x, py - closest_y)
-        return distance < min_distance
 
 
     def get_wall_approach_point(self, ball_pos, walls, scale_factor):
