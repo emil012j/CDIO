@@ -5,9 +5,10 @@ Navigation logik for robotten - håndterer turning og forward kommandoer
 
 import time
 
+
 def handle_robot_navigation(navigation_info, commander, route_manager):
     """Hovednavigations logik - håndterer drejning og fremadkørsel"""
-    if not navigation_info or not commander.can_send_command():
+    if not navigation_info or not commander.can_send_commands():
         return
     
     angle_diff = navigation_info["angle_diff"]
@@ -30,7 +31,7 @@ def handle_robot_navigation(navigation_info, commander, route_manager):
         return handle_turn_correction(angle_diff, hitting_zone_min, hitting_zone_max, commander, route_manager)
     
     # FORWARD PHASE: Forsigtig fremadkørsel når i hitting zone
-    elif distance_cm > 22:  # Stop når vi er 22 cm væk for blind collection
+    elif distance_cm > 25:  # Stop når vi er 22 cm væk for blind collection
         return handle_forward_movement(distance_cm, angle_diff, commander)
     
     # BLIND BALL COLLECTION: I hitting zone OG ≤22 cm væk - start blind collection
@@ -84,11 +85,11 @@ def handle_forward_movement(distance_cm, angle_diff, commander):
     """Håndterer forsigtig fremadkørsel"""
     # Adaptive afstand baseret på nærhed til mål
     if distance_cm > 50:  # >10cm væk - normal hastighed
-        move_distance = min(distance_cm - 22, 3)  # 3 cm steps til 22 cm
+        move_distance = min(distance_cm - 25, 5)  # 3 cm steps til 22 cm
     elif distance_cm > 35:  # 7-10cm væk - langsommere
-        move_distance = min(distance_cm - 22, 2)  # 2 cm steps til 22 cm
+        move_distance = min(distance_cm - 25, 4)  # 2 cm steps til 22 cm
     else:  # <7cm væk - meget forsigtig
-        move_distance = min(distance_cm - 22, 1)  # 1 cm steps til 22 cm
+        move_distance = min(distance_cm - 25, 3)  # 1 cm steps til 22 cm
     
     print("IN HITTING ZONE - CAREFUL FORWARD {:.1f} cm (distance:{:.1f}cm, angle:{:.1f}deg) [Wall approach active]".format(
         move_distance, distance_cm, angle_diff))

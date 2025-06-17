@@ -32,7 +32,7 @@ class RouteManager:
             # Tjek kun afstand til kors (undgå bolde tættere end 50 cm til kors)
             if cross_pos:
                 distance_to_cross = math.sqrt((ball[0] - cross_pos[0])**2 + (ball[1] - cross_pos[1])**2)
-                if distance_to_cross < 50:  # 50 cm i pixels
+                if distance_to_cross < 50:  # 10 cm i pixels
                     print("⚠️  Ball at ({}, {}) too close to cross at ({}, {}) - distance: {:.1f}px".format(
                         ball[0], ball[1], cross_pos[0], cross_pos[1], distance_to_cross))
                     is_safe = False
@@ -42,7 +42,7 @@ class RouteManager:
                 # Tjek om bold er tæt på væg (for info)
                 for wall in walls:
                     distance_to_wall = math.sqrt((ball[0] - wall[0])**2 + (ball[1] - wall[1])**2)
-                    if distance_to_wall < 150:  # 30 cm i pixels
+                    if distance_to_wall < 25:  # 5 cm i pixels
                         print("🧱 Ball at ({}, {}) near wall - will use perpendicular approach".format(ball[0], ball[1]))
                         break
                 
