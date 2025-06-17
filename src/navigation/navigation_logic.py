@@ -4,6 +4,7 @@ Navigation logik for robotten - håndterer turning og forward kommandoer
 """
 
 import time
+from src.communication.vision_commander import VisionCommander
 
 
 def handle_robot_navigation(navigation_info, commander, route_manager):

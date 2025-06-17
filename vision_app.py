@@ -120,23 +120,33 @@ def main():
                 if current_state == COLLECTING:
                     print("[DEBUG] State: COLLECTING")
                     print("[DEBUG] current_run_balls:", current_run_balls, "balls:", balls)
+
+                    # 1. STORAGE FULL? Go deliver!
                     if current_run_balls >= STORAGE_CAPACITY:
                         current_state = DELIVERING
                         print("*** STORAGE FULL - SWITCHING TO GOAL DELIVERY ***")
                         route_manager.reset_route()
-                    elif not balls and current_run_balls > 0:
+                        return  # or continue, depending on your loop structure
+
+                    # 2. NO BALLS LEFT, STILL CARRYING? Go deliver!
+                    if not balls and current_run_balls > 0:
                         current_state = DELIVERING
                         print("*** NO MORE BALLS ON FIELD - DELIVERING WHAT'S COLLECTED ***")
                         route_manager.reset_route()
-                    elif not balls and current_run_balls == 0 and total_balls_collected >= TOTAL_BALLS_ON_COURT:
+                        return
+
+                    # 3. NO BALLS LEFT, NOTHING CARRIED, ALL COLLECTED? Mission complete!
+                    if not balls and current_run_balls == 0 and total_balls_collected >= TOTAL_BALLS_ON_COURT:
                         current_state = COMPLETE
                         print("*** ALL BALLS COLLECTED - MISSION COMPLETE ***")
                         route_manager.reset_route()
-                    elif balls and current_run_balls < STORAGE_CAPACITY:
+                        return
+
+                    # 4. Otherwise, keep collecting
+                    if balls and current_run_balls < STORAGE_CAPACITY:
                         # Route-based navigation for balls
                         remaining_balls = [b for b in balls if b not in collected_balls_positions]
                         print("[DEBUG] remaining_balls:", remaining_balls)
-
                         if not route_manager.route_created or route_manager.is_route_complete():
                             print("[DEBUG] Creating new route from remaining balls...")
                             route_manager.reset_route()
@@ -147,7 +157,6 @@ def main():
                         if target_ball:
                             target_ball = route_manager.get_wall_approach_point(target_ball, walls, scale_factor)
                             navigation_info = calculate_navigation_command(robot_head, robot_tail, target_ball, scale_factor)
-                            # --- If close to ball, do a careful forward move ---
                             if navigation_info:
                                 handle_robot_navigation(navigation_info, commander, route_manager)
 
