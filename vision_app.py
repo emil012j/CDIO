@@ -112,9 +112,9 @@ def main():
                     current_state = DELIVERING
                     print("*** STORAGE FULL - SWITCHING TO GOAL DELIVERY ***")
                     route_manager.reset_route()
-                elif not balls and total_balls_collected >= TOTAL_BALLS_ON_COURT:   
+                elif not balls and current_run_balls > 0:
                     current_state = DELIVERING
-                    print("*** ALL BALLS COLLECTED - DELIVERING NOW ***")
+                    print("*** NO MORE BALLS ON FIELD - DELIVERING WHAT'S COLLECTED ***")
                     route_manager.reset_route()
                 elif not balls and current_run_balls == 0 and total_balls_collected >= TOTAL_BALLS_ON_COURT:
                     current_state = COMPLETE
@@ -162,7 +162,7 @@ def main():
                         print("*** REACHED GOAL APPROACH DISTANCE - READY TO RELEASE ***")
                         commander.send_release_balls_command(duration=4)
                         current_run_balls = 0
-                        if total_balls_collected >= TOTAL_BALLS_ON_COURT:
+                        if total_balls_collected >= TOTAL_BALLS_ON_COURT and len(balls) == 0:
                             current_state = COMPLETE
                             print("*** ALL BALLS DELIVERED - MISSION COMPLETE ***")
                         else:
