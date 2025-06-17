@@ -111,9 +111,9 @@ def main():
                     current_state = DELIVERING
                     print("*** STORAGE FULL - SWITCHING TO GOAL DELIVERY ***")
                     route_manager.reset_route()
-                elif not balls and current_run_balls > 0:
+                elif not balls and total_balls_collected >= TOTAL_BALLS_ON_COURT:   #jeg har ændret her
                     current_state = DELIVERING
-                    print("*** NO MORE BALLS ON FIELD - DELIVERING WHAT'S COLLECTED ***")
+                    print("*** ALL BALLS COLLECTED - DELIVERING NOW ***")
                     route_manager.reset_route()
                 elif not balls and current_run_balls == 0 and total_balls_collected >= TOTAL_BALLS_ON_COURT:
                     current_state = COMPLETE
