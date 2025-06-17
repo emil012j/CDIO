@@ -6,61 +6,56 @@ Beregner robot heading, target heading, vinkel forskel, afstand til mål, laver 
 import math
 from ..config.settings import *
 
-# Camera and object heights in cm
-CAMERA_HEIGHT = 1620.0  # Camera mounted at 162cm height above ground
-ROBOT_HEIGHT = 200.0    # Robot markers are 20cm tall
-BALL_HEIGHT = 40.0      # Balls are 4cm tall
-GROUND_LEVEL = 0.0     # Reference level (ground)
+# Camera and object heights in cm  
+CAMERA_HEIGHT = 162.0   # Camera mounted at 162cm height above ground
+ROBOT_HEIGHT = 20.0     # Robot markers are 20cm tall  
+BALL_HEIGHT = 4.0       # Balls are 4cm tall
+GROUND_LEVEL = 0.0      # Reference level (ground)
 
-# Camera parameters (these should be calibrated, but reasonable estimates)
-IMAGE_WIDTH = 640     # Typical camera resolution
-IMAGE_HEIGHT = 480
-CAMERA_CENTER_X = IMAGE_WIDTH // 2   # Optical center X
-CAMERA_CENTER_Y = IMAGE_HEIGHT // 2  # Optical center Y
+# Get camera parameters from actual camera resolution
+def get_camera_center():
+    """Get camera center from current camera resolution"""
+    from ..config.settings import CAMERA_RESOLUTION
+    width, height = CAMERA_RESOLUTION
+    return width // 2, height // 2
 
 def correct_position_to_ground_level(pos, object_height, camera_height):
     """
-    Correct object position from its actual height to ground level
+    SIMPLE geometric perspective correction for height difference
+    
+    When camera looks down, higher objects appear further from center than their ground position.
+    
+    For an object at height H viewed by camera at height C:
+    - Ground position factor = (C - H) / C
+    - Robot (20cm): factor = (162-20)/162 = 0.877  
+    - Ball (4cm): factor = (162-4)/162 = 0.975
+    
     pos: (x,y) pixel coordinates of object at its height
-    object_height: height of object in cm
+    object_height: height of object in cm  
     camera_height: height of camera in cm
     Returns: (x,y) corrected coordinates as if object was at ground level
     """
-    # Calculate distances from camera center (optical center)
-    dx_from_center = pos[0] - CAMERA_CENTER_X
-    dy_from_center = pos[1] - CAMERA_CENTER_Y
+    # Get actual camera center
+    camera_center_x, camera_center_y = get_camera_center()
     
-    # Distance from camera center in pixels
-    radial_distance = math.sqrt(dx_from_center**2 + dy_from_center**2)
+    # Calculate distance from camera center
+    dx_from_center = pos[0] - camera_center_x
+    dy_from_center = pos[1] - camera_center_y
     
-    if radial_distance < 1:  # At camera center, no correction needed
-        return pos
+    # Simple geometric correction factor
+    # Ground position is closer to center than apparent position
+    ground_factor = (camera_height - object_height) / camera_height
     
-    # Height difference from ground level
-    height_diff = object_height - GROUND_LEVEL  # e.g., robot(20) - ground(0) = 20cm
+    # Apply correction - move position closer to center
+    corrected_x = camera_center_x + (dx_from_center * ground_factor)
+    corrected_y = camera_center_y + (dy_from_center * ground_factor)
     
-    # The perspective correction is proportional to:
-    # 1. Distance from camera center (more distortion at edges)
-    # 2. Height above ground
-    # 3. Inverse of camera height (closer camera = more distortion)
+    # Debug output for significant corrections
+    correction_distance = math.sqrt((corrected_x - pos[0])**2 + (corrected_y - pos[1])**2)
+    if correction_distance > 5:  # Log corrections > 5 pixels
+        print(f"HEIGHT CORRECTION: {object_height}cm object: {pos} -> ({int(corrected_x)},{int(corrected_y)}) [factor={ground_factor:.3f}]")
     
-    # Correction factor: how much the height affects position
-    # Objects higher than ground appear closer to camera center
-    correction_magnitude = (height_diff / camera_height) * (radial_distance / 200.0)
-    
-    # Apply correction away from camera center
-    # (higher objects appear closer to center, so correct outward to get ground position)
-    if radial_distance > 0:
-        correction_x = (dx_from_center / radial_distance) * correction_magnitude
-        correction_y = (dy_from_center / radial_distance) * correction_magnitude
-        
-        # Apply correction - move AWAY from center to get ground position
-        corrected_x = pos[0] + correction_x
-        corrected_y = pos[1] + correction_y
-        
-        return (int(corrected_x), int(corrected_y))
-    
-    return pos
+    return (int(corrected_x), int(corrected_y))
 
 #beregner afstand mellem to punkter
 def calculate_distance(pos1, pos2):
