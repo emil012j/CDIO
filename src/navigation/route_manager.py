@@ -65,6 +65,7 @@ class RouteManager:
         current_pos = robot_center
         
         # Simpel "nærmeste punkt" rute algoritme
+        """
         while remaining_balls:
             # Find nærmeste bold fra nuværende position
             distances = [math.sqrt((ball[0] - current_pos[0])**2 + (ball[1] - current_pos[1])**2) 
@@ -74,7 +75,7 @@ class RouteManager:
             
             route_points.append(nearest_ball)
             current_pos = nearest_ball
-            
+        
         self.route = route_points
         self.current_target_index = 0
         self.route_created = True
@@ -82,7 +83,52 @@ class RouteManager:
         print("✅ ROUTE CREATED: {} waypoints".format(len(self.route)))
         for i, point in enumerate(self.route):
             print("   Point {}: ({}, {})".format(i+1, point[0], point[1]))
+        """
+        while remaining_balls:
+            best_ball = None
+            best_distance = float('inf')
             
+            for ball in remaining_balls:
+                distance = math.sqrt((ball[0] - current_pos[0])**2 + (ball[1] - current_pos[1])**2)
+                if distance < best_distance:
+                    if not self.is_path_blocked_by_cross(current_pos, ball, cross_pos, cross_radius=60):
+                        best_ball = ball
+                        best_distance = distance
+
+            if best_ball:
+                route_points.append(best_ball)
+                current_pos = best_ball
+                remaining_balls.remove(best_ball)
+            else:
+                print("❌ No more reachable balls without crossing the cross!")
+                break
+    
+    # Avoid cross when navigating
+
+    def is_path_blocked_by_cross(self, start, end, cross_pos, cross_radius=50):
+        """Check if the straight path between start and end goes too close to the cross"""
+        if cross_pos is None:
+            return False
+
+        # Vector from start to end
+        dx, dy = end[0] - start[0], end[1] - start[1]
+        if dx == dy == 0:
+            return False  # same point
+
+        # Vector from start to cross
+        fx, fy = cross_pos[0] - start[0], cross_pos[1] - start[1]
+
+        # Project point onto line segment
+        t = max(0, min(1, (fx * dx + fy * dy) / (dx * dx + dy * dy)))
+        closest_x = start[0] + t * dx
+        closest_y = start[1] + t * dy
+
+        # Distance from closest point to cross
+        dist = math.sqrt((closest_x - cross_pos[0])**2 + (closest_y - cross_pos[1])**2)
+
+        return dist < cross_radius
+
+
     def get_current_target(self):
         """Få nuværende mål i ruten"""
         if not self.route or self.current_target_index >= len(self.route):

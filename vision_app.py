@@ -86,8 +86,8 @@ def main():
 
             if robot_head and robot_tail:
                 robot_center = (
-                    (robot_head["pos"][0] + robot_tail["pos"][0]) // 2,
-                    (robot_head["pos"][1] + robot_tail["pos"][1]) // 2
+                    round((robot_head["pos"][0] + robot_tail["pos"][0]) / 2),
+                    round((robot_head["pos"][1] + robot_tail["pos"][1]) / 2)
                 )
                 print("[DEBUG] robot_center:", robot_center)  # <--- DEBUG
 
@@ -112,9 +112,9 @@ def main():
                     current_state = DELIVERING
                     print("*** STORAGE FULL - SWITCHING TO GOAL DELIVERY ***")
                     route_manager.reset_route()
-                elif not balls and current_run_balls > 0:
+                elif not balls and total_balls_collected >= TOTAL_BALLS_ON_COURT:   
                     current_state = DELIVERING
-                    print("*** NO MORE BALLS ON FIELD - DELIVERING WHAT'S COLLECTED ***")
+                    print("*** ALL BALLS COLLECTED - DELIVERING NOW ***")
                     route_manager.reset_route()
                 elif not balls and current_run_balls == 0 and total_balls_collected >= TOTAL_BALLS_ON_COURT:
                     current_state = COMPLETE
@@ -124,12 +124,7 @@ def main():
                     # Route-based navigation for balls
                     remaining_balls = [b for b in balls if b not in collected_balls_positions]
                     print("[DEBUG] remaining_balls:", remaining_balls)
-
-                    if not route_manager.route_created or route_manager.is_route_complete():
-                        print("[DEBUG] Creating new route from remaining balls...")
-                        route_manager.reset_route()
-                        route_manager.create_route_from_balls(remaining_balls, robot_center, walls, cross_pos)
-
+                    route_manager.create_route_from_balls(remaining_balls, robot_center, walls, cross_pos)
                     target_ball = route_manager.get_current_target()
                     print("[DEBUG] target_ball:", target_ball)
                     if target_ball:
@@ -162,7 +157,7 @@ def main():
                         print("*** REACHED GOAL APPROACH DISTANCE - READY TO RELEASE ***")
                         commander.send_release_balls_command(duration=4)
                         current_run_balls = 0
-                        if total_balls_collected >= TOTAL_BALLS_ON_COURT and len(balls) == 0:
+                        if total_balls_collected >= TOTAL_BALLS_ON_COURT:
                             current_state = COMPLETE
                             print("*** ALL BALLS DELIVERED - MISSION COMPLETE ***")
                         else:
