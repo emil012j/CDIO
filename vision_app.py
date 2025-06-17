@@ -115,6 +115,9 @@ def main():
                         del ball_proximity_counter[target_ball]
                         route_manager.advance_to_next_target()  # Move to next ball in the route
 
+                        if current_run_balls >= STORAGE_CAPACITY:
+                            continue
+
                 navigation_info = None
 
                 if current_state == COLLECTING:
@@ -126,33 +129,43 @@ def main():
                         current_state = DELIVERING
                         print("*** STORAGE FULL - SWITCHING TO GOAL DELIVERY ***")
                         route_manager.reset_route()
-                        return  # or continue, depending on your loop structure
+                        continue  # or continue, depending on your loop structure
 
                     # 2. NO BALLS LEFT, STILL CARRYING? Go deliver!
                     if not balls and current_run_balls > 0:
                         current_state = DELIVERING
                         print("*** NO MORE BALLS ON FIELD - DELIVERING WHAT'S COLLECTED ***")
                         route_manager.reset_route()
-                        return
+                        continue
 
                     # 3. NO BALLS LEFT, NOTHING CARRIED, ALL COLLECTED? Mission complete!
                     if not balls and current_run_balls == 0 and total_balls_collected >= TOTAL_BALLS_ON_COURT:
                         current_state = COMPLETE
                         print("*** ALL BALLS COLLECTED - MISSION COMPLETE ***")
                         route_manager.reset_route()
-                        return
+                        continue
 
                     # 4. Otherwise, keep collecting
                     if balls and current_run_balls < STORAGE_CAPACITY:
                         # Route-based navigation for balls
                         remaining_balls = [b for b in balls if b not in collected_balls_positions]
                         print("[DEBUG] remaining_balls:", remaining_balls)
+                        if current_run_balls >= STORAGE_CAPACITY:
+                            print("[DEBUG] Storage full, skipping route creation")
+                            continue
+
                         if not route_manager.route_created or route_manager.is_route_complete():
                             print("[DEBUG] Creating new route from remaining balls...")
                             route_manager.reset_route()
                             route_manager.create_route_from_balls(remaining_balls, robot_center, walls, cross_pos)
 
                         target_ball = route_manager.get_current_target()
+
+                        # 🔒 Prevent setting a target if storage is already full
+                        if current_run_balls >= STORAGE_CAPACITY:
+                            print("[DEBUG] Storage full, skipping target assignment")
+                            continue
+
                         print("[DEBUG] target_ball:", target_ball)
                         if target_ball:
                             target_ball = route_manager.get_wall_approach_point(target_ball, walls, scale_factor)

@@ -9,7 +9,7 @@ from src.communication.vision_commander import VisionCommander
 
 def handle_robot_navigation(navigation_info, commander, route_manager):
     """Hovednavigations logik - håndterer drejning og fremadkørsel"""
-    if not navigation_info or not commander.can_send_commands():
+    if not navigation_info or not commander.can_send_command():
         return
     
     angle_diff = navigation_info["angle_diff"]
