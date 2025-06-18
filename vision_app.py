@@ -95,30 +95,29 @@ def main():
 
             navigation_info = None
 
-                        # --- Cross avoidance logic ---
-            CROSS_AVOID_RADIUS_CM = 10  # Adjust as needed
-
-            if cross_pos and robot_head and robot_tail and scale_factor:
-                robot_center = (
-                    (robot_head["pos"][0] + robot_tail["pos"][0]) // 2,
-                    (robot_head["pos"][1] + robot_tail["pos"][1]) // 2
-                )
-                dx = robot_center[0] - cross_pos[0]
-                dy = robot_center[1] - cross_pos[1]
-                dist_px = (dx**2 + dy**2) ** 0.5
-                dist_cm = dist_px * scale_factor / 10.0
-
-                    # Decide turn direction: if cross is to the right, turn left; if to the left, turn right
-                if dx > 0:
-                    turn_direction = "left"
-                else:
-                    turn_direction = "right"
-                if dist_cm < CROSS_AVOID_RADIUS_CM:
-                    print(f"[CROSS AVOIDANCE] Robot is {dist_cm:.1f}cm from cross. Executing avoidance maneuver.")
-                    commander.send_turn_rotation_command(turn_direction, 0.50)  # 0.50 equals 180 degrees
-                    commander.send_forward_command(30)  # Move forward 30 cm
-                    route_manager.reset_route()
-                    continue  # Skip rest of loop and replan
+             # --- Cross avoidance logic (runs in all states) ---
+            if cross_pos and robot_head:
+                head_x, head_y = robot_head["pos"]
+                cross_x, cross_y = cross_pos
+                dist_to_cross = ((head_x - cross_x) ** 2 + (head_y - cross_y) ** 2) ** 0.5
+                if dist_to_cross <= 100:  # Adjust threshold as needed
+                    if cross_x > head_x:
+                        turn_direction = "left"
+                    else:
+                        turn_direction = "right"
+                    if commander.can_send_command():
+                        print("*** CLOSE TO CROSS - GOING BACKWARDS AND TURNING ***")
+                        commander.send_backward_command(distance=10)
+                        time.sleep(1)
+                        commander.send_turn_command(turn_direction, 0.4)
+                        time.sleep(1)
+                        commander.send_forward_command(distance=20)
+                        time.sleep(1)
+                        continue  # Skip the rest of the loop to avoid further processing 
+                    else:
+                        print("[DEBUG] No cross detected or robot head not found, continuing...")
+                        current_state = ROUTE_PLANNING  # Reset to route planning if no cross detected
+                        # --- End of cross avoidance logic ---
 
             if current_state == ROUTE_PLANNING:
                 print("[DEBUG] State: ROUTE_PLANNING")
