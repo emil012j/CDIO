@@ -99,8 +99,6 @@ def main():
                         commander.send_turn_command("left", 10.0)
                         commander.send_forward_command(distance=10)
                         continue
-                    else:
-                        current_state = ROUTE_PLANNING
             # --- End cross avoidance logic ---
 
             if robot_head and robot_tail:
