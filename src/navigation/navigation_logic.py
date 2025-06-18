@@ -35,7 +35,7 @@ def handle_robot_navigation(navigation_info, commander, route_manager):
     
     # BLIND BALL COLLECTION: I hitting zone OG ≤22 cm væk - start blind collection
     else:
-        return handle_ball_collection(distance_cm, angle_diff, hitting_zone_min, hitting_zone_max, 
+        return handle_ball_collection(distance_cm, angle_diff, -1.0, 1.0, # Precise hitting zone for collection
                                     in_hitting_zone, commander, route_manager)
 
 def handle_turn_correction(angle_diff, hitting_zone_min, hitting_zone_max, commander, route_manager):
@@ -65,16 +65,16 @@ def handle_turn_correction(angle_diff, hitting_zone_min, hitting_zone_max, comma
     
     # BEGRÆNS ROTATION: Mindre rotationer for fin-justering
     # Store justeringer først, så fine justeringer
-    if abs(angle_diff) > 15.0:
-        max_rotations = 0.20  # Store korrektioner
-    elif abs(angle_diff) > 5.0:
-        max_rotations = 0.10  # Mellem korrektioner  
-    else:
-        max_rotations = 0.05  # Fine justeringer
+    # if abs(angle_diff) > 15.0:
+    #     max_rotations = 0.20  # Store korrektioner
+    # elif abs(angle_diff) > 5.0:
+    #     max_rotations = 0.10  # Mellem korrektioner  
+    # else:
+    #     max_rotations = 0.05  # Fine justeringer
         
-    if rotations > max_rotations:
-        rotations = max_rotations
-        print("WARNING: Rotation begranset til {:.3f} for præcision (var {:.3f})".format(max_rotations, turn_amount / 180.0 * 0.5))
+    # if rotations > max_rotations:
+    #     rotations = max_rotations
+    #     print("WARNING: Rotation begranset til {:.3f} for præcision (var {:.3f})".format(max_rotations, turn_amount / 180.0 * 0.5))
     
     print("ANGLE CORRECTION: {:.1f}deg -> hitting zone [{:.1f}, {:.1f}] -> {:.3f} rotations".format(
         angle_diff, hitting_zone_min, hitting_zone_max, rotations))
