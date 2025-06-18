@@ -122,7 +122,7 @@ def main():
                 dist_to_cross = ((head_x - cross_x) ** 2 + (head_y - cross_y) ** 2) ** 0.5
                 if dist_to_cross <= 150 and not just_avoided_cross:
                     # Dynamic turn direction: turn away from cross
-                    turn_direction = "left" if cross_x > head_x else "right"
+                    turn_direction = "right" if cross_x > head_x else "left"
                     if commander.can_send_command():
                         print(f"*** CLOSE TO CROSS - GOING BACKWARDS AND TURNING {turn_direction.upper()} ***")
                         commander.send_backward_command(distance=20)
