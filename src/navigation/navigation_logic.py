@@ -83,12 +83,21 @@ def handle_turn_correction(angle_diff, hitting_zone_min, hitting_zone_max, comma
 def handle_forward_movement(distance_cm, angle_diff, commander):
     """Håndterer forsigtig fremadkørsel"""
     # Adaptive afstand baseret på nærhed til mål
-    if distance_cm > 50:  # >10cm væk - normal hastighed
-        move_distance = min(distance_cm - 22, 3)  # 3 cm steps til 22 cm
-    elif distance_cm > 35:  # 7-10cm væk - langsommere
-        move_distance = min(distance_cm - 22, 2)  # 2 cm steps til 22 cm
-    else:  # <7cm væk - meget forsigtig
-        move_distance = min(distance_cm - 22, 1)  # 1 cm steps til 22 cm
+    remaining_distance = distance_cm - 22
+    
+    if remaining_distance <= 0:
+        move_distance = 0 # Stop if already at or past the target
+    elif remaining_distance <= 5:
+        move_distance = 0.5 # Very small steps when very close
+    elif remaining_distance <= 30:
+        move_distance = 2.0 # Steps for 'close' range
+    else:
+        # Larger steps when further away, but capped to avoid overshooting
+        move_distance = min(remaining_distance * 0.2, 5.0) # Move 20% of remaining distance, max 5cm
+    
+    # Ensure a minimum movement if still far from target to prevent getting stuck
+    if move_distance < 0.5 and remaining_distance > 0:
+        move_distance = 0.5
     
     print("IN HITTING ZONE - CAREFUL FORWARD {:.1f} cm (distance:{:.1f}cm, angle:{:.1f}deg) [Wall approach active]".format(
         move_distance, distance_cm, angle_diff))
