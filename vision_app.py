@@ -248,7 +248,7 @@ def main():
                 print("[DEBUG] State: BALL_RELEASE")
                 print("*** EXECUTING BALL RELEASE ***")
                 commander.send_release_balls_command(duration=4) # Use 6 seconds as per last discussion
-                commander.send_backward_command(distance=10)
+                # commander.send_backward_command(distance=10) # Moved to robot/controller.py
                 current_run_balls = 0 # Reset collected balls for current run
                 route_manager.reset_route() # Reset route after delivery
 
