@@ -11,163 +11,156 @@ class RouteManager:
         self.current_target_index = 0
         self.route_created = False
         self.collected_balls_count = 0
-        self.collection_attempts = 0  # Tæl forsøg på nuværende target
+        self.collection_attempts = 0
         self.max_attempts = 3  # Max forsøg før vi giver op på en bold
-        
-    def create_route_from_balls(self, balls, robot_center, walls=None, cross_pos=None):
+
+    def create_route_from_balls(self, balls, robot_center, walls=None, cross_pos=None, min_cross_distance=50):
         """Lav en fast rute fra robot position til alle bolde med kollisionsundgåelse"""
         if self.route_created or not balls:
             return
-            
-        print("🗺️  CREATING BALL COLLECTION ROUTE...")
-        
-        # Filtrer kun bolde der er for tæt på kors (vægge er OK med vinkelret tilgang)
+
+        print("  CREATING BALL COLLECTION ROUTE...")
+
         safe_balls = []
         if walls is None:
             walls = []
-        
+
         for ball in balls:
             is_safe = True
-            
-            # Tjek kun afstand til kors (undgå bolde tættere end 50 cm til kors)
-            if cross_pos:
-                distance_to_cross = math.sqrt((ball[0] - cross_pos[0])**2 + (ball[1] - cross_pos[1])**2)
-                if distance_to_cross < 50:  # 50 cm i pixels
-                    print("⚠️  Ball at ({}, {}) too close to cross at ({}, {}) - distance: {:.1f}px".format(
-                        ball[0], ball[1], cross_pos[0], cross_pos[1], distance_to_cross))
-                    is_safe = False
-            
-            # Bolde tæt på vægge er OK - vi bruger vinkelret tilgang
-            if is_safe:
-                # Tjek om bold er tæt på væg (for info)
-                for wall in walls:
-                    distance_to_wall = math.sqrt((ball[0] - wall[0])**2 + (ball[1] - wall[1])**2)
-                    if distance_to_wall < 150:  # 30 cm i pixels
-                        print("🧱 Ball at ({}, {}) near wall - will use perpendicular approach".format(ball[0], ball[1]))
-                        break
-                
-                safe_balls.append(ball)
-        
-        print("📍 Accessible balls: {}/{}".format(len(safe_balls), len(balls)))
-        filtered_balls = self.filter_close_balls(safe_balls, min_distance=40)
-        print("✅ Filtered balls (no clustering): {}/{}".format(len(filtered_balls), len(safe_balls)))
 
-        # Sorter efter isolationsscore (mest isolerede først)
-        filtered_balls.sort(key=lambda b: -self.isolation_score(b, filtered_balls))
-        
+            # Undgå bolde for tæt på kors
+            if cross_pos:
+                dx = ball[0] - cross_pos[0]
+                dy = ball[1] - cross_pos[1]
+                distance_to_cross = math.sqrt(dx**2 + dy**2)
+                if distance_to_cross < min_cross_distance:
+                    print(" Ball at ({}, {}) is {:.1f}px from cross ({}, {}) (too close)".format(
+                        ball[0], ball[1], distance_to_cross, cross_pos[0], cross_pos[1]))
+                    is_safe = False
+
+            if is_safe:
+                for wall in walls:
+                    distance_to_wall = math.hypot(ball[0] - wall[0], ball[1] - wall[1])
+                    if distance_to_wall < 50:
+                        print(" Ball at ({}, {}) near wall - will use perpendicular approach".format(
+                            ball[0], ball[1]))
+                        break
+                safe_balls.append(ball)
+
+        print(" Accessible balls: {}/{}".format(len(safe_balls), len(balls)))
         if not safe_balls:
-            print("❌ No accessible balls found!")
+            print(" No accessible balls found!")
             return
-        
-        # Start med robot position som udgangspunkt
-        remaining_balls = list(filtered_balls)  # Kopier listen
+
+        remaining_balls = list(safe_balls)
         route_points = []
         current_pos = robot_center
-        
-        # Simpel "nærmeste punkt" rute algoritme
+
         while remaining_balls:
-            # Find nærmeste bold fra nuværende position
-            distances = [math.sqrt((ball[0] - current_pos[0])**2 + (ball[1] - current_pos[1])**2) 
-                        for ball in remaining_balls]
-            nearest_index = distances.index(min(distances))
-            nearest_ball = remaining_balls.pop(nearest_index)
-            
-            route_points.append(nearest_ball)
-            current_pos = nearest_ball
-            
+            best_ball = None
+            best_distance = float('inf')
+
+            for ball in remaining_balls:
+                distance = math.hypot(ball[0] - current_pos[0], ball[1] - current_pos[1])
+
+                # Avoid paths that go near the cross
+                if cross_pos and self.is_path_near_cross(current_pos, ball, cross_pos, min_cross_distance):
+                    print(" Skipping path to ball at ({}, {}) - crosses too close to cross".format(ball[0], ball[1]))
+                    continue
+
+                if distance < best_distance:
+                    best_ball = ball
+                    best_distance = distance
+
+            if not best_ball:
+                break  # No accessible balls from current position
+
+            remaining_balls.remove(best_ball)
+            route_points.append(best_ball)
+            current_pos = best_ball
+
+
         self.route = route_points
         self.current_target_index = 0
         self.route_created = True
-        
-        print("✅ ROUTE CREATED: {} waypoints".format(len(self.route)))
+
+        print(" ROUTE CREATED: {} waypoints".format(len(self.route)))
         for i, point in enumerate(self.route):
-            print("   Point {}: ({}, {})".format(i+1, point[0], point[1]))
-            
+            print("   Point {}: ({}, {})".format(i + 1, point[0], point[1]))
+
     def get_current_target(self):
-        """Få nuværende mål i ruten"""
         if not self.route or self.current_target_index >= len(self.route):
             return None
         return self.route[self.current_target_index]
-        
+    
+    def is_path_near_cross(self, start, end, cross_pos, min_distance):
+        if not cross_pos:
+            return False
+        px, py = cross_pos
+        x1, y1 = start
+        x2, y2 = end
+        line_len = math.hypot(x2 - x1, y2 - y1)
+        if line_len == 0:
+            return math.hypot(px - x1, py - y1) < min_distance
+        t = ((px - x1)*(x2 - x1) + (py - y1)*(y2 - y1)) / (line_len**2)
+        t = max(0, min(1, t))
+        closest_x = x1 + t * (x2 - x1)
+        closest_y = y1 + t * (y2 - y1)
+        return math.hypot(px - closest_x, py - closest_y) < min_distance
+
+
+
     def get_wall_approach_point(self, ball_pos, walls, scale_factor):
-        """Beregn optimal tilgangspunkt for bold tæt på væg (vinkelret tilgang)"""
         if not walls or scale_factor is None:
             return ball_pos
-            
-        # Find nærmeste væg til bolden
+
         closest_wall = None
         min_distance = float('inf')
-        
+
         for wall in walls:
-            distance = math.sqrt((ball_pos[0] - wall[0])**2 + (ball_pos[1] - wall[1])**2)
+            distance = math.hypot(ball_pos[0] - wall[0], ball_pos[1] - wall[1])
             if distance < min_distance:
                 min_distance = distance
                 closest_wall = wall
-        
-        # Hvis bold er tættere end 150 px (ca 30 cm) til væg, beregn vinkelret tilgang
+
         if closest_wall and min_distance < 150:
-            # Beregn vektor fra væg til bold
-            wall_to_ball_x = ball_pos[0] - closest_wall[0]
-            wall_to_ball_y = ball_pos[1] - closest_wall[1]
-            
-            # Normaliser vektor
-            length = math.sqrt(wall_to_ball_x**2 + wall_to_ball_y**2)
+            dx = ball_pos[0] - closest_wall[0]
+            dy = ball_pos[1] - closest_wall[1]
+            length = math.hypot(dx, dy)
             if length > 0:
-                norm_x = wall_to_ball_x / length
-                norm_y = wall_to_ball_y / length
-                
-                # Tilgangspunkt er 50 px (ca 10 cm) bag bolden i vinkelret retning fra væg
-                approach_x = int(ball_pos[0] + norm_x * 50)  # 10 cm bag bolden
+                norm_x = dx / length
+                norm_y = dy / length
+                approach_x = int(ball_pos[0] + norm_x * 50)
                 approach_y = int(ball_pos[1] + norm_y * 50)
-                
-                print("🧱 WALL APPROACH: Ball at ({}, {}) near wall at ({}, {})".format(
+                print(" WALL APPROACH: Ball at ({}, {}) near wall at ({}, {})".format(
                     ball_pos[0], ball_pos[1], closest_wall[0], closest_wall[1]))
-                print("   → Approach point: ({}, {}) - 10cm behind ball, perpendicular to wall".format(approach_x, approach_y))
-                
+                print("   → Approach point: ({}, {})".format(approach_x, approach_y))
                 return (approach_x, approach_y)
-        
+
         return ball_pos
-        
+
     def advance_to_next_target(self):
-        """Gå til næste punkt i ruten"""
         self.current_target_index += 1
         self.collected_balls_count += 1
-        self.collection_attempts = 0  # Reset attempts for new target
-        print("🎯 ADVANCING TO NEXT TARGET: {}/{}".format(
+        self.collection_attempts = 0
+        print(" ADVANCING TO NEXT TARGET: {}/{}".format(
             self.current_target_index + 1, len(self.route)))
-            
+
     def increment_collection_attempts(self):
-        """Øg antal forsøg på nuværende target"""
         self.collection_attempts += 1
-        print("⚠️  Collection attempt {}/{} for current target".format(
+        print("  Collection attempt {}/{} for current target".format(
             self.collection_attempts, self.max_attempts))
         return self.collection_attempts >= self.max_attempts
-        
+
     def should_skip_current_target(self):
-        """Tjek om vi skal give op på nuværende target"""
         return self.collection_attempts >= self.max_attempts
-        
+
     def is_route_complete(self):
-        """Tjek om ruten er færdig"""
         return self.current_target_index >= len(self.route)
-        
+
     def reset_route(self):
-        """Reset rute for ny mission"""
         self.route = []
         self.current_target_index = 0
         self.route_created = False
         self.collection_attempts = 0
-        print("🔄 ROUTE RESET") 
-
-    def filter_close_balls(self, balls, min_distance=40):
-        """Fjern bolde der er for tæt på hinanden"""
-        filtered = []
-        for ball in balls:
-            if all(math.dist(ball, b) > min_distance for b in filtered):
-                filtered.append(ball)
-        return filtered
-
-    def isolation_score(self, ball, others):
-        """Returner minimumsafstand til andre bolde som et isolationsmål"""
-        distances = [math.dist(ball, other) for other in others if other != ball]
-        return min(distances) if distances else float('inf')
+        print(" ROUTE RESET")
