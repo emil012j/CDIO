@@ -175,6 +175,55 @@ def calculate_navigation_command(robot_head, robot_tail, target_ball, scale_fact
         "corrected_tail": corrected_tail     # For debugging
     }
 
+def calculate_tail_navigation_command(robot_head, robot_tail, target_position, scale_factor):
+    """
+    Beregn navigation kommandoer baseret på robot tail position og målet
+    Bruges til delivery approach hvor vi vil have tail til at ramme målet
+    """
+    if not robot_head or not robot_tail or not target_position:
+        return None
+    
+    # Correct positions to ground level for consistent calculation
+    corrected_head = correct_position_to_ground_level(
+        robot_head["pos"], ROBOT_HEIGHT, CAMERA_HEIGHT
+    )
+    corrected_tail = correct_position_to_ground_level(
+        robot_tail["pos"], ROBOT_HEIGHT, CAMERA_HEIGHT  
+    )
+    corrected_target = correct_position_to_ground_level(
+        target_position, GROUND_LEVEL, CAMERA_HEIGHT
+    )
+    
+    # Use robot tail as the reference point instead of center
+    robot_tail_pos = corrected_tail
+    
+    # Calculate robot heading using corrected head/tail positions
+    robot_heading = calculate_angle_from_positions(corrected_tail, corrected_head)
+    if robot_heading is None:
+        return None
+    
+    # Calculate target heading from tail to target
+    target_heading = calculate_angle_from_positions(robot_tail_pos, corrected_target)
+    
+    # Calculate angle difference
+    angle_diff = calculate_angle_difference(robot_heading, target_heading)
+    
+    # Calculate distance from tail to target
+    distance_pixels = calculate_distance(robot_tail_pos, corrected_target)
+    distance_cm = (distance_pixels * scale_factor) / 10.0 if scale_factor else distance_pixels / 10.0
+    
+    return {
+        "robot_center": robot_tail_pos,  # Use tail as center for this navigation
+        "robot_heading": robot_heading,
+        "target_heading": target_heading,
+        "angle_diff": angle_diff,
+        "distance_cm": distance_cm,
+        "original_target": target_position,
+        "corrected_target": corrected_target,
+        "corrected_head": corrected_head,
+        "corrected_tail": corrected_tail
+    }
+
 #laver turn kommandoer baseret på vinkel forskel
 def create_turn_command(angle_diff):
     if abs(angle_diff) <= TURN_THRESHOLD:

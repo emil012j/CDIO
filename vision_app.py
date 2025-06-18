@@ -8,7 +8,7 @@ import cv2
 import time
 import math
 from src.camera.detection import load_yolo_model, run_detection, process_detections_and_draw, calculate_scale_factor, get_cross_position
-from src.camera.coordinate_calculation import calculate_navigation_command
+from src.camera.coordinate_calculation import calculate_navigation_command, calculate_tail_navigation_command
 from src.camera.camera_manager import CameraManager, draw_navigation_info, display_status
 from src.communication.vision_commander import VisionCommander
 from src.navigation.route_manager import RouteManager
@@ -188,20 +188,20 @@ def main():
                 print("[DEBUG] delivery_position:", delivery_position)
                 
                 if delivery_position:
-                    # Calculate navigation to delivery position
-                    navigation_info = calculate_navigation_command(robot_head, robot_tail, delivery_position, scale_factor)
-                    print("Navigation info to delivery:", navigation_info)
+                    # Calculate navigation to delivery position using TAIL as reference
+                    navigation_info = calculate_tail_navigation_command(robot_head, robot_tail, delivery_position, scale_factor)
+                    print("Tail navigation info to delivery:", navigation_info)
 
                     # Add detailed debug print for distance
                     current_distance_to_delivery = 999 # Default to a high value if navigation_info is None
                     if navigation_info:
                         current_distance_to_delivery = navigation_info.get("distance_cm", 999)
-                    print(f"[DEBUG] Current distance to delivery: {current_distance_to_delivery:.1f} cm")
+                    print(f"[DEBUG] Current distance to delivery (tail): {current_distance_to_delivery:.1f} cm")
 
-                    # Determine if robot is close enough to delivery position
+                    # Determine if robot tail is close enough to delivery position
                     if current_distance_to_delivery < 26 and current_distance_to_delivery > 0:
                         current_state = GOAL_NAVIGATION
-                        print("*** REACHED DELIVERY POSITION - SWITCHING TO GOAL_NAVIGATION ***")
+                        print("*** REACHED DELIVERY POSITION WITH TAIL - SWITCHING TO GOAL_NAVIGATION ***")
                     elif navigation_info: # Only navigate if not yet at approach distance
                         print("[DEBUG] Calling handle_robot_navigation for delivery (DELIVERY_APPROACH state)")
                         handle_robot_navigation(navigation_info, commander, route_manager)
