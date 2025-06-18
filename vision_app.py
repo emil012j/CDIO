@@ -106,7 +106,7 @@ def main():
                 dx = robot_center[0] - cross_pos[0]
                 dy = robot_center[1] - cross_pos[1]
                 dist_px = (dx**2 + dy**2) ** 0.5
-                dist_cm = dist_px / scale_factor
+                dist_cm = dist_px * scale_factor / 10.0
 
                     # Decide turn direction: if cross is to the right, turn left; if to the left, turn right
                 if dx > 0:
@@ -115,7 +115,7 @@ def main():
                     turn_direction = "right"
                 if dist_cm < CROSS_AVOID_RADIUS_CM:
                     print(f"[CROSS AVOIDANCE] Robot is {dist_cm:.1f}cm from cross. Executing avoidance maneuver.")
-                    commander.send_turn_rotation_command(turn_direction, 0.25)  # 0.25 rotations ≈ 45°
+                    commander.send_turn_rotation_command(turn_direction, 0.50)  # 0.50 equals 180 degrees
                     commander.send_forward_command(30)  # Move forward 30 cm
                     route_manager.reset_route()
                     continue  # Skip rest of loop and replan
