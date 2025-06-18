@@ -227,7 +227,7 @@ class RobotController:
         """
         print("Releasing balls")
         try:
-            self.collect_motor.on(speed=100)  # Kør fremad (modsat af opsamling)
+            self.collect_motor.on(speed=70)  # Kør fremad (modsat af opsamling)
             sleep(duration)
             self.collect_motor.on(-100)
             print("Balls released")

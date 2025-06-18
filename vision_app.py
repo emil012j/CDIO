@@ -103,7 +103,7 @@ def main():
                     head_x, head_y = robot_head["pos"]
                     cross_x, cross_y = cross_pos
                     dist_to_cross = ((head_x - cross_x) ** 2 + (head_y - cross_y) ** 2) ** 0.5
-                    if dist_to_cross > 220:  # Use a larger threshold for reset
+                    if dist_to_cross > 180:  # Use a larger threshold for reset
                         just_avoided_cross = False
                         cross_avoid_reset_time = None
                 else:
@@ -120,7 +120,7 @@ def main():
                 head_x, head_y = robot_head["pos"]
                 cross_x, cross_y = cross_pos
                 dist_to_cross = ((head_x - cross_x) ** 2 + (head_y - cross_y) ** 2) ** 0.5
-                if dist_to_cross <= 150 and not just_avoided_cross:
+                if dist_to_cross <= 100 and not just_avoided_cross:
                     # Dynamic turn direction: turn away from cross
                     turn_direction = "right" if cross_x > head_x else "left"
                     if commander.can_send_command():
@@ -129,7 +129,7 @@ def main():
                         time.sleep(1)
                         commander.send_turn_rotation_command(turn_direction, 0.5)
                         time.sleep(1)
-                        commander.send_forward_command(distance=20)
+                        commander.send_forward_command(distance=15)
                         time.sleep(1)
                         just_avoided_cross = True
                         continue
