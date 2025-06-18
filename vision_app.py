@@ -95,6 +95,31 @@ def main():
 
             navigation_info = None
 
+                        # --- Cross avoidance logic ---
+            CROSS_AVOID_RADIUS_CM = 10  # Adjust as needed
+
+            if cross_pos and robot_head and robot_tail and scale_factor:
+                robot_center = (
+                    (robot_head["pos"][0] + robot_tail["pos"][0]) // 2,
+                    (robot_head["pos"][1] + robot_tail["pos"][1]) // 2
+                )
+                dx = robot_center[0] - cross_pos[0]
+                dy = robot_center[1] - cross_pos[1]
+                dist_px = (dx**2 + dy**2) ** 0.5
+                dist_cm = dist_px / scale_factor
+
+                    # Decide turn direction: if cross is to the right, turn left; if to the left, turn right
+                if dx > 0:
+                    turn_direction = "left"
+                else:
+                    turn_direction = "right"
+                if dist_cm < CROSS_AVOID_RADIUS_CM:
+                    print(f"[CROSS AVOIDANCE] Robot is {dist_cm:.1f}cm from cross. Executing avoidance maneuver.")
+                    commander.send_turn_rotation_command(turn_direction, 0.25)  # 0.25 rotations ≈ 45°
+                    commander.send_forward_command(30)  # Move forward 30 cm
+                    route_manager.reset_route()
+                    continue  # Skip rest of loop and replan
+
             if current_state == ROUTE_PLANNING:
                 print("[DEBUG] State: ROUTE_PLANNING")
                 # If we have balls, create a route and move to collection
