@@ -6,13 +6,14 @@ hovedprogrammet der skal køre på pc'en
 
 import cv2
 import time
+import math
 from src.camera.detection import load_yolo_model, run_detection, process_detections_and_draw, calculate_scale_factor, get_cross_position
 from src.camera.coordinate_calculation import calculate_navigation_command
 from src.camera.camera_manager import CameraManager, draw_navigation_info, display_status
 from src.communication.vision_commander import VisionCommander
 from src.navigation.route_manager import RouteManager
 from src.navigation.navigation_logic import handle_robot_navigation
-from src.visualization.route_visualization import draw_route_and_targets, draw_robot_heading, draw_route_status
+from src.visualization.route_visualization import draw_route_and_targets, draw_robot_heading, draw_route_status, draw_goal_navigation_status
 from src.utils.vision_helpers import choose_unblocked_ball
 from src.config.settings import *
 from src.camera.goal_calibrator import GoalCalibrator
@@ -25,8 +26,15 @@ def main():
     print("Setting up goal position...")
     calibrator = GoalCalibrator()
     goal_utils = GoalUtils()
+    
+    # Check both delivery and goal positions
+    delivery_position = goal_utils.get_delivery_position()
     goal_position = goal_utils.get_goal_position()
-    if goal_position:
+    
+    if delivery_position and goal_position:
+        print("Goal positions loaded: Delivery({}, {}) -> Goal({}, {})".format(
+            delivery_position[0], delivery_position[1], goal_position[0], goal_position[1]))
+    elif goal_position:
         print("Goal position loaded: {}".format(goal_position))
     else:
         print("No goal position found - calibration required!")
@@ -174,35 +182,60 @@ def main():
                     print("No balls to collect, returning to ROUTE_PLANNING to re-evaluate.")
 
             elif current_state == GOAL_NAVIGATION:
-                print("[DEBUG] State: GOAL_NAVIGATION") # <--- DEBUG
+                print("[DEBUG] State: GOAL_NAVIGATION")
+                
+                # Check if we have both delivery and goal positions
+                delivery_position = goal_utils.get_delivery_position()
                 goal_position = goal_utils.get_goal_position()
-                print("[DEBUG] goal_position:", goal_position)  # <--- DEBUG
-                if goal_position:
-                    # Calculate navigation to goal
+                
+                if delivery_position and goal_position:
+                    print("[DEBUG] Using delivery/goal navigation: Delivery({}, {}) -> Goal({}, {})".format(
+                        delivery_position[0], delivery_position[1], goal_position[0], goal_position[1]))
+                    
+                    # Først: Naviger til delivery punkt
+                    delivery_nav_info = calculate_navigation_command(robot_head, robot_tail, delivery_position, scale_factor)
+                    
+                    if delivery_nav_info:
+                        delivery_distance = delivery_nav_info.get("distance_cm", 999)
+                        print("GOAL NAVIGATION: Distance to delivery: {:.1f}cm".format(delivery_distance))
+                        
+                        if delivery_distance > 30:  # 30 cm threshold for delivery approach
+                            print("Navigating to delivery point...")
+                            handle_robot_navigation(delivery_nav_info, commander, route_manager)
+                        else:
+                            # Nu er vi ved delivery punkt - drej mod goal og kør derhen
+                            print("At delivery point - navigating to goal...")
+                            goal_nav_info = calculate_navigation_command(robot_head, robot_tail, goal_position, scale_factor)
+                            
+                            if goal_nav_info:
+                                goal_distance = goal_nav_info.get("distance_cm", 999)
+                                print("Distance to goal: {:.1f}cm".format(goal_distance))
+                                
+                                if goal_distance > 26:  # 26 cm threshold for goal approach
+                                    handle_robot_navigation(goal_nav_info, commander, route_manager)
+                                else:
+                                    # Vi er tæt nok på goal - klar til ball release
+                                    print("*** REACHED GOAL VIA DELIVERY POINT - SWITCHING TO BALL_RELEASE ***")
+                                    current_state = BALL_RELEASE
+                
+                elif goal_position:
+                    # Fallback to old direct goal navigation
+                    print("[DEBUG] Using direct goal navigation (no delivery point)")
                     navigation_info = calculate_navigation_command(robot_head, robot_tail, goal_position, scale_factor)
-                    print("Navigation info to goal:", navigation_info) # <--- DEBUG
+                    print("Navigation info to goal:", navigation_info)
 
                     # Add detailed debug print for distance
                     current_distance_to_goal = 999 # Default to a high value if navigation_info is None
                     if navigation_info:
                         current_distance_to_goal = navigation_info.get("distance_cm", 999)
-                    print(f"[DEBUG] Current distance to goal: {current_distance_to_goal:.1f} cm") # New debug line
+                    print(f"[DEBUG] Current distance to goal: {current_distance_to_goal:.1f} cm")
 
                     # Determine if robot is close enough to goal or needs to navigate
-                    if current_distance_to_goal < 26 and current_distance_to_goal > 0: # Use 22cm as threshold for goal approach as well
+                    if current_distance_to_goal < 26 and current_distance_to_goal > 0: # Use 26cm as threshold for goal approach
                         current_state = BALL_RELEASE
                         print("*** REACHED GOAL APPROACH DISTANCE - SWITCHING TO BALL_RELEASE ***")
-                        # commander.send_release_balls_command(duration=4) # Moved to BALL_RELEASE state
-                        # current_run_balls = 0 # Moved to BALL_RELEASE state
-                        # if total_balls_collected >= TOTAL_BALLS_ON_COURT:
-                        #     current_state = COMPLETE
-                        #     print("*** ALL BALLS DELIVERED - MISSION COMPLETE ***")
-                        # else:
-                        #     current_state = ROUTE_PLANNING
-                        #     print("*** BALLS RELEASED - STARTING NEW COLLECTION RUN ***")
-                        # route_manager.reset_route() # Moved to BALL_RELEASE state
                     elif navigation_info: # Only navigate if not yet at approach distance
-                        print("[DEBUG] Calling handle_robot_navigation for goal (GOAL_NAVIGATION state)")  # <--- DEBUG
+                        print("[DEBUG] Calling handle_robot_navigation for goal (GOAL_NAVIGATION state)")
                         handle_robot_navigation(navigation_info, commander, route_manager)
                 else:
                     print("ERROR: No goal position set - cannot navigate to goal!")
@@ -231,6 +264,7 @@ def main():
             draw_route_and_targets(display_frame, robot_head, robot_tail, route_manager, walls)
             draw_robot_heading(display_frame, robot_head, robot_tail)
             draw_route_status(display_frame, route_manager)
+            draw_goal_navigation_status(display_frame, goal_utils, current_state)
             goal_utils.draw_goal_on_frame(display_frame)
 
             if navigation_info:
@@ -255,9 +289,16 @@ def main():
                 print("*** STARTING GOAL CALIBRATION ***")
                 calibrator.start_calibration(frame)
                 goal_utils.load_goal()
+                
+                # Check both delivery and goal positions
+                delivery_position = goal_utils.get_delivery_position()
                 goal_position = goal_utils.get_goal_position()
-                if goal_position:
-                    print("Goal calibration complete: {}".format(goal_position))
+                
+                if delivery_position and goal_position:
+                    print("Goal calibration complete: Delivery({}, {}) -> Goal({}, {})".format(
+                        delivery_position[0], delivery_position[1], goal_position[0], goal_position[1]))
+                elif goal_position:
+                    print("Goal calibration complete (delivery point only): {}".format(goal_position))
                 else:
                     print("Goal calibration was cancelled or failed")
 

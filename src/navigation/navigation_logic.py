@@ -4,6 +4,7 @@ Navigation logik for robotten - håndterer turning og forward kommandoer
 """
 
 import time
+import math
 
 def handle_robot_navigation(navigation_info, commander, route_manager):
     """Hovednavigations logik - håndterer drejning og fremadkørsel"""

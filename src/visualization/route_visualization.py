@@ -94,4 +94,37 @@ def draw_route_status(display_frame, route_manager):
         route_text = "ROUTE: {}/{} waypoints (attempts: {}/{})".format(
             route_manager.current_target_index + 1, len(route_manager.route),
             route_manager.collection_attempts, route_manager.max_attempts)
-        cv2.putText(display_frame, route_text, (10, 220), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 255), 2) 
+        cv2.putText(display_frame, route_text, (10, 220), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 255), 2)
+
+def draw_goal_navigation_status(display_frame, goal_utils, current_state):
+    """Tegn goal navigation status med delivery og goal punkter"""
+    delivery_position = goal_utils.get_delivery_position()
+    goal_position = goal_utils.get_goal_position()
+    
+    if delivery_position and goal_position:
+        # Tegn navigation status
+        status_text = "GOAL NAV: Delivery -> Perpendicular -> Goal"
+        cv2.putText(display_frame, status_text, (10, 250), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 255, 255), 2)
+        
+        # Tegn delivery og goal punkter med labels
+        cv2.circle(display_frame, delivery_position, 12, (0, 255, 255), -1)  # GUL for delivery
+        cv2.putText(display_frame, "DELIVERY", (delivery_position[0]+15, delivery_position[1]), 
+                   cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 255), 2)
+        
+        cv2.circle(display_frame, goal_position, 12, (0, 255, 0), -1)  # GRØN for goal
+        cv2.putText(display_frame, "GOAL", (goal_position[0]+15, goal_position[1]), 
+                   cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 2)
+        
+        # Tegn linje mellem delivery og goal
+        cv2.line(display_frame, delivery_position, goal_position, (255, 255, 255), 2)
+        
+        # Tegn vinkelret tilgang indikation
+        mid_x = (delivery_position[0] + goal_position[0]) // 2
+        mid_y = (delivery_position[1] + goal_position[1]) // 2
+        cv2.putText(display_frame, "PERPENDICULAR", (mid_x-50, mid_y-10), 
+                   cv2.FONT_HERSHEY_SIMPLEX, 0.4, (255, 255, 255), 1)
+        
+    elif goal_position:
+        # Kun goal position (backward compatibility)
+        status_text = "GOAL NAV: Direct approach"
+        cv2.putText(display_frame, status_text, (10, 250), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 255, 0), 2) 
