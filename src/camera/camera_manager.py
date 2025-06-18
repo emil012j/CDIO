@@ -155,63 +155,42 @@ def calibrate_goal(self):
 def draw_navigation_info(frame, robot_center, target_ball, robot_heading, target_heading, navigation_info=None):
     try:
         if robot_center and target_ball:
-            # Draw line from robot to original target (dotted yellow)
-            cv2.line(frame, robot_center, target_ball, (0, 255, 255), 1, cv2.LINE_AA)
-            
-            # If we have corrected positions from height adjustment, draw those too
-            if navigation_info and 'corrected_target' in navigation_info:
-                corrected_ball = navigation_info['corrected_target']
+            # Draw corrected robot head/tail positions if available
+            if navigation_info and 'corrected_head' in navigation_info and 'corrected_tail' in navigation_info:
+                corrected_head = navigation_info['corrected_head']
+                corrected_tail = navigation_info['corrected_tail']
                 
-                # Draw line to corrected ball position (solid green)
-                cv2.line(frame, robot_center, corrected_ball, (0, 255, 0), 2)
+                # Calculate corrected robot center
+                corrected_center = (
+                    (corrected_head[0] + corrected_tail[0]) // 2,
+                    (corrected_head[1] + corrected_tail[1]) // 2
+                )
                 
-                # Draw corrected robot head/tail positions if available
-                if 'corrected_head' in navigation_info and 'corrected_tail' in navigation_info:
-                    corrected_head = navigation_info['corrected_head']
-                    corrected_tail = navigation_info['corrected_tail']
-                    
-                    # Draw corrected robot positions (small circles)
-                    cv2.circle(frame, corrected_head, 3, (255, 255, 0), -1)  # Cyan head
-                    cv2.circle(frame, corrected_tail, 3, (255, 0, 255), -1)  # Magenta tail
-                    
-                    # Draw corrected robot heading line
-                    corrected_center = (
-                        (corrected_head[0] + corrected_tail[0]) // 2,
-                        (corrected_head[1] + corrected_tail[1]) // 2
-                    )
-                    
-                    # Extended heading line from corrected positions
-                    dx = corrected_head[0] - corrected_tail[0]
-                    dy = corrected_head[1] - corrected_tail[1]
-                    if abs(dx) > 1e-6 or abs(dy) > 1e-6:
-                        length = math.sqrt(dx*dx + dy*dy)
-                        norm_dx = dx / length
-                        norm_dy = dy / length
-                        end_x = int(corrected_head[0] + norm_dx * 100)
-                        end_y = int(corrected_head[1] + norm_dy * 100)
-                        cv2.line(frame, corrected_tail, (end_x, end_y), (0, 255, 255), 2)  # Cyan corrected heading
+                # Draw corrected robot positions (small circles)
+                cv2.circle(frame, corrected_head, 3, (255, 255, 0), -1)  # Cyan head
+                cv2.circle(frame, corrected_tail, 3, (255, 0, 255), -1)  # Magenta tail
+                cv2.circle(frame, corrected_center, 8, (0, 255, 255), -1)  # Cyan corrected center
                 
-                # Draw circles at positions
-                cv2.circle(frame, corrected_ball, 5, (0, 255, 0), -1)    # Green corrected ball
-                cv2.circle(frame, target_ball, 5, (0, 255, 255), -1)     # Yellow original ball
+                # MAIN NAVIGATION LINE: From corrected robot center to OBSERVED ball
+                cv2.line(frame, corrected_center, target_ball, (0, 255, 0), 3)  # GREEN thick line
+                
+                # Draw corrected robot heading line (short yellow line showing robot orientation)
+                dx = corrected_head[0] - corrected_tail[0]
+                dy = corrected_head[1] - corrected_tail[1]
+                if abs(dx) > 1e-6 or abs(dy) > 1e-6:
+                    length = math.sqrt(dx*dx + dy*dy)
+                    norm_dx = dx / length
+                    norm_dy = dy / length
+                    end_x = int(corrected_center[0] + norm_dx * 50)  # Shorter line
+                    end_y = int(corrected_center[1] + norm_dy * 50)
+                    cv2.line(frame, corrected_center, (end_x, end_y), (0, 255, 255), 3)  # Yellow robot heading
+            else:
+                # Fallback: Use raw robot center if no correction available
+                cv2.line(frame, robot_center, target_ball, (0, 255, 0), 3)  # GREEN line
+                cv2.circle(frame, robot_center, 10, (255, 0, 255), -1)  # Magenta center
             
-            # Draw robot center
-            cv2.circle(frame, robot_center, 10, (255, 0, 255), -1)
-            
-            # Draw heading arrows
-            if robot_heading is not None:
-                # Current heading arrow (red)
-                arrow_length = 50
-                end_x = int(robot_center[0] + arrow_length * math.cos(math.radians(robot_heading)))
-                end_y = int(robot_center[1] + arrow_length * math.sin(math.radians(robot_heading)))
-                cv2.arrowedLine(frame, robot_center, (end_x, end_y), (0, 0, 255), 3)
-            
-            if target_heading is not None:
-                # Target heading arrow (green)  
-                arrow_length = 70
-                end_x = int(robot_center[0] + arrow_length * math.cos(math.radians(target_heading)))
-                end_y = int(robot_center[1] + arrow_length * math.sin(math.radians(target_heading)))
-                cv2.arrowedLine(frame, robot_center, (end_x, end_y), (0, 255, 0), 2)
+            # Draw target ball (observed position)
+            cv2.circle(frame, target_ball, 7, (0, 0, 255), -1)  # RED ball - this is where we're going
                 
     except Exception:
         pass

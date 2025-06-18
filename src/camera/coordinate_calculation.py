@@ -171,10 +171,8 @@ def calculate_navigation_command(robot_head, robot_tail, target_ball, scale_fact
         "target_heading": target_heading,
         "angle_diff": angle_diff,
         "distance_cm": distance_cm,
-        "original_target": target_ball,  # Keep original for visualization
-        "corrected_target": observed_ball,  # Add corrected for debugging
-        "corrected_head": corrected_head,    # For debugging
-        "corrected_tail": corrected_tail     # For debugging
+        "corrected_head": corrected_head,    # For visualization
+        "corrected_tail": corrected_tail     # For visualization
     }
 
 #laver turn kommandoer baseret på vinkel forskel
