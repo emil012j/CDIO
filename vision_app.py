@@ -55,7 +55,7 @@ def main():
 
     current_state = ROUTE_PLANNING
     STORAGE_CAPACITY = 6
-    TOTAL_BALLS_ON_COURT = 6 # Vigtigt vi skriver det korrekte antal bolde vi tester med
+    TOTAL_BALLS_ON_COURT = 2 # Vigtigt vi skriver det korrekte antal bolde vi tester med
     current_run_balls = 0
     total_balls_collected = 0
     previous_ball_count = 0
@@ -85,20 +85,20 @@ def main():
             robot_head, robot_tail, balls, walls, log_info_list = process_detections_and_draw(results, model, display_frame, scale_factor)
 
             # --- Cross avoidance logic (runs in all states) ---
-            if cross_pos and robot_head and robot_tail:
-                robot_center = (
-                    (robot_head["pos"][0] + robot_tail["pos"][0]) // 2,
-                    (robot_head["pos"][1] + robot_tail["pos"][1]) // 2
-                )
+            if cross_pos and robot_head:
+                head_x, head_y = robot_head["pos"]
                 cross_x, cross_y = cross_pos
-                dist_to_cross = ((robot_center[0] - cross_pos[0]) ** 2 + (robot_center[1] - cross_pos[1]) ** 2) ** 0.5
+                dist_to_cross = ((head_x - cross_x) ** 2 + (head_y - cross_y) ** 2) ** 0.5
                 if dist_to_cross <= 100:  # Adjust threshold as needed
                     if commander.can_send_command():
                         print("*** CLOSE TO CROSS - GOING BACKWARDS AND TURNING ***")
                         commander.send_backward_command(distance=20)
-                        commander.send_turn_command("left", 2.0)
+                        time.sleep(1)
+                        commander.send_turn_command("right", 0.4)
+                        time.sleep(1)
                         commander.send_forward_command(distance=20)
-                        continue
+                        time.sleep(1)
+                        
             # --- End cross avoidance logic ---
 
             if robot_head and robot_tail:
