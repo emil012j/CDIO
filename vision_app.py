@@ -55,7 +55,7 @@ def main():
 
     current_state = ROUTE_PLANNING
     STORAGE_CAPACITY = 6
-    TOTAL_BALLS_ON_COURT = 6 # Vigtigt vi skriver det korrekte antal bolde vi tester med
+    TOTAL_BALLS_ON_COURT = 1 # Vigtigt vi skriver det korrekte antal bolde vi tester med
     current_run_balls = 0
     total_balls_collected = 0
     previous_ball_count = 0
@@ -105,6 +105,7 @@ def main():
                         current_state = BALL_COLLECTION
                         print("*** ROUTE PLANNED - SWITCHING TO BALL_COLLECTION ***")
                     else:
+                        current_state = GOAL_NAVIGATION
                         print("No valid target found in route planning, staying in ROUTE_PLANNING.")
                 elif current_run_balls >= STORAGE_CAPACITY:
                     current_state = GOAL_NAVIGATION
@@ -119,7 +120,16 @@ def main():
                     print("*** NO MORE BALLS ON FIELD - DELIVERING WHAT'S COLLECTED ***")
                     route_manager.reset_route()
                 else: # No balls found and not yet collected any, or all collected
-                    print("No balls to collect or all collected, staying in ROUTE_PLANNING or COMPLETE.")
+                    if commander.can_send_command():
+                        commander.send_forward_command(distance=10)
+                        current_state = GOAL_NAVIGATION
+                        route_manager.reset_route()
+                    #elif commander.can_send_command():
+                     #   current_state = GOAL_NAVIGATION
+                      #  route_manager.reset_route()
+                        print("No balls to collect or all collected, staying in ROUTE_PLANNING or COMPLETE.")
+                    else: 
+                        current_state = COMPLETE
 
             elif current_state == BALL_COLLECTION:
                 print("[DEBUG] State: BALL_COLLECTION")
@@ -179,7 +189,7 @@ def main():
                     print(f"[DEBUG] Current distance to goal: {current_distance_to_goal:.1f} cm") # New debug line
 
                     # Determine if robot is close enough to goal or needs to navigate
-                    if current_distance_to_goal < 22 and current_distance_to_goal > 0: # Use 22cm as threshold for goal approach as well
+                    if current_distance_to_goal < 26 and current_distance_to_goal > 0: # Use 22cm as threshold for goal approach as well
                         current_state = BALL_RELEASE
                         print("*** REACHED GOAL APPROACH DISTANCE - SWITCHING TO BALL_RELEASE ***")
                         # commander.send_release_balls_command(duration=4) # Moved to BALL_RELEASE state
@@ -200,11 +210,11 @@ def main():
             elif current_state == BALL_RELEASE:
                 print("[DEBUG] State: BALL_RELEASE")
                 print("*** EXECUTING BALL RELEASE ***")
-                commander.send_release_balls_command(duration=6) # Use 6 seconds as per last discussion
+                commander.send_release_balls_command(duration=4) # Use 6 seconds as per last discussion
                 current_run_balls = 0 # Reset collected balls for current run
                 route_manager.reset_route() # Reset route after delivery
 
-                if total_balls_collected >= TOTAL_BALLS_ON_COURT: # Check if all balls are collected total
+                if current_run_balls >= TOTAL_BALLS_ON_COURT: # Check if all balls are collected total - havde total_balls_collected før i stedet for current_run_balls
                     current_state = COMPLETE
                     print("*** ALL BALLS DELIVERED - MISSION COMPLETE ***")
                 else:
