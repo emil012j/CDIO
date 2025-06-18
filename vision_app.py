@@ -55,7 +55,7 @@ def main():
 
     current_state = ROUTE_PLANNING
     STORAGE_CAPACITY = 6
-    TOTAL_BALLS_ON_COURT = 5 # Vigtigt vi skriver det korrekte antal bolde vi tester med
+    TOTAL_BALLS_ON_COURT = 1 # Vigtigt vi skriver det korrekte antal bolde vi tester med
     current_run_balls = 0
     total_balls_collected = 0
     previous_ball_count = 0
