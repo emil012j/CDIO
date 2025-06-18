@@ -91,8 +91,8 @@ def main():
                     (robot_head["pos"][1] + robot_tail["pos"][1]) // 2
                 )
                 cross_x, cross_y = cross_pos
-                dist_to_cross = ((robot_head[0] - cross_pos[0]) ** 2 + (robot_head[1] - cross_pos[1]) ** 2) ** 0.5
-                if dist_to_cross < 60:  # Adjust threshold as needed
+                dist_to_cross = ((robot_center[0] - cross_pos[0]) ** 2 + (robot_center[1] - cross_pos[1]) ** 2) ** 0.5
+                if dist_to_cross < 100:  # Adjust threshold as needed
                     print("*** CLOSE TO CROSS - GOING BACKWARDS AND TURNING ***")
                     commander.send_stop_command()
                     commander.send_backward_command(10)
