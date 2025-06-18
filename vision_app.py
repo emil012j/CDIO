@@ -57,6 +57,7 @@ def main():
     # State management
     ROUTE_PLANNING = "route_planning"
     BALL_COLLECTION = "ball_collection"
+    DELIVERY_APPROACH = "delivery_approach"  # Ny state for delivery position
     GOAL_NAVIGATION = "goal_navigation"
     BALL_RELEASE = "ball_release"
     COMPLETE = "complete"
@@ -113,24 +114,24 @@ def main():
                         current_state = BALL_COLLECTION
                         print("*** ROUTE PLANNED - SWITCHING TO BALL_COLLECTION ***")
                     else:
-                        current_state = GOAL_NAVIGATION
-                        print("No valid target found in route planning, staying in ROUTE_PLANNING.")
+                        current_state = DELIVERY_APPROACH
+                        print("No valid target found in route planning, switching to DELIVERY_APPROACH.")
                 elif current_run_balls >= STORAGE_CAPACITY:
-                    current_state = GOAL_NAVIGATION
-                    print("*** STORAGE FULL - SWITCHING TO GOAL_NAVIGATION ***")
+                    current_state = DELIVERY_APPROACH
+                    print("*** STORAGE FULL - SWITCHING TO DELIVERY_APPROACH ***")
                     route_manager.reset_route()
                 elif not balls and total_balls_collected >= TOTAL_BALLS_ON_COURT:
                     current_state = COMPLETE
                     print("*** ALL BALLS COLLECTED - MISSION COMPLETE ***")
                     route_manager.reset_route()
                 elif not balls and current_run_balls > 0: # Collected some, but no more visible balls
-                    current_state = GOAL_NAVIGATION
+                    current_state = DELIVERY_APPROACH
                     print("*** NO MORE BALLS ON FIELD - DELIVERING WHAT'S COLLECTED ***")
                     route_manager.reset_route()
                 else: # No balls found and not yet collected any, or all collected
                     if commander.can_send_command():
                         commander.send_forward_command(distance=10)
-                        current_state = GOAL_NAVIGATION
+                        current_state = DELIVERY_APPROACH
                         route_manager.reset_route()
                     #elif commander.can_send_command():
                      #   current_state = GOAL_NAVIGATION
@@ -144,11 +145,11 @@ def main():
                 print("[DEBUG] current_run_balls:", current_run_balls, "balls:", balls)
                 
                 if current_run_balls >= STORAGE_CAPACITY:
-                    current_state = GOAL_NAVIGATION
-                    print("*** STORAGE FULL - SWITCHING TO GOAL_NAVIGATION ***")
+                    current_state = DELIVERY_APPROACH
+                    print("*** STORAGE FULL - SWITCHING TO DELIVERY_APPROACH ***")
                     route_manager.reset_route()
                 elif not balls and current_run_balls > 0: # Collected some, but no more visible balls
-                    current_state = GOAL_NAVIGATION
+                    current_state = DELIVERY_APPROACH
                     print("*** NO MORE BALLS ON FIELD - DELIVERING WHAT'S COLLECTED ***")
                     route_manager.reset_route()
                 elif not balls and current_run_balls == 0 and total_balls_collected >= TOTAL_BALLS_ON_COURT:
@@ -174,68 +175,63 @@ def main():
                             current_state = ROUTE_PLANNING
                             print("*** ROUTE EXHAUSTED - REPLANNING ROUTE ***")
                         else: # No more balls to plan for
-                            current_state = GOAL_NAVIGATION # Go to deliver what's collected
+                            current_state = DELIVERY_APPROACH # Go to deliver what's collected
                             print("*** NO MORE BALLS TO PLAN FOR - DELIVERING WHAT'S COLLECTED ***")
                             route_manager.reset_route()
                 else: # Fallback to route planning if no balls but not full storage and not collected all
                     current_state = ROUTE_PLANNING
                     print("No balls to collect, returning to ROUTE_PLANNING to re-evaluate.")
 
-            elif current_state == GOAL_NAVIGATION:
-                print("[DEBUG] State: GOAL_NAVIGATION")
-                
-                # Check if we have both delivery and goal positions
+            elif current_state == DELIVERY_APPROACH:
+                print("[DEBUG] State: DELIVERY_APPROACH")
                 delivery_position = goal_utils.get_delivery_position()
+                print("[DEBUG] delivery_position:", delivery_position)
+                
+                if delivery_position:
+                    # Calculate navigation to delivery position
+                    navigation_info = calculate_navigation_command(robot_head, robot_tail, delivery_position, scale_factor)
+                    print("Navigation info to delivery:", navigation_info)
+
+                    # Add detailed debug print for distance
+                    current_distance_to_delivery = 999 # Default to a high value if navigation_info is None
+                    if navigation_info:
+                        current_distance_to_delivery = navigation_info.get("distance_cm", 999)
+                    print(f"[DEBUG] Current distance to delivery: {current_distance_to_delivery:.1f} cm")
+
+                    # Determine if robot is close enough to delivery position
+                    if current_distance_to_delivery < 26 and current_distance_to_delivery > 0:
+                        current_state = GOAL_NAVIGATION
+                        print("*** REACHED DELIVERY POSITION - SWITCHING TO GOAL_NAVIGATION ***")
+                    elif navigation_info: # Only navigate if not yet at approach distance
+                        print("[DEBUG] Calling handle_robot_navigation for delivery (DELIVERY_APPROACH state)")
+                        handle_robot_navigation(navigation_info, commander, route_manager)
+                else:
+                    # Fallback to direct goal navigation if no delivery position
+                    current_state = GOAL_NAVIGATION
+                    print("No delivery position set - switching to direct GOAL_NAVIGATION")
+
+            elif current_state == GOAL_NAVIGATION:
+                print("[DEBUG] State: GOAL_NAVIGATION") # <--- DEBUG
                 goal_position = goal_utils.get_goal_position()
+                print("[DEBUG] goal_position:", goal_position)  # <--- DEBUG
                 
-                if delivery_position and goal_position:
-                    print("[DEBUG] Using delivery/goal navigation: Delivery({}, {}) -> Goal({}, {})".format(
-                        delivery_position[0], delivery_position[1], goal_position[0], goal_position[1]))
-                    
-                    # Først: Naviger til delivery punkt
-                    delivery_nav_info = calculate_navigation_command(robot_head, robot_tail, delivery_position, scale_factor)
-                    
-                    if delivery_nav_info:
-                        delivery_distance = delivery_nav_info.get("distance_cm", 999)
-                        print("GOAL NAVIGATION: Distance to delivery: {:.1f}cm".format(delivery_distance))
-                        
-                        if delivery_distance > 30:  # 30 cm threshold for delivery approach
-                            print("Navigating to delivery point...")
-                            handle_robot_navigation(delivery_nav_info, commander, route_manager)
-                        else:
-                            # Nu er vi ved delivery punkt - drej mod goal og kør derhen
-                            print("At delivery point - navigating to goal...")
-                            goal_nav_info = calculate_navigation_command(robot_head, robot_tail, goal_position, scale_factor)
-                            
-                            if goal_nav_info:
-                                goal_distance = goal_nav_info.get("distance_cm", 999)
-                                print("Distance to goal: {:.1f}cm".format(goal_distance))
-                                
-                                if goal_distance > 26:  # 26 cm threshold for goal approach
-                                    handle_robot_navigation(goal_nav_info, commander, route_manager)
-                                else:
-                                    # Vi er tæt nok på goal - klar til ball release
-                                    print("*** REACHED GOAL VIA DELIVERY POINT - SWITCHING TO BALL_RELEASE ***")
-                                    current_state = BALL_RELEASE
-                
-                elif goal_position:
-                    # Fallback to old direct goal navigation
-                    print("[DEBUG] Using direct goal navigation (no delivery point)")
+                if goal_position:
+                    # Calculate navigation to goal (simple approach)
                     navigation_info = calculate_navigation_command(robot_head, robot_tail, goal_position, scale_factor)
-                    print("Navigation info to goal:", navigation_info)
+                    print("Navigation info to goal:", navigation_info) # <--- DEBUG
 
                     # Add detailed debug print for distance
                     current_distance_to_goal = 999 # Default to a high value if navigation_info is None
                     if navigation_info:
                         current_distance_to_goal = navigation_info.get("distance_cm", 999)
-                    print(f"[DEBUG] Current distance to goal: {current_distance_to_goal:.1f} cm")
+                    print(f"[DEBUG] Current distance to goal: {current_distance_to_goal:.1f} cm") # New debug line
 
                     # Determine if robot is close enough to goal or needs to navigate
-                    if current_distance_to_goal < 26 and current_distance_to_goal > 0: # Use 26cm as threshold for goal approach
+                    if current_distance_to_goal < 26 and current_distance_to_goal > 0: # Use 22cm as threshold for goal approach as well
                         current_state = BALL_RELEASE
                         print("*** REACHED GOAL APPROACH DISTANCE - SWITCHING TO BALL_RELEASE ***")
                     elif navigation_info: # Only navigate if not yet at approach distance
-                        print("[DEBUG] Calling handle_robot_navigation for goal (GOAL_NAVIGATION state)")
+                        print("[DEBUG] Calling handle_robot_navigation for goal (GOAL_NAVIGATION state)")  # <--- DEBUG
                         handle_robot_navigation(navigation_info, commander, route_manager)
                 else:
                     print("ERROR: No goal position set - cannot navigate to goal!")

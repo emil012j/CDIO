@@ -102,9 +102,18 @@ def draw_goal_navigation_status(display_frame, goal_utils, current_state):
     goal_position = goal_utils.get_goal_position()
     
     if delivery_position and goal_position:
-        # Tegn navigation status
-        status_text = "GOAL NAV: Delivery -> Perpendicular -> Goal"
-        cv2.putText(display_frame, status_text, (10, 250), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 255, 255), 2)
+        # Tegn navigation status baseret på current state
+        if current_state == "delivery_approach":
+            status_text = "DELIVERY APPROACH: Moving to delivery position"
+            status_color = (0, 255, 255)  # GUL
+        elif current_state == "goal_navigation":
+            status_text = "GOAL NAVIGATION: Moving to goal position"
+            status_color = (0, 255, 0)  # GRØN
+        else:
+            status_text = "GOAL NAV: Delivery -> Perpendicular -> Goal"
+            status_color = (255, 255, 255)  # HVID
+        
+        cv2.putText(display_frame, status_text, (10, 250), cv2.FONT_HERSHEY_SIMPLEX, 0.6, status_color, 2)
         
         # Tegn delivery og goal punkter med labels
         cv2.circle(display_frame, delivery_position, 12, (0, 255, 255), -1)  # GUL for delivery
@@ -126,5 +135,11 @@ def draw_goal_navigation_status(display_frame, goal_utils, current_state):
         
     elif goal_position:
         # Kun goal position (backward compatibility)
-        status_text = "GOAL NAV: Direct approach"
-        cv2.putText(display_frame, status_text, (10, 250), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 255, 0), 2) 
+        if current_state == "goal_navigation":
+            status_text = "GOAL NAVIGATION: Direct approach"
+            status_color = (0, 255, 0)  # GRØN
+        else:
+            status_text = "GOAL NAV: Direct approach"
+            status_color = (255, 255, 255)  # HVID
+        
+        cv2.putText(display_frame, status_text, (10, 250), cv2.FONT_HERSHEY_SIMPLEX, 0.6, status_color, 2) 

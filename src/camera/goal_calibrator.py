@@ -1,5 +1,5 @@
 """
-Simpel goal position click-calibration med delivery og goal punkt
+Simpel goal position click-calibration med delivery og goal positioner
 """
 
 import cv2
@@ -13,16 +13,17 @@ class GoalCalibrator:
         self.calibration_step = "delivery"  # "delivery" or "goal"
         
     def mouse_callback(self, event, x, y, flags, param):
-        """Click to set delivery or goal position"""
+        """Click to set delivery and goal positions"""
         if event == cv2.EVENT_LBUTTONDOWN:
             if self.calibration_step == "delivery":
                 self.delivery_position = (x, y)
-                print("Delivery punkt sat til: ({}, {}) - tryk 'n' for næste, 'q' for at gemme".format(x, y))
-            else:  # goal step
+                self.calibration_step = "goal"
+                print("Delivery position sat til: ({}, {}) - klik nu på goal position".format(x, y))
+            elif self.calibration_step == "goal":
                 self.goal_position = (x, y)
-                print("Goal punkt sat til: ({}, {}) - tryk 'q' for at gemme".format(x, y))
+                print("Goal position sat til: ({}, {}) - tryk 'q' for at gemme".format(x, y))
 
-    def save_goal(self):
+    def save_positions(self):
         """Gem delivery og goal positioner"""
         if self.delivery_position and self.goal_position:
             # Convert tuples to lists for JSON serialization
@@ -35,27 +36,32 @@ class GoalCalibrator:
             }
             with open(self.goal_file, 'w') as f:
                 json.dump(data, f, indent=2)  # Pretty format for readability
-            print("Delivery og goal gemt: Delivery({}, {}) -> Goal({}, {}) -> {}".format(
+            print("Positioner gemt: Delivery({}, {}) -> Goal({}, {}) -> {}".format(
                 self.delivery_position[0], self.delivery_position[1],
                 self.goal_position[0], self.goal_position[1], self.goal_file))
             return True
         return False
 
     def start_calibration(self, frame):
-        """Start click calibration med delivery og goal punkter"""
+        """Start click calibration med delivery og goal positioner"""
         print("=== GOAL CALIBRATION ===")
-        print("Step 1: Click på delivery punkt (hvor robotten skal køre til først)")
-        print("Step 2: Click på goal punkt (hvor robotten skal køre til for at aflevere bolde)")
-        print("Kontroller: 'n' = næste step, 'q' = gem, 'ESC' = annuller")
+        print("1. Klik på delivery position (hvor robotten skal køre hen først)")
+        print("2. Klik på goal position (hvor robotten skal aflevere bolde)")
+        print("3. Tryk 'q' for at gemme, 'ESC' for at annullere")
         
         cv2.namedWindow("Goal Calibration")
         cv2.setMouseCallback("Goal Calibration", self.mouse_callback)
+        
+        # Reset calibration state
+        self.delivery_position = None
+        self.goal_position = None
+        self.calibration_step = "delivery"
         
         # Calibration loop
         while True:
             display_frame = frame.copy()
             
-            # Draw current positions
+            # Draw current positions if set
             if self.delivery_position:
                 cv2.circle(display_frame, self.delivery_position, 15, (0, 255, 255), -1)  # GUL for delivery
                 cv2.putText(display_frame, "DELIVERY: ({},{})".format(self.delivery_position[0], self.delivery_position[1]), 
@@ -65,43 +71,30 @@ class GoalCalibrator:
                 cv2.circle(display_frame, self.goal_position, 15, (0, 255, 0), -1)  # GRØN for goal
                 cv2.putText(display_frame, "GOAL: ({},{})".format(self.goal_position[0], self.goal_position[1]), 
                            (10, 90), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 255, 0), 2)
-            
-            # Draw line between delivery and goal if both set
-            if self.delivery_position and self.goal_position:
-                cv2.line(display_frame, self.delivery_position, self.goal_position, (255, 255, 255), 2)
-                cv2.putText(display_frame, "DELIVERY -> GOAL", 
-                           (10, 120), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 255), 2)
-            
-            # Instructions based on current step
-            if self.calibration_step == "delivery":
-                if not self.delivery_position:
-                    cv2.putText(display_frame, "Step 1: Click to set DELIVERY point", (10, 150), 
+                
+                # Draw line between delivery and goal
+                if self.delivery_position and self.goal_position:
+                    cv2.line(display_frame, self.delivery_position, self.goal_position, (255, 255, 255), 2)
+                cv2.putText(display_frame, "Press 'q' to save, ESC to cancel", (10, 120), 
+                           cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 255), 2)
+            else:
+                if self.delivery_position:
+                    cv2.putText(display_frame, "Click to set goal position", (10, 90), 
                                cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 255), 2)
                 else:
-                    cv2.putText(display_frame, "Press 'n' for next step, 'q' to save, ESC to cancel", (10, 150), 
+                    cv2.putText(display_frame, "Click to set delivery position", (10, 60), 
                                cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 255), 2)
-            else:  # goal step
-                if not self.goal_position:
-                    cv2.putText(display_frame, "Step 2: Click to set GOAL point", (10, 150), 
-                               cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 255), 2)
-                else:
-                    cv2.putText(display_frame, "Press 'q' to save, ESC to cancel", (10, 150), 
-                               cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 255), 2)
+                cv2.putText(display_frame, "ESC to cancel", (10, 120), 
+                           cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 255), 2)
             
             cv2.putText(display_frame, "Goal Calibration", (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 255), 2)
             cv2.imshow("Goal Calibration", display_frame)
             
             # Handle keyboard input
             key = cv2.waitKey(1) & 0xFF
-            if key == ord('n'):  # Next step
-                if self.calibration_step == "delivery" and self.delivery_position:
-                    self.calibration_step = "goal"
-                    print("Step 2: Click på goal punkt")
-                else:
-                    print("Complete delivery step first!")
-            elif key == ord('q'):  # Save both positions
+            if key == ord('q'):  # Save positions
                 if self.delivery_position and self.goal_position:
-                    if self.save_goal():
+                    if self.save_positions():
                         print("Goal calibration successfully saved!")
                         break
                     else:
