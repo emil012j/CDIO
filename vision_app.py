@@ -67,6 +67,7 @@ def main():
 
     collected_balls_positions = []
     just_avoided_cross = False
+    cross_avoid_reset_time = None
 
 
     try:
@@ -96,18 +97,34 @@ def main():
 
             navigation_info = None
 
-             # --- Cross avoidance logic (runs in all states) ---
+            # --- Cross avoidance flag reset (always runs) ---
+            if just_avoided_cross:
+                if cross_pos and robot_head:
+                    head_x, head_y = robot_head["pos"]
+                    cross_x, cross_y = cross_pos
+                    dist_to_cross = ((head_x - cross_x) ** 2 + (head_y - cross_y) ** 2) ** 0.5
+                    if dist_to_cross > 220:  # Use a larger threshold for reset
+                        just_avoided_cross = False
+                        cross_avoid_reset_time = None
+                else:
+                    if cross_avoid_reset_time is None:
+                        cross_avoid_reset_time = time.time()
+                    elif time.time() - cross_avoid_reset_time > 2:  # 2 seconds without seeing the cross
+                        just_avoided_cross = False
+                        cross_avoid_reset_time = None
+            else:
+                cross_avoid_reset_time = None
+
+            # --- Cross avoidance logic (dynamic turn direction, using head position) ---
             if cross_pos and robot_head:
                 head_x, head_y = robot_head["pos"]
                 cross_x, cross_y = cross_pos
                 dist_to_cross = ((head_x - cross_x) ** 2 + (head_y - cross_y) ** 2) ** 0.5
-                if dist_to_cross <= 100 and not just_avoided_cross:  # Adjust threshold as needed
-                    if cross_x > head_x:
-                        turn_direction = "left"
-                    else:
-                        turn_direction = "right"
+                if dist_to_cross <= 150 and not just_avoided_cross:
+                    # Dynamic turn direction: turn away from cross
+                    turn_direction = "left" if cross_x > head_x else "right"
                     if commander.can_send_command():
-                        print("*** CLOSE TO CROSS - GOING BACKWARDS AND TURNING ***")
+                        print(f"*** CLOSE TO CROSS - GOING BACKWARDS AND TURNING {turn_direction.upper()} ***")
                         commander.send_backward_command(distance=20)
                         time.sleep(1)
                         commander.send_turn_rotation_command(turn_direction, 0.5)
@@ -115,9 +132,7 @@ def main():
                         commander.send_forward_command(distance=20)
                         time.sleep(1)
                         just_avoided_cross = True
-                        continue  # Skip the rest of the loop to avoid further processing 
-                    elif dist_to_cross < 120:
-                        just_avoided_cross = False
+                        continue
 
             if current_state == ROUTE_PLANNING:
                 print("[DEBUG] State: ROUTE_PLANNING")
