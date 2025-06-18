@@ -1,7 +1,11 @@
 {
   "calibrated": true,
+  "delivery_position": [
+    848,
+    355
+  ],
   "goal_position": [
-    259,
-    357
+    1023,
+    355
   ]
 }
