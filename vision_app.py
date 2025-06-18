@@ -66,6 +66,7 @@ def main():
     frame_count = 0
 
     collected_balls_positions = []
+    just_avoided_cross = False
 
 
     try:
@@ -100,24 +101,23 @@ def main():
                 head_x, head_y = robot_head["pos"]
                 cross_x, cross_y = cross_pos
                 dist_to_cross = ((head_x - cross_x) ** 2 + (head_y - cross_y) ** 2) ** 0.5
-                if dist_to_cross <= 100:  # Adjust threshold as needed
+                if dist_to_cross <= 100 and not just_avoided_cross:  # Adjust threshold as needed
                     if cross_x > head_x:
                         turn_direction = "left"
                     else:
                         turn_direction = "right"
                     if commander.can_send_command():
                         print("*** CLOSE TO CROSS - GOING BACKWARDS AND TURNING ***")
-                        commander.send_backward_command(distance=10)
+                        commander.send_backward_command(distance=20)
                         time.sleep(1)
-                        commander.send_turn_command(turn_direction, 0.4)
+                        commander.send_turn_rotation_command(turn_direction, 0.5)
                         time.sleep(1)
                         commander.send_forward_command(distance=20)
                         time.sleep(1)
+                        just_avoided_cross = True
                         continue  # Skip the rest of the loop to avoid further processing 
-                    else:
-                        print("[DEBUG] No cross detected or robot head not found, continuing...")
-                        current_state = ROUTE_PLANNING  # Reset to route planning if no cross detected
-                        # --- End of cross avoidance logic ---
+                    elif dist_to_cross < 120:
+                        just_avoided_cross = False
 
             if current_state == ROUTE_PLANNING:
                 print("[DEBUG] State: ROUTE_PLANNING")
