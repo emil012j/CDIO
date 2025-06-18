@@ -9,7 +9,7 @@ from ..config.settings import *
 # Camera and object heights in cm  
 CAMERA_HEIGHT = 162.0   # Camera mounted at 162cm height above ground
 ROBOT_HEIGHT = 20.0     # Robot markers are 20cm tall  
-BALL_HEIGHT = 4.0       # Balls are 4cm tall
+BALL_HEIGHT = 0.0       # Balls are ON THE GROUND, not elevated
 GROUND_LEVEL = 0.0      # Reference level (ground)
 
 # Camera parameters
@@ -132,15 +132,21 @@ def calculate_navigation_command(robot_head, robot_tail, target_ball, scale_fact
         return None
     
     # Correct ALL positions to ground level for consistent calculation
-    corrected_head = correct_position_to_ground_level(
-        robot_head["pos"], ROBOT_HEIGHT, CAMERA_HEIGHT
-    )
-    corrected_tail = correct_position_to_ground_level(
-        robot_tail["pos"], ROBOT_HEIGHT, CAMERA_HEIGHT  
-    )
-    corrected_ball = correct_position_to_ground_level(
-        target_ball, BALL_HEIGHT, CAMERA_HEIGHT
-    )
+    # TEMPORARILY DISABLE ROBOT CORRECTION TO TEST
+    corrected_head = robot_head["pos"]  # No correction
+    corrected_tail = robot_tail["pos"]  # No correction
+    
+    # corrected_head = correct_position_to_ground_level(
+    #     robot_head["pos"], ROBOT_HEIGHT, CAMERA_HEIGHT
+    # )
+    # corrected_tail = correct_position_to_ground_level(
+    #     robot_tail["pos"], ROBOT_HEIGHT, CAMERA_HEIGHT  
+    # )
+    
+    corrected_ball = target_ball  # No correction for balls either
+    # corrected_ball = correct_position_to_ground_level(
+    #     target_ball, BALL_HEIGHT, CAMERA_HEIGHT
+    # )
     
     # Calculate robot center using corrected positions
     robot_center = (
