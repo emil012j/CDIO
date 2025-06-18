@@ -92,12 +92,12 @@ def main():
                 )
                 cross_x, cross_y = cross_pos
                 dist_to_cross = ((robot_center[0] - cross_pos[0]) ** 2 + (robot_center[1] - cross_pos[1]) ** 2) ** 0.5
-                if dist_to_cross < 100:  # Adjust threshold as needed
+                if dist_to_cross <= 100:  # Adjust threshold as needed
                     if commander.can_send_command():
                         print("*** CLOSE TO CROSS - GOING BACKWARDS AND TURNING ***")
-                        commander.send_stop_command()
-                        commander.send_turn_command("left", 10.0)
-                        commander.send_forward_command(distance=10)
+                        commander.send_backward_command(distance=20)
+                        commander.send_turn_command("left", 2.0)
+                        commander.send_forward_command(distance=20)
                         continue
             # --- End cross avoidance logic ---
 
