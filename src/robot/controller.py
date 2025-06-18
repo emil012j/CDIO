@@ -227,10 +227,18 @@ class RobotController:
         """
         print("Releasing balls")
         try:
-            self.collect_motor.on(speed=100)  # Kør fremad (modsat af opsamling)
-            sleep(duration)
-            self.collect_motor.on(-100)
+            self.collect_motor.on(speed=30)  # Kør fremad (modsat af opsamling)
+            sleep(3)
+            self.collect_motor.on(speed=-30)  # Kør fremad (modsat af opsamling)
+            sleep(0.5)
+            self.collect_motor.on(speed=30)  # Kør fremad (modsat af opsamling)
+            sleep(3)
+            self.collect_motor.on(speed=-30)  # Kør fremad (modsat af opsamling)
+            sleep(0.5)
+            self.collect_motor.off() # Ensure motor stops after releasing balls
             print("Balls released")
+            self.simple_backward(10) # Move backward 10 cm after releasing balls
+            print("Backed up 10 cm after ball release")
         except Exception as e:
             print("Error releasing balls:", e)
 
