@@ -131,22 +131,16 @@ def calculate_navigation_command(robot_head, robot_tail, target_ball, scale_fact
     if not robot_head or not robot_tail or not target_ball:
         return None
     
-    # Correct ALL positions to ground level for consistent calculation
-    # TEMPORARILY DISABLE ROBOT CORRECTION TO TEST
-    corrected_head = robot_head["pos"]  # No correction
-    corrected_tail = robot_tail["pos"]  # No correction
+    # Test: Correct ONLY robot position, keep ball position raw
+    corrected_head = correct_position_to_ground_level(
+        robot_head["pos"], ROBOT_HEIGHT, CAMERA_HEIGHT
+    )
+    corrected_tail = correct_position_to_ground_level(
+        robot_tail["pos"], ROBOT_HEIGHT, CAMERA_HEIGHT  
+    )
     
-    # corrected_head = correct_position_to_ground_level(
-    #     robot_head["pos"], ROBOT_HEIGHT, CAMERA_HEIGHT
-    # )
-    # corrected_tail = correct_position_to_ground_level(
-    #     robot_tail["pos"], ROBOT_HEIGHT, CAMERA_HEIGHT  
-    # )
-    
-    corrected_ball = target_ball  # No correction for balls either
-    # corrected_ball = correct_position_to_ground_level(
-    #     target_ball, BALL_HEIGHT, CAMERA_HEIGHT
-    # )
+    # KEEP BALL POSITION RAW - don't correct it
+    corrected_ball = target_ball  # No correction for balls
     
     # Calculate robot center using corrected positions
     robot_center = (
