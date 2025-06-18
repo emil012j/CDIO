@@ -138,11 +138,28 @@ def main():
                     print("*** ALL BALLS COLLECTED - MISSION COMPLETE ***")
                     route_manager.reset_route()
                 elif balls and current_run_balls < STORAGE_CAPACITY:
+                    # --- Cross avoidance logic ---
+                    if cross_pos and robot_head and robot_tail:
+                        robot_center = (
+                            (robot_head["pos"][0] + robot_tail["pos"][0]) // 2,
+                            (robot_head["pos"][1] + robot_tail["pos"][1]) // 2
+                        )
+                        cross_x, cross_y = cross_pos
+                        dist_to_cross = ((robot_center[0] - cross_x) ** 2 + (robot_center[1] - cross_y) ** 2) ** 0.5
+                        if dist_to_cross < 60:  #checks for the distance to the cross
+                            print("*** CLOSE TO CROSS - GOING BACKWARDS AND TURNING ***")
+                            commander.send_stop_command()
+                            commander.send_backward_command(10)  # Move backwards 10 cm 
+                            commander.send_turn_command("left",1.0)    # Turn 90 degrees
+                            # Optionally, skip the rest of this loop iteration
+                            continue
+                    # --- End cross avoidance logic ---
+
                     target_ball = route_manager.get_current_target()
                     if target_ball:
                         target_ball = route_manager.get_wall_approach_point(target_ball, walls, scale_factor)
                         navigation_info = calculate_navigation_command(robot_head, robot_tail, target_ball, scale_factor)
-                        
+                                
                         # Capture success of navigation/collection attempt
                         collection_attempt_successful = handle_robot_navigation(navigation_info, commander, route_manager)
                         if collection_attempt_successful:
