@@ -67,8 +67,30 @@ def calculate_scale_factor(results, model):
                 obb_w_px, obb_h_px = get_obb_dimensions_from_obb_results(results.obb, i)
                 if obb_w_px is not None and obb_h_px is not None:
                     cross_obb_size_px = (obb_w_px + obb_h_px) / 2.0
-                    if cross_obb_size_px > 1: 
-                        return CROSS_DIAMETER_MM / cross_obb_size_px  # Beregner scale factor baseret på cross størrelse
+                    if cross_obb_size_px > 1:
+                        # PERSPECTIVE CORRECTION: Account for cross being elevated above ground
+                        # Camera is 1620mm above ground, cross is 40mm above ground
+                        camera_height_mm = 1620.0
+                        cross_height_mm = CROSS_HEIGHT_MM  # 40mm from settings
+                        
+                        # Calculate perspective correction factor
+                        # Cross appears LARGER because it's closer to camera than ground level
+                        distance_to_cross = camera_height_mm - cross_height_mm  # 1580mm
+                        distance_to_ground = camera_height_mm  # 1620mm
+                        perspective_correction = distance_to_cross / distance_to_ground  # 1580/1620 = 0.9753
+                        
+                        # Correct the measured pixel size to what it would be at ground level
+                        # Since cross appears larger, we reduce the measured size
+                        corrected_cross_size_px = cross_obb_size_px * perspective_correction
+                        
+                        # Calculate scale factor using corrected size
+                        scale_factor = CROSS_DIAMETER_MM / corrected_cross_size_px
+                        
+                        print("SCALE CORRECTION: Cross at {}mm height, appears {:.1f}px (LARGER), corrected to {:.1f}px (factor: {:.4f})".format(
+                            cross_height_mm, cross_obb_size_px, corrected_cross_size_px, perspective_correction))
+                        print("Final scale factor: {:.4f} mm/px".format(scale_factor))
+                        
+                        return scale_factor
         return None
     except Exception: 
         return None
