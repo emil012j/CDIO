@@ -51,7 +51,6 @@ def main():
     BALL_COLLECTION = "ball_collection"
     GOAL_NAVIGATION = "goal_navigation"
     BALL_RELEASE = "ball_release"
-    COMPLETE = "complete"
 
     current_state = ROUTE_PLANNING
     STORAGE_CAPACITY = 6
@@ -112,7 +111,7 @@ def main():
                     print("*** STORAGE FULL - SWITCHING TO GOAL_NAVIGATION ***")
                     route_manager.reset_route()
                 elif not balls and total_balls_collected >= TOTAL_BALLS_ON_COURT:
-                    current_state = COMPLETE
+                    
                     print("*** ALL BALLS COLLECTED - MISSION COMPLETE ***")
                     route_manager.reset_route()
                 elif not balls and current_run_balls > 0: # Collected some, but no more visible balls
@@ -120,16 +119,15 @@ def main():
                     print("*** NO MORE BALLS ON FIELD - DELIVERING WHAT'S COLLECTED ***")
                     route_manager.reset_route()
                 else: # No balls found and not yet collected any, or all collected
-                    if commander.can_send_command():
-                        commander.send_forward_command(distance=10)
-                        current_state = GOAL_NAVIGATION
-                        route_manager.reset_route()
+                    commander.can_send_command()
+                    commander.send_forward_command(distance=10)
+                    current_state = GOAL_NAVIGATION
+                    route_manager.reset_route()
                     #elif commander.can_send_command():
                      #   current_state = GOAL_NAVIGATION
                       #  route_manager.reset_route()
-                        print("No balls to collect or all collected, staying in ROUTE_PLANNING or COMPLETE.")
-                    else: 
-                        current_state = COMPLETE
+                    print("No balls to collect or all collected, staying in ROUTE_PLANNING or COMPLETE.")
+                    
 
             elif current_state == BALL_COLLECTION:
                 print("[DEBUG] State: BALL_COLLECTION")
@@ -144,7 +142,7 @@ def main():
                     print("*** NO MORE BALLS ON FIELD - DELIVERING WHAT'S COLLECTED ***")
                     route_manager.reset_route()
                 elif not balls and current_run_balls == 0 and total_balls_collected >= TOTAL_BALLS_ON_COURT:
-                    current_state = COMPLETE
+                    
                     print("*** ALL BALLS COLLECTED - MISSION COMPLETE ***")
                     route_manager.reset_route()
                 elif balls and current_run_balls < STORAGE_CAPACITY:
@@ -211,21 +209,18 @@ def main():
                 print("[DEBUG] State: BALL_RELEASE")
                 print("*** EXECUTING BALL RELEASE ***")
                 commander.send_release_balls_command(duration=4) # Use 6 seconds as per last discussion
+                commander.send_backward_command(distance=10)
                 current_run_balls = 0 # Reset collected balls for current run
                 route_manager.reset_route() # Reset route after delivery
 
                 if current_run_balls >= TOTAL_BALLS_ON_COURT: # Check if all balls are collected total - havde total_balls_collected før i stedet for current_run_balls
-                    current_state = COMPLETE
+                    
                     print("*** ALL BALLS DELIVERED - MISSION COMPLETE ***")
                 else:
                     current_state = ROUTE_PLANNING # Loop back to route planning for next run
                     print("*** BALLS RELEASED - STARTING NEW COLLECTION RUN (ROUTE_PLANNING) ***")
                 
-            elif current_state == COMPLETE:
-                print("[DEBUG] State: COMPLETE")  # <--- DEBUG
-                if commander.can_send_command():
-                    print("*** MISSION COMPLETE - STOPPING ROBOT ***")
-                    commander.send_stop_command()
+           
 
             # Visualization
             draw_route_and_targets(display_frame, robot_head, robot_tail, route_manager, walls)
