@@ -44,22 +44,16 @@ def correct_position_to_ground_level(pos, object_height, camera_height):
     dy_from_center = pos[1] - camera_center_y
     
     # Convert FOV to radians
-    fov_horizontal_rad = math.radians(CAMERA_FOV_DEGREES)  # 70° horizontal FOV
+    fov_rad = math.radians(CAMERA_FOV_DEGREES)
     
-    # Calculate vertical FOV based on aspect ratio
-    aspect_ratio = image_width / image_height  # 1280/720 = 1.778
-    fov_vertical_rad = 2 * math.atan(math.tan(fov_horizontal_rad / 2) / aspect_ratio)
+    # Calculate the real-world distance per pixel at the image edge
+    # For a camera at height H with FOV θ, the width of ground covered is: 2 * H * tan(θ/2)
+    ground_width_covered = 2 * camera_height * math.tan(fov_rad / 2)
+    pixels_per_cm = image_width / ground_width_covered
     
-    # Calculate SEPARATE real-world coverage for X and Y axes
-    ground_width_covered = 2 * camera_height * math.tan(fov_horizontal_rad / 2)
-    ground_height_covered = 2 * camera_height * math.tan(fov_vertical_rad / 2)
-    
-    pixels_per_cm_x = image_width / ground_width_covered
-    pixels_per_cm_y = image_height / ground_height_covered
-    
-    # Convert pixel distances to real-world distances with SEPARATE scales
-    real_world_dx = dx_from_center / pixels_per_cm_x
-    real_world_dy = dy_from_center / pixels_per_cm_y
+    # Convert pixel distances to real-world distances (cm)
+    real_world_dx = dx_from_center / pixels_per_cm
+    real_world_dy = dy_from_center / pixels_per_cm
     
     # Calculate the viewing angle from camera center to this point
     distance_from_center = math.sqrt(real_world_dx**2 + real_world_dy**2)
@@ -67,10 +61,10 @@ def correct_position_to_ground_level(pos, object_height, camera_height):
     if distance_from_center < 0.1:  # At camera center, no correction needed
         return pos
     
-    # DYNAMIC CORNER CORRECTION: Calculate separate viewing angles for X and Y
-    # This provides true non-linear distortion correction at corners
-    viewing_angle_x = math.atan(abs(real_world_dx) / camera_height) if real_world_dx != 0 else 0
-    viewing_angle_y = math.atan(abs(real_world_dy) / camera_height) if real_world_dy != 0 else 0
+    # DIRECTIONAL PERSPECTIVE CORRECTION: Calculate separate viewing angles for X and Y axes
+    # This ensures pure-axis positions (0,400) only get corrected in their respective directions
+    viewing_angle_x = math.atan(abs(real_world_dx) / camera_height) if abs(real_world_dx) > 0.1 else 0
+    viewing_angle_y = math.atan(abs(real_world_dy) / camera_height) if abs(real_world_dy) > 0.1 else 0
     
     # Height difference affects apparent position based on viewing geometry
     height_diff = object_height - GROUND_LEVEL
@@ -79,20 +73,17 @@ def correct_position_to_ground_level(pos, object_height, camera_height):
     height_offset_x = height_diff * math.tan(viewing_angle_x) if viewing_angle_x > 0 else 0
     height_offset_y = height_diff * math.tan(viewing_angle_y) if viewing_angle_y > 0 else 0
     
-    # Calculate SEPARATE correction factors for X and Y
+    # Calculate DIRECTIONAL correction factors (only affect their respective axes)
     correction_factor_x = height_offset_x / abs(real_world_dx) if abs(real_world_dx) > 0.1 else 0
     correction_factor_y = height_offset_y / abs(real_world_dy) if abs(real_world_dy) > 0.1 else 0
     
-    # Apply direction-specific corrections (preserve sign)
-    direction_x = 1 if real_world_dx >= 0 else -1
-    direction_y = 1 if real_world_dy >= 0 else -1
-    
+    # Apply directional corrections (preserves axis independence)
     corrected_real_dx = real_world_dx * (1 - correction_factor_x)
     corrected_real_dy = real_world_dy * (1 - correction_factor_y)
     
-    # Convert back to pixel coordinates using SEPARATE scales
-    corrected_dx_pixels = corrected_real_dx * pixels_per_cm_x
-    corrected_dy_pixels = corrected_real_dy * pixels_per_cm_y
+    # Convert back to pixel coordinates
+    corrected_dx_pixels = corrected_real_dx * pixels_per_cm
+    corrected_dy_pixels = corrected_real_dy * pixels_per_cm
     
     corrected_x = camera_center_x + corrected_dx_pixels
     corrected_y = camera_center_y + corrected_dy_pixels
@@ -103,8 +94,6 @@ def correct_position_to_ground_level(pos, object_height, camera_height):
         print(f"FOV CORRECTION: {object_height}cm object: {pos} -> ({int(corrected_x)},{int(corrected_y)})")
         print(f"  Real distance: {distance_from_center:.1f}cm, Viewing angle: {math.degrees(viewing_angle_x):.1f}°, {math.degrees(viewing_angle_y):.1f}°")
         print(f"  Height offset: {height_offset_x:.1f}cm, {height_offset_y:.1f}cm, Correction: {correction_distance:.1f}px")
-        print(f"  H-FOV: {math.degrees(fov_horizontal_rad):.1f}°, V-FOV: {math.degrees(fov_vertical_rad):.1f}°")
-        print(f"  X-scale: {pixels_per_cm_x:.2f} px/cm, Y-scale: {pixels_per_cm_y:.2f} px/cm")
     
     return (int(corrected_x), int(corrected_y))
 
