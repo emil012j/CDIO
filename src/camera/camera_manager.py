@@ -169,6 +169,9 @@ def draw_navigation_info(frame, robot_center, target_ball, robot_heading, target
                 # Draw corrected robot positions (small circles)
                 cv2.circle(frame, corrected_head, 3, (255, 255, 0), -1)  # Cyan head
                 cv2.circle(frame, corrected_tail, 3, (255, 0, 255), -1)  # Magenta tail
+                
+                # PROMINENT PURPLE CORRECTED ROBOT CENTER
+                cv2.circle(frame, corrected_center, 12, (255, 0, 255), -1)  # Large purple corrected center
                 cv2.circle(frame, corrected_center, 8, (0, 255, 255), -1)  # Cyan corrected center
                 
                 # MAIN NAVIGATION LINE: From corrected robot center to OBSERVED ball
@@ -183,7 +186,7 @@ def draw_navigation_info(frame, robot_center, target_ball, robot_heading, target
                     norm_dy = dy / length
                     end_x = int(corrected_center[0] + norm_dx * 50)  # Shorter line
                     end_y = int(corrected_center[1] + norm_dy * 50)
-                    cv2.line(frame, corrected_center, (end_x, end_y), (0, 255, 255), 3)  # Yellow robot heading
+                    cv2.line(frame, corrected_center, (end_x, end_y), (255, 0, 0), 3)  # red robot heading
             else:
                 # Fallback: Use raw robot center if no correction available
                 cv2.line(frame, robot_center, target_ball, (0, 255, 0), 3)  # GREEN line
