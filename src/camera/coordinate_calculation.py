@@ -131,7 +131,8 @@ def calculate_navigation_command(robot_head, robot_tail, target_ball, scale_fact
     if not robot_head or not robot_tail or not target_ball:
         return None
     
-    # Test: Correct ONLY robot position, keep ball position raw
+    # Navigate from CORRECTED robot center to OBSERVED ball position
+    # Robot correction accounts for 20cm marker height - this works well
     corrected_head = correct_position_to_ground_level(
         robot_head["pos"], ROBOT_HEIGHT, CAMERA_HEIGHT
     )
@@ -139,8 +140,9 @@ def calculate_navigation_command(robot_head, robot_tail, target_ball, scale_fact
         robot_tail["pos"], ROBOT_HEIGHT, CAMERA_HEIGHT  
     )
     
-    # KEEP BALL POSITION RAW - don't correct it
-    corrected_ball = target_ball  # No correction for balls
+    # Use OBSERVED ball position - no correction applied
+    # This prevents the Y-axis targeting errors caused by ball correction
+    observed_ball = target_ball
     
     # Calculate robot center using corrected positions
     robot_center = (
@@ -154,13 +156,13 @@ def calculate_navigation_command(robot_head, robot_tail, target_ball, scale_fact
         return None
     
     # Calculate target heading using corrected positions
-    target_heading = calculate_angle_from_positions(robot_center, corrected_ball)
+    target_heading = calculate_angle_from_positions(robot_center, observed_ball)
     
     # Calculate angle difference
     angle_diff = calculate_angle_difference(robot_heading, target_heading)
     
     # Calculate distance using corrected positions
-    distance_pixels = calculate_distance(robot_center, corrected_ball)
+    distance_pixels = calculate_distance(robot_center, observed_ball)
     distance_cm = (distance_pixels * scale_factor) / 10.0 if scale_factor else distance_pixels / 10.0
     
     return {
@@ -170,7 +172,7 @@ def calculate_navigation_command(robot_head, robot_tail, target_ball, scale_fact
         "angle_diff": angle_diff,
         "distance_cm": distance_cm,
         "original_target": target_ball,  # Keep original for visualization
-        "corrected_target": corrected_ball,  # Add corrected for debugging
+        "corrected_target": observed_ball,  # Add corrected for debugging
         "corrected_head": corrected_head,    # For debugging
         "corrected_tail": corrected_tail     # For debugging
     }
