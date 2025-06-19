@@ -13,7 +13,7 @@ BALL_HEIGHT = 4.0       # Balls are 4cm tall
 GROUND_LEVEL = 0.0      # Reference level (ground)
 
 # Camera parameters
-CAMERA_FOV_DEGREES = 70.0  # Field of view in degrees
+CAMERA_FOV_DEGREES = 90.0  # Field of view in degrees
 
 # Get camera parameters from actual camera resolution
 def get_camera_center():

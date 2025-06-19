@@ -156,9 +156,11 @@ def calibrate_goal(self):
 def draw_navigation_info(frame, robot_center, target_ball, robot_heading, target_heading, navigation_info=None):
     try:
         if robot_center and target_ball:
+            
             # Draw robot center
             cv2.circle(frame, robot_center, 10, (255, 0, 255), -1)
             
+                
     except Exception:
         pass
 
