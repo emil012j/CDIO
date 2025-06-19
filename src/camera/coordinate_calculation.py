@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-Beregner robot heading, target heading, vinkel forskel, afstand til mål, laver kommandoer
+Calculates robot heading, target heading, angle difference, distance to target, creates commands
 """
 
 import math
@@ -92,29 +92,29 @@ def correct_position_to_ground_level(pos, object_height, camera_height):
     
     return (int(corrected_x), int(corrected_y))
 
-#beregner afstand mellem to punkter
+# Calculates distance between two points
 def calculate_distance(pos1, pos2):
     return math.sqrt((pos1[0] - pos2[0])**2 + (pos1[1] - pos2[1])**2)
 
-#beregner vinklen mellem to punkter (OpenCV koordinat system - Y er vendt)
+# Calculates angle between two points (OpenCV coordinate system - Y is inverted)
 def calculate_angle_from_positions(from_pos, to_pos):
     dx = to_pos[0] - from_pos[0]
-    dy = from_pos[1] - to_pos[1]  # Omvendt pga OpenCV koordinat system
+    dy = from_pos[1] - to_pos[1]  # Inverted due to OpenCV coordinate system
     angle_rad = math.atan2(dy, dx)
     angle_deg = math.degrees(angle_rad)
     return angle_deg
 
-#beregner robot heading (retning fra tail til head) ved at bruge vinklen mellem to punkter, feks. 0 grader er retningen til højre, 90 grader er retningen opad.
+# Calculates robot heading (direction from tail to head) by using the angle between two points, e.g. 0 degrees is the direction to the right, 90 degrees is the direction upward.
 def calculate_robot_heading(robot_head, robot_tail):
     if not robot_head or not robot_tail:
         return None
     
-    # Beregner robot heading (retning fra tail til head)
+    # Calculates robot heading (direction from tail to head)
     head_pos = robot_head["pos"]
     tail_pos = robot_tail["pos"]
     return calculate_angle_from_positions(tail_pos, head_pos)
 
-#beregner vinkel forskel mellem to vinkler. Hvis vinklen er 0, så peger robotten i retningen af målet.
+# Calculates angle difference between two angles. If the angle is 0, then the robot is pointing in the direction of the target.
 def calculate_angle_difference(current_angle, target_angle):
     diff = target_angle - current_angle
     
@@ -126,7 +126,7 @@ def calculate_angle_difference(current_angle, target_angle):
     
     return diff
 
-#beregner navigation kommandoer baseret på robotens position og målet, til at bevæge sig mod målet.
+# Calculates navigation commands based on robot position and target, to move towards the target.
 def calculate_navigation_command(robot_head, robot_tail, target_ball, scale_factor):
     if not robot_head or not robot_tail or not target_ball:
         return None
@@ -175,12 +175,12 @@ def calculate_navigation_command(robot_head, robot_tail, target_ball, scale_fact
         "corrected_tail": corrected_tail     # For debugging
     }
 
-#laver turn kommandoer baseret på vinkel forskel
+# Creates turn commands based on angle difference
 def create_turn_command(angle_diff):
     if abs(angle_diff) <= TURN_THRESHOLD:
         return None
     
-    # Laver turn kommandoer - ingen begrænsning, drej præcist!
+    # Creates turn commands - no limitation, turn precisely!
     turn_amount = angle_diff
     
     return {
@@ -189,12 +189,12 @@ def create_turn_command(angle_diff):
         "duration": abs(turn_amount) / ESTIMATED_TURN_RATE
     }
 
-#laver forward kommandoer baseret på afstand
+# Creates forward commands based on distance
 def create_forward_command(distance_cm):
     if distance_cm <= DISTANCE_THRESHOLD:
         return None
     
-    # Laver forward kommandoer
+    # Creates forward commands
     move_distance = min(distance_cm, MAX_FORWARD_DISTANCE)
     
     return {

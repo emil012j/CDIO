@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-YOLO model loading, objekt detektion og resultater
+YOLO model loading, object detection and results
 """
 
 import cv2
@@ -10,7 +10,7 @@ import math
 import os
 from ..config.settings import *
 
-#finder højde og bredde af objektet
+# Finds the width and height of the object
 def get_obb_dimensions_from_obb_results(obb_results, index):
     try:
         if hasattr(obb_results, 'wh') and obb_results.wh is not None and len(obb_results.wh) > index:
@@ -28,7 +28,7 @@ def get_obb_dimensions_from_obb_results(obb_results, index):
     except Exception: 
         return None, None
 
-#checker om det er en egg
+# Checks if it is likely an egg by OBB shape
 def is_likely_egg_by_obb_shape_idx(obb_results, index):
     try:
         obb_w_px, obb_h_px = get_obb_dimensions_from_obb_results(obb_results, index)
@@ -47,7 +47,7 @@ def get_class_id(class_name_lower, model):
     return None
 
 
-#beregner skaleringsfaktor baseret på det røde kors
+# Calculates scaling factor based on the red cross
 def calculate_scale_factor(results, model):
     try:
         if results is None or not hasattr(results, 'obb') or results.obb is None: 
@@ -68,12 +68,12 @@ def calculate_scale_factor(results, model):
                 if obb_w_px is not None and obb_h_px is not None:
                     cross_obb_size_px = (obb_w_px + obb_h_px) / 2.0
                     if cross_obb_size_px > 1: 
-                        return CROSS_DIAMETER_MM / cross_obb_size_px  # Beregner scale factor baseret på cross størrelse
+                        return CROSS_DIAMETER_MM / cross_obb_size_px  # Calculates scale factor based on cross size
         return None
     except Exception: 
         return None
 
-# Finder positionen af det røde kryds i billedet
+# Finds the position of the red cross in the image
 def get_cross_position(results, model):
     try:
         if results is None or not hasattr(results, 'obb') or results.obb is None:
@@ -92,7 +92,7 @@ def get_cross_position(results, model):
     except Exception:
         return None
     
-#beregner vinklen på objektet
+# Calculates the orientation of the object
 def calculate_orientation(obb_results, index, label):
     try:
         if hasattr(obb_results, 'angle') and obb_results.angle is not None and len(obb_results.angle)>index and obb_results.angle[index] is not None: 
@@ -118,37 +118,37 @@ def calculate_orientation(obb_results, index, label):
     except Exception: 
         return 0.0
 
- #loader YOLO model
+# Loads YOLO model
 def load_yolo_model(model_path=MODEL_PATH):
     try:
         if not os.path.exists(model_path): 
-            print("KAN IKKE FINDES {}".format(model_path))
+            print("CANNOT FIND {}".format(model_path))
             return None
-        print("LOADER YOLO MODEL...")
-        model = YOLO(model_path)  # Loader YOLO model (best.pt)
+        print("LOADING YOLO MODEL...")
+        model = YOLO(model_path)  # Loads YOLO model (best.pt)
         if get_class_id('cross', model) is None: 
-            print("KRYDSER IKKE FUNDET")
+            print("CROSS NOT FOUND")
         return model
     except Exception as e: 
         print("ERROR loading model: {}".format(e))
         return None
     
-#DETECTER OBJEKTER I KAMERAET 
+# DETECTS OBJECTS IN THE CAMERA
 def run_detection(model, frame):
     try:
-        results_list = model(frame, imgsz=640, conf=CONFIDENCE_THRESHOLD, verbose=False)  # Kører detection på kamera frames
+        results_list = model(frame, imgsz=640, conf=CONFIDENCE_THRESHOLD, verbose=False)  # Runs detection on camera frames
         if isinstance(results_list, list) and len(results_list) > 0:
             return results_list[0]
         return None
     except Exception: 
         return None
     
-#PROCESSER OG TEGNER DETEKTERINGERNE SOM I DEN GAMLE FIL
+# PROCESSES AND DRAWS DETECTIONS AS IN THE OLD FILE
 def process_detections_and_draw(results, model, frame, scale_factor=None):
     robot_head = None
     robot_tail = None
     balls = []
-    walls = []  # Tilføj walls til detection
+    walls = []  # Add walls to detection
     log_info_list = []
     
     # Check if we have valid detections
@@ -165,7 +165,7 @@ def process_detections_and_draw(results, model, frame, scale_factor=None):
     if num_detections == 0:
         return robot_head, robot_tail, balls, walls, log_info_list
     
-    # Tegn centerlinjer som i den gamle fil
+    # Draw centerlines as in the old file
     height, width = frame.shape[:2]
     cv2.line(frame, (width//2, 0), (width//2, height), (0,255,0), 1)
     cv2.line(frame, (0, height//2), (width, height//2), (0,255,0), 1)
@@ -180,7 +180,7 @@ def process_detections_and_draw(results, model, frame, scale_factor=None):
             original_label = model.names[cls_id]
             display_label = original_label
             
-            # Hent position information som i den gamle fil
+            # Get position information as in the old file
             x1, y1, x2, y2, cx_calc, cy_calc = 0, 0, 0, 0, 0, 0
             has_pos_info = False
             obb_points = None
@@ -210,7 +210,7 @@ def process_detections_and_draw(results, model, frame, scale_factor=None):
             if not has_pos_info:
                 continue
                 
-            # Beregn real world dimensions som i den gamle fil
+            # Calculate real world dimensions as in the old file
             real_w_mm, real_h_mm, dim_method = None, None, "N/A"
             if scale_factor is not None:
                 obb_w_px, obb_h_px = get_obb_dimensions_from_obb_results(results.obb, i)
@@ -225,7 +225,7 @@ def process_detections_and_draw(results, model, frame, scale_factor=None):
                     real_h_mm = h_px * scale_factor
                     dim_method = "xyxy"
             
-            # Egg detection som i den gamle fil
+            # Egg detection as in the old file
             is_egg = False
             egg_reason = ""
             if original_label == "white ball":
@@ -243,7 +243,7 @@ def process_detections_and_draw(results, model, frame, scale_factor=None):
                 if is_egg:
                     display_label = "egg"
             
-            # Beregn relative koordinater fra center
+            # Calculate relative coordinates from center
             rel_x = cx_calc - width // 2
             rel_y = height // 2 - cy_calc
             
@@ -256,20 +256,20 @@ def process_detections_and_draw(results, model, frame, scale_factor=None):
                 elif display_label == "robottail":
                     robot_tail = {"pos": (cx_calc, cy_calc), "orientation": orientation_deg}
             
-            # Gem balls (ikke eggs) og walls
+            # Store balls (not eggs) and walls
             if "ball" in display_label.lower() and "egg" not in display_label.lower():
                 balls.append((cx_calc, cy_calc))
             elif display_label.lower() == "wall":
                 walls.append((cx_calc, cy_calc))
             
-            # Tegn OBB eller rectangle som i den gamle fil
+            # Draw OBB or rectangle as in the old file
             color = CLASS_COLORS.get(display_label, (128, 128, 128))
             if obb_points is not None:
                 cv2.polylines(frame, [obb_points], isClosed=True, color=color, thickness=2)
             elif x2 > x1:
                 cv2.rectangle(frame, (x1, y1), (x2, y2), color, 1)
             
-            # Tegn labels som i den gamle fil
+            # Draw labels as in the old file
             y_offset_text = y1 + 20
             label_conf_text = "{} ({:.2f})".format(display_label, conf)
             cv2.putText(frame, label_conf_text, (x1, y1-5), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0,0,0), 3)
@@ -280,12 +280,12 @@ def process_detections_and_draw(results, model, frame, scale_factor=None):
                 cv2.putText(frame, reason_text, (x1, y1-25), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0,0,0), 3)
                 cv2.putText(frame, reason_text, (x1, y1-25), cv2.FONT_HERSHEY_SIMPLEX, 0.6, color, 1)
             
-            # Koordinat tekst
+            # Coordinate text
             coord_text = "[X:{}, Y:{}]".format(rel_x, rel_y)
             cv2.putText(frame, coord_text, (x1, y_offset_text), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255,255,255), 1)
             y_offset_text += 18
             
-            # Dimensioner
+            # Dimensions
             if real_w_mm is not None:
                 dims_text = "{:.0f}x{:.0f}mm ({})".format(real_w_mm, real_h_mm, dim_method)
                 cv2.putText(frame, dims_text, (x1, y_offset_text), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255,255,255), 1)
@@ -301,7 +301,7 @@ def process_detections_and_draw(results, model, frame, scale_factor=None):
     
     return robot_head, robot_tail, balls, walls, log_info_list
 
-#SIMPLIFIED PROCESSER FOR COMPATIBILITY  
+# SIMPLIFIED PROCESSOR FOR COMPATIBILITY
 def process_detections(results, model):
     robot_head, robot_tail, balls, walls, _ = process_detections_and_draw(results, model, np.zeros((480, 640, 3), dtype=np.uint8))
     return robot_head, robot_tail, balls, 0 

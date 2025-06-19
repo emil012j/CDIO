@@ -1,27 +1,27 @@
 # -*- coding: utf-8 -*-
 """
-Robotten, der modtager kommandoer fra vision system, og udfører dem
- Starter robot controller, starter netværk server, venter på kommandoer, kører indtil BACK knap
+The robot that receives commands from the vision system and executes them
+Starts robot controller, starts network server, waits for commands, runs until BACK button
 """
 
 import sys
 import os
 from time import sleep
 
-#tilføjer src til path for at kunne importere modulerne
+# Adds src to path to be able to import modules
 sys.path.append(os.path.join(os.path.dirname(__file__), 'src'))
 
 from src.robot.controller import RobotController
 from src.communication.robot_server import RobotServer
 
 def main():
-    #starter robotten
+    # Starts the robot
     try:
-        #starter robot controller
+        # Starts robot controller
         print("Robot controller...")
         robot = RobotController()
         
-        #starter netværk server til at modtage kommandoer
+        # Starts network server to receive commands
         print("\n2. Starting command server...")
         server = RobotServer(robot)
         if not server.start_server():
@@ -29,32 +29,32 @@ def main():
             return
         
         print("\n3. Robot ready and waiting for commands...")
-        print("Press BACK button on EV3 to exit")  #venter på kommandoer fra vision systemet
+        print("Press BACK button on EV3 to exit")  # Waits for commands from the vision system
         
-        #kører indtil BACK knap trykkes
+        # Runs until BACK button is pressed
         try:
             while robot.running:
-                #tjekker for knap tryk
+                # Checks for button press
                 if robot.check_buttons():
                     break
                 
-                #HURTIGERE: Reduceret delay for hurtigere respons (fra 0.1 til 0.02)
+                # FASTER: Reduced delay for faster response (from 0.1 to 0.02)
                 sleep(0.02)
                 
         except KeyboardInterrupt:
             print("\nKeyboard interrupt received")
             
     except Exception as e:
-        print("Fejl i robotten: {}".format(e))
+        print("Error in robot: {}".format(e))
         
     finally:
-        print("\nSlutter robotten...")
+        print("\nShutting down robot...")
         try:
             server.stop_server()
             robot.cleanup()
         except:
             pass
-        print("Robotten er slukket ned")
+        print("Robot is shut down")
 
 if __name__ == "__main__":
     main() 

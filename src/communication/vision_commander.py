@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
 """
-Håndterer netværk forbindelse(TCP socket), sender JSON kommandoer(feks. drejning, fremad, stop som JSON), 
-rate limiting (ikke for mange kommandoer per sekund, da robotten ikke kan håndtere dem), 
-timeout/error handling (hvis robotten ikke svarer)
+Handles network connection (TCP socket), sends JSON commands (e.g. turning, forward, stop as JSON), 
+rate limiting (not too many commands per second, as the robot cannot handle them), 
+timeout/error handling (if the robot doesn't respond)
 """
 
 import socket
@@ -10,30 +10,30 @@ import json
 import time
 from ..config.settings import *
 
-#håndterer netværk forbindelse, sender JSON kommandoer, rate limiting, timeout/error handling
+# Handles network connection, sends JSON commands, rate limiting, timeout/error handling
 class VisionCommander:
-    #initialiserer robotens IP og port
+    # Initializes robot IP and port
     def __init__(self, robot_ip=ROBOT_IP, command_port=COMMAND_PORT):
         self.robot_ip = robot_ip
         self.command_port = command_port
         self.last_command_time = 0
         
-    #tjekker om der er gået en bestemt tid siden sidste kommando
+    # Checks if a certain time has passed since the last command
     def can_send_command(self):
         current_time = time.time()
-        return current_time - self.last_command_time >= COMMAND_COOLDOWN  # Rate limiting (ikke for mange kommandoer per sekund)
+        return current_time - self.last_command_time >= COMMAND_COOLDOWN  # Rate limiting (not too many commands per second)
     
-    #sender JSON kommandoer over TCP socket
+    # Sends JSON commands over TCP socket
     def send_command(self, command_dict):
         if not self.can_send_command():
             return False
             
         try:
-            sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)  # Håndterer netværk forbindelse til EV3
+            sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)  # Handles network connection to EV3
             sock.settimeout(0.5)  # Longer timeout to allow robot processing
             sock.connect((self.robot_ip, self.command_port))
             
-            # Sender JSON kommandoer over TCP socket
+            # Sends JSON commands over TCP socket
             command_json = json.dumps(command_dict).encode()
             sock.send(command_json)
             sock.close()
@@ -51,7 +51,7 @@ class VisionCommander:
             print("Error sending command: {}".format(e))
             return False
     
-    #sender en drejning kommando ved at sende en JSON med kommandoen, retningen og tiden. feks. {"command": "simple_turn", "direction": "left", "duration": 1.0}
+    # Sends a turn command by sending a JSON with the command, direction and time. e.g. {"command": "simple_turn", "direction": "left", "duration": 1.0}
     def send_turn_command(self, direction, duration):
         """Send a turn command to the robot"""
         command = {
@@ -61,7 +61,7 @@ class VisionCommander:
         }
         return self.send_command(command)
     
-    #sender en drejning kommando baseret på omdrejninger (rotation-baseret)
+    # Sends a turn command based on rotations (rotation-based)
     def send_turn_rotation_command(self, direction, rotations):
         """Send a rotation-based turn command to the robot"""
         command = {
@@ -71,7 +71,7 @@ class VisionCommander:
         }
         return self.send_command(command)
     
-    #sender en fremad kommando ved at sende en JSON med kommandoen og afstanden. feks. {"command": "forward", "distance": 10}
+    # Sends a forward command by sending a JSON with the command and distance. e.g. {"command": "forward", "distance": 10}
     def send_forward_command(self, distance):
         """Send a forward movement command to the robot"""
         command = {
@@ -80,7 +80,7 @@ class VisionCommander:
         }
         return self.send_command(command)
     
-    #sender en præcis fremad kommando UDEN overshoot til fine positioning
+    # Sends a precise forward command WITHOUT overshoot for fine positioning
     def send_forward_precise_command(self, distance):
         """Send a precise forward movement command (no overshoot) to the robot"""
         command = {
@@ -89,7 +89,7 @@ class VisionCommander:
         }
         return self.send_command(command)
     
-    #sender en stop kommando ved at sende en JSON med kommandoen. feks. {"command": "stop"}
+    # Sends a stop command by sending a JSON with the command. e.g. {"command": "stop"}
     def send_stop_command(self):
         """Send a stop command to the robot"""
         command = {
@@ -97,7 +97,7 @@ class VisionCommander:
         }
         return self.send_command(command)
     
-    #sender en bagud kommando ved at sende en JSON med kommandoen og afstanden. feks. {"command": "simple_backward", "distance": 10}
+    # Sends a backward command by sending a JSON with the command and distance. e.g. {"command": "simple_backward", "distance": 10}
     def send_backward_command(self, distance):
         """Send a backward movement command to the robot"""
         command = {
@@ -106,7 +106,7 @@ class VisionCommander:
         }
         return self.send_command(command)
     
-    #sender en 180 graders drejning kommando ved at sende en JSON med kommandoen. feks. {"command": "turn_180"}
+    # Sends a 180 degree turn command by sending a JSON with the command. e.g. {"command": "turn_180"}
     def send_turn_180_command(self):
         """Send a 180 degree turn command to the robot"""
         command = {
@@ -114,7 +114,7 @@ class VisionCommander:
         }
         return self.send_command(command)
     
-    #sender blind ball collection kommando - kører frem, bakker, drejer 180
+    # Sends blind ball collection command - drives forward, backs up, turns 180
     def send_blind_ball_collection_command(self):
         """Send blind ball collection sequence command to the robot"""
         command = {

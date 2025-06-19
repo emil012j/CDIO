@@ -1,88 +1,88 @@
 # -*- coding: utf-8 -*-
 """
-Route visualization - håndterer tegning af rute, targets og robot navigation på skærmen
+Route visualization - handles drawing of route, targets, and robot navigation on the screen
 """
 
 import cv2
 import math
 
 def draw_route_and_targets(display_frame, robot_head, robot_tail, route_manager, walls, corrected_head=None, corrected_tail=None):
-    """Tegn hele ruten og navigation information på skærmen"""
+    """Draw the entire route and navigation information on the screen"""
     if not robot_head or not robot_tail:
         return
     
-    # Beregn robot centrum
+    # Calculate robot center
     robot_center = (
         (robot_head["pos"][0] + robot_tail["pos"][0]) // 2,
         (robot_head["pos"][1] + robot_tail["pos"][1]) // 2
     )
 
-    # Beregn korrigeret robot centrum, hvis tilgængeligt
+    # Calculate corrected robot center, if available
     if corrected_head and corrected_tail:
         corrected_center = (
             (corrected_head[0] + corrected_tail[0]) // 2,
             (corrected_head[1] + corrected_tail[1]) // 2
         )
     else:
-        corrected_center = robot_center # Brug standard centrum hvis korrigeret ikke findes
+        corrected_center = robot_center # Use default center if corrected not available
 
-    # TEGN RUTE: Vis hele ruten og nuværende mål
+    # DRAW ROUTE: Show the entire route and current target
     current_target = route_manager.get_current_target()
     if current_target:
-        # Tjek om dette er en væg-tilgang (adjusted target)
+        # Check if this is a wall approach (adjusted target)
         original_target = route_manager.route[route_manager.current_target_index] if route_manager.current_target_index < len(route_manager.route) else current_target
         is_wall_approach = (current_target != original_target)
         
-        # Tegn linje til nuværende mål (GUL) fra det korrigerede/robot centrum
+        # Draw line to current target (YELLOW) from corrected/robot center
         cv2.line(display_frame, corrected_center, current_target, (255, 0, 255), 2)
         
         if is_wall_approach:
-            # Tegn original bold position (CYAN)
+            # Draw original ball position (CYAN)
             cv2.circle(display_frame, original_target, 8, (255, 255, 0), 2)
             cv2.putText(display_frame, "BALL", (original_target[0] + 10, original_target[1] - 10), 
                        cv2.FONT_HERSHEY_SIMPLEX, 0.4, (255, 255, 0), 1)
-            # Tegn approach point (GUL)
+            # Draw approach point (YELLOW)
             cv2.circle(display_frame, current_target, 15, (0, 255, 255), 3)
             cv2.putText(display_frame, "WALL APPROACH {}".format(route_manager.current_target_index + 1), 
                        (current_target[0] + 20, current_target[1] - 20), 
                        cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 255, 255), 2)
-            # Tegn linje fra approach til bold
+            # Draw line from approach to ball
             cv2.line(display_frame, current_target, original_target, (255, 255, 0), 2)
         else:
-            # Normal bold target
+            # Normal ball target
             cv2.circle(display_frame, current_target, 15, (0, 255, 255), 2)
             cv2.putText(display_frame, "TARGET {}".format(route_manager.current_target_index + 1), 
                        (current_target[0] + 20, current_target[1] - 20), 
                        cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 255, 255), 2)
     
-    # Tegn hele ruten som farvede cirkler
+    # Draw the entire route as colored circles
     for i, waypoint in enumerate(route_manager.route):
         if i < route_manager.current_target_index:
-            # Besøgte punkter: GRØN
+            # Visited points: GREEN
             cv2.circle(display_frame, waypoint, 8, (0, 255, 0), -1)
             cv2.putText(display_frame, "✓", (waypoint[0] - 5, waypoint[1] + 5), 
                        cv2.FONT_HERSHEY_SIMPLEX, 0.4, (255, 255, 255), 1)
         elif i == route_manager.current_target_index:
-            # Nuværende mål: allerede tegnet ovenfor
+            # Current target: already drawn above
             pass
         else:
-            # Fremtidige mål: BLÅ
+            # Future targets: BLUE
             cv2.putText(display_frame, str(i + 1), (waypoint[0] - 5, waypoint[1] + 5), 
                        cv2.FONT_HERSHEY_SIMPLEX, 0.4, (255, 0, 0), 1)
     
-    # TEGN VÆGGE (kun markering, ingen cirkler da vægge er aflange)
+    # DRAW WALLS (just marking, no circles since walls are elongated)
     for wall in walls:
-        # Væg som lille rød firkant
+        # Wall as small red square
         cv2.rectangle(display_frame, (wall[0]-10, wall[1]-10), (wall[0]+10, wall[1]+10), (0, 0, 255), -1)
         cv2.putText(display_frame, "WALL", (wall[0] + 15, wall[1]), 
                    cv2.FONT_HERSHEY_SIMPLEX, 0.4, (0, 0, 255), 1)
 
 def draw_robot_heading(display_frame, robot_head, robot_tail):
-    """Tegn robot retningslinje"""
+    """Draw robot heading line"""
     if not robot_head or not robot_tail:
         return
     
-    # Tegn robot retning linje (tail→head extended)
+    # Draw robot heading line (tail→head extended)
     head_pos = robot_head["pos"] 
     tail_pos = robot_tail["pos"]
     dx = head_pos[0] - tail_pos[0]
@@ -91,13 +91,13 @@ def draw_robot_heading(display_frame, robot_head, robot_tail):
         length = math.sqrt(dx*dx + dy*dy)
         norm_dx = dx / length
         norm_dy = dy / length
-        # Tegn linje fra tail gennem head og videre
+        # Draw line from tail through head and further
         end_x = int(head_pos[0] + norm_dx * 200)
         end_y = int(head_pos[1] + norm_dy * 200)
         cv2.line(display_frame, tail_pos, (end_x, end_y), (255, 0, 255), 2)
 
 def draw_route_status(display_frame, route_manager):
-    """Tegn rute status information på skærmen"""
+    """Draw route status information on the screen"""
     if route_manager.route:
         route_text = "ROUTE: {}/{} waypoints (attempts: {}/{})".format(
             route_manager.current_target_index + 1, len(route_manager.route),

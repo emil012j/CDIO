@@ -1,28 +1,28 @@
 # -*- coding: utf-8 -*-
 """
-Indstillinger for robotten, feks. IP, port, kamera, modeller, farver, etc.
+Settings for the robot, e.g. IP, port, camera, models, colors, etc.
 """
 
-# Netværk indstillinger (IP, port)
+# Network settings (IP, port)
 ROBOT_IP = "192.168.65.158"
 COMMAND_PORT = 1233
 
-# Kamera indstillinger (resolution, confidence)
+# Camera settings (resolution, confidence)
 CAMERA_SOURCE = 1
 CAMERA_RESOLUTION = (1280, 720)  
 CONFIDENCE_THRESHOLD = 0.35 #0.35
 
-# YOLO model indstillinger
+# YOLO model settings
 MODEL_PATH = "my_model3.pt"
 
-# Object detection konstanter  
+# Object detection constants  
 CROSS_DIAMETER_MM = 200.0
 EGG_SIZE_THRESHOLD_MM = 58.0
-CROSS_AVOID_RADIUS = 100  # Tune as needed. Bliver brugt til at undgå at robotten kører ind i krydset.
-GOAL_LEFT = (0, 300) # Venstre mål position i pixels
-GOAL_RIGHT = (1279, 300) # Højre mål position i pixels
+CROSS_AVOID_RADIUS = 100  # Tune as needed. Used to avoid the robot running into the cross.
+GOAL_LEFT = (0, 300) # Left goal position in pixels
+GOAL_RIGHT = (1279, 300) # Right goal position in pixels
 
-# Farver til visualization
+# Colors for visualization
 CLASS_COLORS = {
     "cross": (0, 255, 0), 
     "egg": (255, 0, 0), 
@@ -30,24 +30,24 @@ CLASS_COLORS = {
     "white ball": (255, 255, 255), 
     "robothead": (0, 0, 255), 
     "robottail": (255, 0, 255),
-    "wall": (0, 0, 255)  # RØD for vægge
+    "wall": (0, 0, 255)  # RED for walls
 }
 
-# Vision system indstillinger
+# Vision system settings
 ORIENTED_OBJECTS = ["robothead", "robottail", "egg", "cross"]
 EGG_OBB_ASPECT_RATIO_THRESHOLD = 1.3
 
-# Navigation parametre - ingen sensorer, kun vision navigation
-COMMAND_COOLDOWN = 0.25  # FORSIGTIG: Øget fra 0.3 til 0.5 for bedre måling mellem kommandoer
-PRINT_INTERVAL = 3      # Hurtigere status updates
-TURN_THRESHOLD = 10     # mindste antal grader for at dreje.
-DISTANCE_THRESHOLD = 30 # cm - stop 30 cm fra bolden for præcis korrektion
-MAX_FORWARD_DISTANCE = 30 # maks længde for fremadkørsel
+# Navigation parameters - no sensors, only vision navigation
+COMMAND_COOLDOWN = 0.25  # CAREFUL: Increased from 0.3 to 0.5 for better measurement between commands
+PRINT_INTERVAL = 3      # Faster status updates
+TURN_THRESHOLD = 10     # minimum number of degrees to turn.
+DISTANCE_THRESHOLD = 30 # cm - stop 30 cm from ball for precise correction
+MAX_FORWARD_DISTANCE = 30 # maximum length for forward movement
 
-# Ball pickup sekvens - hardcoded afstande
-PICKUP_FORWARD_DISTANCE = 35  # cm - afstand at køre frem for at samle bold
-PICKUP_BACKWARD_DISTANCE = 35  # cm - afstand at bakke efter opsamling
+# Ball pickup sequence - hardcoded distances
+PICKUP_FORWARD_DISTANCE = 35  # cm - distance to drive forward to collect ball
+PICKUP_BACKWARD_DISTANCE = 35  # cm - distance to back up after collection
 
-ROBOT_TURN_SPEED = 25 # HURTIGERE: Motor hastighed til drejning (øget fra 10 til 25)
-ROBOT_FORWARD_SPEED = 50 # HURTIGERE: Motor hastighed til fremadkørsel (øget fra 30 til 50)  
-ESTIMATED_TURN_RATE = 180.0  # grader per sekund - opdateret baseret på hjul kalibrering (halv rotation = 90°)
+ROBOT_TURN_SPEED = 25 # FASTER: Motor speed for turning (increased from 10 to 25)
+ROBOT_FORWARD_SPEED = 50 # FASTER: Motor speed for forward movement (increased from 30 to 50)  
+ESTIMATED_TURN_RATE = 180.0  # degrees per second - updated based on wheel calibration (half rotation = 90°)
