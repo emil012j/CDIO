@@ -241,6 +241,26 @@ class RobotController:
         except Exception as e:
             print("Error releasing balls:", e)
 
+    def is_harvester_blocked(self):
+        """
+        Returns True if the collect motor is stalled (blocked).
+        """
+        try:
+            return self.collect_motor.is_stalled
+        except Exception as e:
+            print("Error checking harvester stall:", e)
+            return False
+
+    def handle_harvester_blockage(self):
+        """
+        If harvester is blocked, move robot backwards for 5 cm.
+        """
+        if self.is_harvester_blocked():
+            print("Harvester blocked! Moving backwards for 5 cm.")
+            self.simple_backward(5)
+            return True
+        return False
+
     def cleanup(self):
         """Afslutter robotten og stopper alle motorer"""
         print("Cleaning up robot controller...")

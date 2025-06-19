@@ -17,13 +17,13 @@ from src.utils.vision_helpers import choose_unblocked_ball
 from src.config.settings import *
 from src.camera.goal_calibrator import GoalCalibrator
 from src.camera.goal_utils import GoalUtils
-
+from src.robot.controller import RobotController
 # Global route manager
 route_manager = RouteManager()
 
 # --- Cross area radius in pixels (adjust as needed) ---
 CROSS_RADIUS = 60
-
+robot_controller = RobotController()
 def main():
     print("Setting up goal position...")
     calibrator = GoalCalibrator()
@@ -96,6 +96,11 @@ def main():
                 print("[DEBUG] robot_center:", robot_center)  # <--- DEBUG
 
             navigation_info = None
+                # --- Harvester blockage check (add here) ---
+            if robot_controller.is_harvester_blocked():
+                print("Harvester blocked! Moving backwards for 5 cm.")
+                robot_controller.simple_backward(5)
+                continue
 
             # --- Cross avoidance flag reset (always runs) ---
             if just_avoided_cross:
