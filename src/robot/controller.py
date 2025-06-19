@@ -235,7 +235,6 @@ class RobotController:
             sleep(3)
             self.collect_motor.on(speed=-60)  # Kør fremad (modsat af opsamling)
             sleep(0.5)
-            self.collect_motor.off() # Ensure motor stops after releasing balls
             print("Balls released")
             self.simple_backward(10) # Move backward 10 cm after releasing balls
             print("Backed up 10 cm after ball release")
