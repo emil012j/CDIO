@@ -155,10 +155,20 @@ def calibrate_goal(self):
 def draw_navigation_info(frame, robot_center, target_ball, robot_heading, target_heading, navigation_info=None):
     try:
         if robot_center and target_ball:
+            # Draw corrected robot center (purple circle - this is the real ground-level center)
+            cv2.circle(frame, robot_center, 12, (255, 0, 255), -1)  # Large purple circle
             
-            # Draw robot center
-            cv2.circle(frame, robot_center, 10, (255, 0, 255), -1)
+            # Draw navigation line from corrected robot center to actual target ball
+            cv2.line(frame, robot_center, target_ball, (0, 255, 0), 3)  # Thick green line
             
+            # Draw target ball
+            cv2.circle(frame, target_ball, 8, (0, 0, 255), -1)  # Red target ball
+            
+            # Add angle difference text
+            if navigation_info and "angle_diff" in navigation_info:
+                angle_text = f"Angle diff: {navigation_info['angle_diff']:.1f}°"
+                cv2.putText(frame, angle_text, (robot_center[0] + 15, robot_center[1] + 25),
+                           cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 255), 2)
                 
     except Exception:
         pass

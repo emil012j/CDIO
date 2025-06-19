@@ -193,7 +193,7 @@ def main():
                 elif balls and current_run_balls < STORAGE_CAPACITY:
                     target_ball = route_manager.get_current_target()
                     if target_ball:
-                        target_ball = route_manager.get_wall_approach_point(target_ball, walls, scale_factor)
+                        # Use the actual ball position directly - no wall approach modification
                         navigation_info = calculate_navigation_command(robot_head, robot_tail, target_ball, scale_factor)
                         # Capture success of navigation/collection attempt
                         collection_attempt_successful = handle_robot_navigation(navigation_info, commander, route_manager)
@@ -264,11 +264,18 @@ def main():
             goal_utils.draw_goal_on_frame(display_frame)
 
             if navigation_info:
-                target_pos = navigation_info.get('original_target')
+                # Use the same target that was used for navigation calculation
+                if current_state == BALL_COLLECTION:
+                    actual_target = route_manager.get_current_target()  # Same target used for navigation
+                elif current_state == GOAL_NAVIGATION:
+                    actual_target = goal_utils.get_goal_position()
+                else:
+                    actual_target = None
+                    
                 draw_navigation_info(
                     display_frame,
                     navigation_info["robot_center"],
-                    target_pos,
+                    actual_target,
                     navigation_info["robot_heading"],
                     navigation_info["target_heading"],
                     navigation_info
