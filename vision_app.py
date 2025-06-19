@@ -254,7 +254,11 @@ def main():
                     print("*** BALLS RELEASED - STARTING NEW COLLECTION RUN (ROUTE_PLANNING) ***")
                 
             # Visualization
-            draw_route_and_targets(display_frame, robot_head, robot_tail, route_manager, walls)
+            corrected_head_for_drawing = navigation_info.get('corrected_head') if navigation_info else None
+            corrected_tail_for_drawing = navigation_info.get('corrected_tail') if navigation_info else None
+            draw_route_and_targets(display_frame, robot_head, robot_tail, route_manager, walls, 
+                                   corrected_head=corrected_head_for_drawing, 
+                                   corrected_tail=corrected_tail_for_drawing)
             draw_robot_heading(display_frame, robot_head, robot_tail)
             draw_route_status(display_frame, route_manager)
             goal_utils.draw_goal_on_frame(display_frame)

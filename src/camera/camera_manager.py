@@ -155,24 +155,18 @@ def calibrate_goal(self):
 def draw_navigation_info(frame, robot_center, target_ball, robot_heading, target_heading, navigation_info=None):
     try:
         if robot_center and target_ball:
-            # Draw line from robot to original target (dotted yellow)
-            cv2.line(frame, robot_center, target_ball, (0, 255, 255), 1, cv2.LINE_AA)
             
             # If we have corrected positions from height adjustment, draw those too
             if navigation_info and 'corrected_target' in navigation_info:
                 corrected_ball = navigation_info['corrected_target']
-                
-                # Draw line to corrected ball position (solid green)
-                cv2.line(frame, robot_center, corrected_ball, (0, 255, 0), 2)
-                
+                                
                 # Draw corrected robot head/tail positions if available
                 if 'corrected_head' in navigation_info and 'corrected_tail' in navigation_info:
                     corrected_head = navigation_info['corrected_head']
                     corrected_tail = navigation_info['corrected_tail']
                     
                     # Draw corrected robot positions (small circles)
-                    cv2.circle(frame, corrected_head, 3, (255, 255, 0), -1)  # Cyan head
-                    cv2.circle(frame, corrected_tail, 3, (255, 0, 255), -1)  # Magenta tail
+        
                     
                     # Draw corrected robot heading line
                     corrected_center = (
@@ -191,27 +185,11 @@ def draw_navigation_info(frame, robot_center, target_ball, robot_heading, target
                         end_y = int(corrected_head[1] + norm_dy * 100)
                         cv2.line(frame, corrected_tail, (end_x, end_y), (0, 255, 255), 2)  # Cyan corrected heading
                 
-                # Draw circles at positions
-                cv2.circle(frame, corrected_ball, 5, (0, 255, 0), -1)    # Green corrected ball
-                cv2.circle(frame, target_ball, 5, (0, 255, 255), -1)     # Yellow original ball
+
             
             # Draw robot center
             cv2.circle(frame, robot_center, 10, (255, 0, 255), -1)
             
-            # Draw heading arrows
-            if robot_heading is not None:
-                # Current heading arrow (red)
-                arrow_length = 50
-                end_x = int(robot_center[0] + arrow_length * math.cos(math.radians(robot_heading)))
-                end_y = int(robot_center[1] + arrow_length * math.sin(math.radians(robot_heading)))
-                cv2.arrowedLine(frame, robot_center, (end_x, end_y), (0, 0, 255), 3)
-            
-            if target_heading is not None:
-                # Target heading arrow (green)  
-                arrow_length = 70
-                end_x = int(robot_center[0] + arrow_length * math.cos(math.radians(target_heading)))
-                end_y = int(robot_center[1] + arrow_length * math.sin(math.radians(target_heading)))
-                cv2.arrowedLine(frame, robot_center, (end_x, end_y), (0, 255, 0), 2)
                 
     except Exception:
         pass

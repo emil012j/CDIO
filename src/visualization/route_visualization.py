@@ -6,7 +6,7 @@ Route visualization - håndterer tegning af rute, targets og robot navigation p�
 import cv2
 import math
 
-def draw_route_and_targets(display_frame, robot_head, robot_tail, route_manager, walls):
+def draw_route_and_targets(display_frame, robot_head, robot_tail, route_manager, walls, corrected_head=None, corrected_tail=None):
     """Tegn hele ruten og navigation information på skærmen"""
     if not robot_head or not robot_tail:
         return
@@ -16,7 +16,16 @@ def draw_route_and_targets(display_frame, robot_head, robot_tail, route_manager,
         (robot_head["pos"][0] + robot_tail["pos"][0]) // 2,
         (robot_head["pos"][1] + robot_tail["pos"][1]) // 2
     )
-    
+
+    # Beregn korrigeret robot centrum, hvis tilgængeligt
+    if corrected_head and corrected_tail:
+        corrected_center = (
+            (corrected_head[0] + corrected_tail[0]) // 2,
+            (corrected_head[1] + corrected_tail[1]) // 2
+        )
+    else:
+        corrected_center = robot_center # Brug standard centrum hvis korrigeret ikke findes
+
     # TEGN RUTE: Vis hele ruten og nuværende mål
     current_target = route_manager.get_current_target()
     if current_target:
@@ -24,8 +33,8 @@ def draw_route_and_targets(display_frame, robot_head, robot_tail, route_manager,
         original_target = route_manager.route[route_manager.current_target_index] if route_manager.current_target_index < len(route_manager.route) else current_target
         is_wall_approach = (current_target != original_target)
         
-        # Tegn linje til nuværende mål (GUL)
-        cv2.line(display_frame, robot_center, current_target, (0, 255, 255), 3)
+        # Tegn linje til nuværende mål (GUL) fra det korrigerede/robot centrum
+        cv2.line(display_frame, corrected_center, current_target, (255, 0, 255), 2)
         
         if is_wall_approach:
             # Tegn original bold position (CYAN)
@@ -41,7 +50,7 @@ def draw_route_and_targets(display_frame, robot_head, robot_tail, route_manager,
             cv2.line(display_frame, current_target, original_target, (255, 255, 0), 2)
         else:
             # Normal bold target
-            cv2.circle(display_frame, current_target, 15, (0, 255, 255), 3)
+            cv2.circle(display_frame, current_target, 15, (0, 255, 255), 2)
             cv2.putText(display_frame, "TARGET {}".format(route_manager.current_target_index + 1), 
                        (current_target[0] + 20, current_target[1] - 20), 
                        cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 255, 255), 2)
@@ -58,7 +67,6 @@ def draw_route_and_targets(display_frame, robot_head, robot_tail, route_manager,
             pass
         else:
             # Fremtidige mål: BLÅ
-            cv2.circle(display_frame, waypoint, 8, (255, 0, 0), 2)
             cv2.putText(display_frame, str(i + 1), (waypoint[0] - 5, waypoint[1] + 5), 
                        cv2.FONT_HERSHEY_SIMPLEX, 0.4, (255, 0, 0), 1)
     
