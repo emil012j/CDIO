@@ -21,6 +21,9 @@ from src.camera.goal_utils import GoalUtils
 # Global route manager
 route_manager = RouteManager()
 
+# --- Cross area radius in pixels (adjust as needed) ---
+CROSS_RADIUS = 60
+
 def main():
     print("Setting up goal position...")
     calibrator = GoalCalibrator()
@@ -69,7 +72,6 @@ def main():
     just_avoided_cross = False
     cross_avoid_reset_time = None
 
-
     try:
         while True:
             frame = camera.read_frame()
@@ -85,8 +87,6 @@ def main():
             cross_pos = get_cross_position(results, model)
             display_frame = frame.copy()
             robot_head, robot_tail, balls, walls, log_info_list = process_detections_and_draw(results, model, display_frame, scale_factor)
-            
-
 
             if robot_head and robot_tail:
                 robot_center = (
@@ -136,6 +136,18 @@ def main():
 
             if current_state == ROUTE_PLANNING:
                 print("[DEBUG] State: ROUTE_PLANNING")
+                # --- Filter out balls inside the cross area ---
+                if balls and cross_pos:
+                    filtered_balls = []
+                    cross_x, cross_y = cross_pos
+                    for ball in balls:
+                        ball_x, ball_y = ball
+                        dist_to_cross = ((ball_x - cross_x) ** 2 + (ball_y - cross_y) ** 2) ** 0.5
+                        if dist_to_cross > CROSS_RADIUS:
+                            filtered_balls.append(ball)
+                        else:
+                            print(f"[INFO] Skipping ball at {ball} because it is inside the cross area.")
+                    balls = filtered_balls
                 # If we have balls, create a route and move to collection
                 if balls and current_run_balls < STORAGE_CAPACITY:
                     route_manager.create_route_from_balls(balls, robot_center, walls, cross_pos)
@@ -150,7 +162,6 @@ def main():
                     print("*** STORAGE FULL - SWITCHING TO GOAL_NAVIGATION ***")
                     route_manager.reset_route()
                 elif not balls and total_balls_collected >= TOTAL_BALLS_ON_COURT:
-                    
                     print("*** ALL BALLS COLLECTED - MISSION COMPLETE ***")
                     route_manager.reset_route()
                 elif not balls and current_run_balls > 0: # Collected some, but no more visible balls
@@ -162,11 +173,7 @@ def main():
                     commander.send_forward_command(distance=10)
                     current_state = GOAL_NAVIGATION
                     route_manager.reset_route()
-                    #elif commander.can_send_command():
-                     #   current_state = GOAL_NAVIGATION
-                      #  route_manager.reset_route()
                     print("No balls to collect or all collected, staying in ROUTE_PLANNING or COMPLETE.")
-                    
 
             elif current_state == BALL_COLLECTION:
                 print("[DEBUG] State: BALL_COLLECTION")
@@ -181,7 +188,6 @@ def main():
                     print("*** NO MORE BALLS ON FIELD - DELIVERING WHAT'S COLLECTED ***")
                     route_manager.reset_route()
                 elif not balls and current_run_balls == 0 and total_balls_collected >= TOTAL_BALLS_ON_COURT:
-                    
                     print("*** ALL BALLS COLLECTED - MISSION COMPLETE ***")
                     route_manager.reset_route()
                 elif balls and current_run_balls < STORAGE_CAPACITY:
@@ -189,7 +195,6 @@ def main():
                     if target_ball:
                         target_ball = route_manager.get_wall_approach_point(target_ball, walls, scale_factor)
                         navigation_info = calculate_navigation_command(robot_head, robot_tail, target_ball, scale_factor)
-                        
                         # Capture success of navigation/collection attempt
                         collection_attempt_successful = handle_robot_navigation(navigation_info, commander, route_manager)
                         if collection_attempt_successful:
@@ -229,15 +234,6 @@ def main():
                     if current_distance_to_goal < 26 and current_distance_to_goal > 0: # Use 22cm as threshold for goal approach as well
                         current_state = BALL_RELEASE
                         print("*** REACHED GOAL APPROACH DISTANCE - SWITCHING TO BALL_RELEASE ***")
-                        # commander.send_release_balls_command(duration=4) # Moved to BALL_RELEASE state
-                        # current_run_balls = 0 # Moved to BALL_RELEASE state
-                        # if total_balls_collected >= TOTAL_BALLS_ON_COURT:
-                        #     current_state = COMPLETE
-                        #     print("*** ALL BALLS DELIVERED - MISSION COMPLETE ***")
-                        # else:
-                        #     current_state = ROUTE_PLANNING
-                        #     print("*** BALLS RELEASED - STARTING NEW COLLECTION RUN ***")
-                        # route_manager.reset_route() # Moved to BALL_RELEASE state
                     elif navigation_info: # Only navigate if not yet at approach distance
                         print("[DEBUG] Calling handle_robot_navigation for goal (GOAL_NAVIGATION state)")  # <--- DEBUG
                         handle_robot_navigation(navigation_info, commander, route_manager)
@@ -247,20 +243,16 @@ def main():
             elif current_state == BALL_RELEASE:
                 print("[DEBUG] State: BALL_RELEASE")
                 print("*** EXECUTING BALL RELEASE ***")
-                commander.send_release_balls_command(duration=4) # Use 6 seconds as per last discussion
-                # commander.send_backward_command(distance=10) # Moved to robot/controller.py
+                commander.send_release_balls_command(duration=4) # Use 4 seconds as per last discussion
                 current_run_balls = 0 # Reset collected balls for current run
                 route_manager.reset_route() # Reset route after delivery
 
-                if current_run_balls >= TOTAL_BALLS_ON_COURT: # Check if all balls are collected total - havde total_balls_collected før i stedet for current_run_balls
-                    
+                if current_run_balls >= TOTAL_BALLS_ON_COURT: # Check if all balls are collected total
                     print("*** ALL BALLS DELIVERED - MISSION COMPLETE ***")
                 else:
                     current_state = ROUTE_PLANNING # Loop back to route planning for next run
                     print("*** BALLS RELEASED - STARTING NEW COLLECTION RUN (ROUTE_PLANNING) ***")
                 
-           
-
             # Visualization
             draw_route_and_targets(display_frame, robot_head, robot_tail, route_manager, walls)
             draw_robot_heading(display_frame, robot_head, robot_tail)
@@ -307,7 +299,6 @@ def main():
                 ))
                 last_print_time = current_time
 
-            
     except KeyboardInterrupt:
         print("camera released")
     finally:
@@ -316,4 +307,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-    
