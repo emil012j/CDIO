@@ -7,6 +7,7 @@ from ev3dev2.motor import LargeMotor, MoveTank, MediumMotor
 from ev3dev2.button import Button
 from time import sleep
 from ..config.settings import *
+import threading
 
 class RobotController:
     
@@ -20,6 +21,11 @@ class RobotController:
 
         # Medium motor for collect mechanism
         self.collect_motor = MediumMotor('outC')
+
+        self.monitoring = True
+        self.blockage_thread = threading.Thread(target=self._monitor_harvester_blockage, daemon= True)
+        self.blockage_thread.start()
+
         
         # Re-enabled: Harvester motor needed for ball collection
         try:
@@ -241,8 +247,26 @@ class RobotController:
         except Exception as e:
             print("Error releasing balls:", e)
 
+    def _monitor_harvester_blockage(self):
+        print("MONITORING STALL")
+        while self.monitoring:
+            try:
+                if self.collect_motor.is_stalled:
+                    print("Harvester blocked! Moving backwards")
+                    self.simple_backward(10)
+                    #Wait a bit to avoid repeating the same
+                    sleep(2)
+            except Exception as e:
+                print("Error in blockage monitor")
+            sleep(0.2) #Check 5 times per second
+    
+    def stop_monitoring(self):
+        self.monitoring = False
+
     def cleanup(self):
         """Shuts down the robot and stops all motors"""
         print("Cleaning up robot controller...")
         self.stop_all_motors()
         self.running = False 
+
+    

@@ -17,7 +17,6 @@ from src.utils.vision_helpers import choose_unblocked_ball
 from src.config.settings import *
 from src.camera.goal_calibrator import GoalCalibrator
 from src.camera.goal_utils import GoalUtils
-
 # Global route manager
 route_manager = RouteManager()
 
@@ -120,7 +119,7 @@ def main():
                 head_x, head_y = robot_head["pos"]
                 cross_x, cross_y = cross_pos
                 dist_to_cross = ((head_x - cross_x) ** 2 + (head_y - cross_y) ** 2) ** 0.5
-                if dist_to_cross <= 100 and not just_avoided_cross:
+                if dist_to_cross <= 120 and not just_avoided_cross:
                     # Dynamic turn direction: turn away from cross
                     turn_direction = "right" if cross_x > head_x else "left"
                     if commander.can_send_command():
