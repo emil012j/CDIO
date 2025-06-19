@@ -7,6 +7,7 @@ from ev3dev2.motor import LargeMotor, MoveTank, MediumMotor
 from ev3dev2.button import Button
 from time import sleep
 from ..config.settings import *
+import threading
 
 class RobotController:
     
@@ -20,6 +21,11 @@ class RobotController:
 
         # Medium motor for collect mechanism
         self.collect_motor = MediumMotor('outC')
+
+        self.monitoring = True
+        self.blockage_thread = threading.Thread(target=self._monitor_harvester_blockage, daemon= True)
+        self.blockage_thread.start()
+
         
         # Re-enabled: Harvester motor needed for ball collection
         try:
@@ -241,28 +247,25 @@ class RobotController:
         except Exception as e:
             print("Error releasing balls:", e)
 
-    def is_harvester_blocked(self):
-        """
-        Returns True if the collect motor is stalled (blocked).
-        """
-        try:
-            return self.collect_motor.is_stalled
-        except Exception as e:
-            print("Error checking harvester stall:", e)
-            return False
-
-    def handle_harvester_blockage(self):
-        """
-        If harvester is blocked, move robot backwards for 5 cm.
-        """
-        if self.is_harvester_blocked():
-            print("Harvester blocked! Moving backwards for 5 cm.")
-            self.simple_backward(5)
-            return True
-        return False
+    def _monitor_harvester_blockage(self):
+        while self.monitoring:
+            try:
+                if self.collect_motor.is_stalled:
+                    print("Harvester blocked! Moving backwards")
+                    self.simple_backward(10)
+                    #Wait a bit to avoid repeating the same
+                    sleep(2)
+            except Exception as e:
+                print("Error in blockage monitor")
+            sleep(0.2) #Check 5 times per second
+    
+    def stop_monitoring(self):
+        self.monitoring = False
 
     def cleanup(self):
         """Afslutter robotten og stopper alle motorer"""
         print("Cleaning up robot controller...")
         self.stop_all_motors()
         self.running = False 
+
+    
