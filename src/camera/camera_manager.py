@@ -156,42 +156,9 @@ def calibrate_goal(self):
 def draw_navigation_info(frame, robot_center, target_ball, robot_heading, target_heading, navigation_info=None):
     try:
         if robot_center and target_ball:
-            
-            # If we have corrected positions from height adjustment, draw those too
-            if navigation_info and 'corrected_target' in navigation_info:
-                corrected_ball = navigation_info['corrected_target']
-                                
-                # Draw corrected robot head/tail positions if available
-                if 'corrected_head' in navigation_info and 'corrected_tail' in navigation_info:
-                    corrected_head = navigation_info['corrected_head']
-                    corrected_tail = navigation_info['corrected_tail']
-                    
-                    # Draw corrected robot positions (small circles)
-        
-                    
-                    # Draw corrected robot heading line
-                    corrected_center = (
-                        (corrected_head[0] + corrected_tail[0]) // 2,
-                        (corrected_head[1] + corrected_tail[1]) // 2
-                    )
-                    
-                    # Extended heading line from corrected positions
-                    dx = corrected_head[0] - corrected_tail[0]
-                    dy = corrected_head[1] - corrected_tail[1]
-                    if abs(dx) > 1e-6 or abs(dy) > 1e-6:
-                        length = math.sqrt(dx*dx + dy*dy)
-                        norm_dx = dx / length
-                        norm_dy = dy / length
-                        end_x = int(corrected_head[0] + norm_dx * 100)
-                        end_y = int(corrected_head[1] + norm_dy * 100)
-                        cv2.line(frame, corrected_tail, (end_x, end_y), (0, 255, 255), 2)  # Cyan corrected heading
-                
-
-            
             # Draw robot center
             cv2.circle(frame, robot_center, 10, (255, 0, 255), -1)
             
-                
     except Exception:
         pass
 
@@ -238,11 +205,5 @@ def display_status(frame, robot_head, robot_tail, balls, scale_factor, navigatio
             cv2.putText(frame, "Distance: {:.1f} cm".format(navigation_info["distance_cm"]), 
                        (10, y_offset), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 255), 2)
             
-            # Add height correction info
-            if 'corrected_target' in navigation_info:
-                y_offset += 25
-                cv2.putText(frame, "Height Correction: ACTIVE", 
-                           (10, y_offset), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 255, 0), 2)
-                           
     except Exception:
         pass 
