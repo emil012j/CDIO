@@ -17,7 +17,6 @@ from src.utils.vision_helpers import choose_unblocked_ball
 from src.config.settings import *
 from src.camera.goal_calibrator import GoalCalibrator
 from src.camera.goal_utils import GoalUtils
-from src.robot.robot_helper import handle_harvester_blockage
 # Global route manager
 route_manager = RouteManager()
 

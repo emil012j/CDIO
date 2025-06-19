@@ -248,6 +248,7 @@ class RobotController:
             print("Error releasing balls:", e)
 
     def _monitor_harvester_blockage(self):
+        print("MONITORING STALL")
         while self.monitoring:
             try:
                 if self.collect_motor.is_stalled:
