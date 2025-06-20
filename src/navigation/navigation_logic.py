@@ -26,7 +26,7 @@ def handle_robot_navigation(navigation_info, commander, route_manager):
     in_hitting_zone = hitting_zone_min <= angle_diff <= hitting_zone_max
     
     # Different distance thresholds for waypoints vs targets
-    approach_distance = 40 if is_waypoint else 22  # Further approach for waypoints
+    approach_distance = 25 if is_waypoint else 22  # Closer approach for waypoints
     
     # DEBUG: Show current state vs thresholds every frame
     print("  DEBUG: Distance={:.1f}cm (≤{:.1f}cm?), Angle={:.1f}° in [{:.1f}°,{:.1f}°]? = {}".format(
@@ -116,7 +116,18 @@ def handle_forward_movement(distance_cm, angle_diff, commander):
     commander.send_forward_command(move_distance)
 
 def handle_waypoint_arrival(distance_cm, angle_diff, commander, route_manager):
-    """Handle arrival at a safe spot waypoint - just advance to next target"""
+    """Handle arrival at a safe spot waypoint - move to position then advance"""
+    print(f"🛡️ WAYPOINT ARRIVAL: Distance={distance_cm:.1f}cm, Angle={angle_diff:.1f}°")
+    
+    # If still too far from waypoint, continue approaching
+    if distance_cm > 15:  # Get closer to waypoint (15cm threshold)
+        print(f"🛡️ APPROACHING WAYPOINT: Moving {distance_cm:.1f}cm closer")
+        # Move carefully towards waypoint
+        move_distance = min(distance_cm * 0.5, 10.0)  # Move 50% of distance, max 10cm
+        commander.send_forward_command(move_distance)
+        return False  # Not yet reached
+    
+    # Close enough to waypoint - advance to next target
     print("🛡️ *** REACHED WAYPOINT - ADVANCING TO NEXT TARGET ***")
     route_manager.advance_to_next_target()
     return True  # Successfully reached waypoint
