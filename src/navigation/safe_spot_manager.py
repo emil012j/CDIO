@@ -223,7 +223,4 @@ class SafeSpotManager:
             cv2.putText(frame, f"SAFE {quadrant}", (spot_pos[0] - 30, spot_pos[1] - 25),
                        cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 255, 0), 2)
         
-        # Draw center danger zone
-        cv2.circle(frame, (self.center_x, self.center_y), 100, (0, 0, 255), 2)
-        cv2.putText(frame, "DANGER ZONE", (self.center_x - 50, self.center_y + 5),
-                   cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 0, 255), 2) 
+ 
