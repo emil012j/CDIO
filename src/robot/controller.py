@@ -254,7 +254,10 @@ class RobotController:
                 if self.collect_motor.is_stalled:
                     print("Harvester blocked! Moving backwards")
                     self.simple_backward(10)
-                    #Wait a bit to avoid repeating the same
+                    #Restart the harvester motor
+                    self.collect_motor.on(speed=-100)
+                    print("Harvester restarted after blockage")
+                    sleep(2)
             except Exception as e:
                 print("Error in blockage monitor")
             sleep(0.2) #Check 5 times per second
