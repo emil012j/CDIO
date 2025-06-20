@@ -4,6 +4,7 @@ Route-baseret navigation system der erstatter "nærmeste bold" med fast rute pla
 """
 
 import math
+from .safe_spot_manager import SafeSpotManager
 
 class RouteManager:
     def __init__(self):
@@ -13,75 +14,89 @@ class RouteManager:
         self.collected_balls_count = 0
         self.collection_attempts = 0  # Tæl forsøg på nuværende target
         self.max_attempts = 3  # Max forsøg før vi giver op på en bold
+        self.safe_spot_manager = SafeSpotManager()  # Safe spot navigation system
         
     def create_route_from_balls(self, balls, robot_center, walls=None, cross_pos=None):
-        """Lav en fast rute fra robot position til alle bolde med kollisionsundgåelse"""
+        """Lav en fast rute fra robot position til alle bolde med cross-safe navigation"""
         if self.route_created or not balls:
             return
             
-        print("🗺️  CREATING BALL COLLECTION ROUTE...")
+        print("🗺️  CREATING SAFE BALL COLLECTION ROUTE...")
         
-        # Filtrer kun bolde der er for tæt på kors (vægge er OK med vinkelret tilgang)
+        # Filter out balls too close to center cross
         safe_balls = []
-        if walls is None:
-            walls = []
-        
         for ball in balls:
-            is_safe = True
-            
-            # Tjek kun afstand til kors (undgå bolde tættere end 50 cm til kors)
-            #if cross_pos:
-             #   distance_to_cross = math.sqrt((ball[0] - cross_pos[0])**2 + (ball[1] - cross_pos[1])**2)
-              #  if distance_to_cross < 50:  # 50 cm i pixels
-               #     print("⚠️  Ball at ({}, {}) too close to cross at ({}, {}) - distance: {:.1f}px".format(
-                #        ball[0], ball[1], cross_pos[0], cross_pos[1], distance_to_cross))
-                 #   is_safe = False
-            
-            # Bolde tæt på vægge er OK - vi bruger vinkelret tilgang
-            if is_safe:
-                # Tjek om bold er tæt på væg (for info)
-                for wall in walls:
-                    distance_to_wall = math.sqrt((ball[0] - wall[0])**2 + (ball[1] - wall[1])**2)
-                    if distance_to_wall < 50:  # 30 cm i pixels
-                        print("🧱 Ball at ({}, {}) near wall - will use perpendicular approach".format(ball[0], ball[1]))
-                        break
-                
+            if not self.safe_spot_manager.is_near_center_cross(ball, cross_radius=80):
                 safe_balls.append(ball)
+            else:
+                print(f"⚠️ Skipping ball at {ball} - too close to center cross")
         
-        print("📍 Accessible balls: {}/{}".format(len(safe_balls), len(balls)))
-        filtered_balls = self.filter_close_balls(safe_balls, min_distance=40)
-        print("✅ Filtered balls (no clustering): {}/{}".format(len(filtered_balls), len(safe_balls)))
-
-        # Sorter efter isolationsscore (mest isolerede først)
-        filtered_balls.sort(key=lambda b: -self.isolation_score(b, filtered_balls))
+        print(f"📍 Safe balls (away from center): {len(safe_balls)}/{len(balls)}")
         
         if not safe_balls:
-            print("❌ No accessible balls found!")
+            print("❌ No safe balls found away from center cross!")
             return
         
-        # Start med robot position som udgangspunkt
-        remaining_balls = list(filtered_balls)  # Kopier listen
+        # Prioritize balls by safe access from robot's current quadrant
+        prioritized_balls = self.safe_spot_manager.filter_balls_by_safe_access(robot_center, safe_balls)
+        
+        # Filter close balls to avoid clustering
+        filtered_balls = self.filter_close_balls(prioritized_balls, min_distance=40)
+        print(f"✅ Final balls (no clustering): {len(filtered_balls)}/{len(prioritized_balls)}")
+        
+        if not filtered_balls:
+            print("❌ No accessible balls found after filtering!")
+            return
+        
+        # Create route using safe spot navigation
         route_points = []
         current_pos = robot_center
+        remaining_balls = list(filtered_balls)
         
-        # Simpel "nærmeste punkt" rute algoritme
+        # Build route with safe navigation
         while remaining_balls:
-            # Find nærmeste bold fra nuværende position
-            distances = [math.sqrt((ball[0] - current_pos[0])**2 + (ball[1] - current_pos[1])**2) 
-                        for ball in remaining_balls]
-            nearest_index = distances.index(min(distances))
-            nearest_ball = remaining_balls.pop(nearest_index)
+            # Find best next ball considering safe paths
+            best_ball = None
+            best_distance = float('inf')
+            best_route = None
             
-            route_points.append(nearest_ball)
-            current_pos = nearest_ball
+            for ball in remaining_balls:
+                # Get safe route to this ball
+                safe_route = self.safe_spot_manager.plan_safe_route_to_ball(current_pos, ball)
+                
+                # Calculate total route distance
+                total_distance = 0
+                route_pos = current_pos
+                for waypoint in safe_route:
+                    total_distance += math.sqrt((waypoint[0] - route_pos[0])**2 + (waypoint[1] - route_pos[1])**2)
+                    route_pos = waypoint
+                
+                if total_distance < best_distance:
+                    best_distance = total_distance
+                    best_ball = ball
+                    best_route = safe_route
             
+            if best_ball:
+                # Add waypoints for this ball (excluding the ball itself for now)
+                for waypoint in best_route[:-1]:  # All except the ball
+                    route_points.append(waypoint)
+                
+                # Add the ball as final waypoint
+                route_points.append(best_ball)
+                
+                remaining_balls.remove(best_ball)
+                current_pos = best_ball
+            else:
+                break
+        
         self.route = route_points
         self.current_target_index = 0
         self.route_created = True
         
-        print("✅ ROUTE CREATED: {} waypoints".format(len(self.route)))
+        print(f"✅ SAFE ROUTE CREATED: {len(self.route)} waypoints")
         for i, point in enumerate(self.route):
-            print("   Point {}: ({}, {})".format(i+1, point[0], point[1]))
+            point_type = "WAYPOINT" if point not in filtered_balls else "BALL"
+            print(f"   {i+1}: {point} ({point_type})")
             
     def get_current_target(self):
         """Få nuværende mål i ruten"""

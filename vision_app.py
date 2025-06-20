@@ -12,6 +12,7 @@ from src.camera.camera_manager import CameraManager, draw_navigation_info, displ
 from src.communication.vision_commander import VisionCommander
 from src.navigation.route_manager import RouteManager
 from src.navigation.navigation_logic import handle_robot_navigation
+from src.navigation.safe_spot_manager import SafeSpotManager
 from src.visualization.route_visualization import draw_route_and_targets, draw_robot_heading, draw_route_status
 from src.utils.vision_helpers import choose_unblocked_ball
 from src.config.settings import *
@@ -64,6 +65,7 @@ def main():
 
     global route_manager
     route_manager = RouteManager()
+    safe_spot_manager = SafeSpotManager()
 
     last_print_time = time.time()
     frame_count = 0
@@ -262,6 +264,9 @@ def main():
             draw_robot_heading(display_frame, robot_head, robot_tail)
             draw_route_status(display_frame, route_manager)
             goal_utils.draw_goal_on_frame(display_frame)
+            
+            # Draw safe spots and quadrant system
+            safe_spot_manager.draw_safe_spots(display_frame)
 
             if navigation_info:
                 # Use the same target that was used for navigation calculation
