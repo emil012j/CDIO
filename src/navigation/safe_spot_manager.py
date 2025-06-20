@@ -127,56 +127,113 @@ class SafeSpotManager:
             
         return route_waypoints
     
+    def get_two_nearest_safe_spots_to_goal(self, goal_pos):
+        """Get the 2 nearest safe spots to the goal position"""
+        distances = []
+        for quadrant, spot_pos in self.safe_spots.items():
+            distance = math.sqrt((goal_pos[0] - spot_pos[0])**2 + (goal_pos[1] - spot_pos[1])**2)
+            distances.append((distance, quadrant, spot_pos))
+        
+        # Sort by distance and get the 2 closest
+        distances.sort()
+        nearest_spot = distances[0][1], distances[0][2]  # (quadrant, position)
+        second_nearest_spot = distances[1][1], distances[1][2]  # (quadrant, position)
+        
+        return nearest_spot, second_nearest_spot
+    
+    def calculate_perpendicular_approach_point(self, goal_pos):
+        """Calculate perpendicular approach point between 2 nearest safe spots to goal"""
+        nearest_spot, second_nearest_spot = self.get_two_nearest_safe_spots_to_goal(goal_pos)
+        
+        # Calculate midpoint between the 2 nearest safe spots
+        nearest_pos = nearest_spot[1]
+        second_nearest_pos = second_nearest_spot[1]
+        
+        midpoint_x = (nearest_pos[0] + second_nearest_pos[0]) // 2
+        midpoint_y = (nearest_pos[1] + second_nearest_pos[1]) // 2
+        perpendicular_approach = (midpoint_x, midpoint_y)
+        
+        print(f"🎯 Perpendicular approach calculation:")
+        print(f"   Nearest safe spots to goal: Q{nearest_spot[0]} {nearest_pos} and Q{second_nearest_spot[0]} {second_nearest_pos}")
+        print(f"   Perpendicular approach point: {perpendicular_approach}")
+        
+        return perpendicular_approach, nearest_spot[0], second_nearest_spot[0]
+
     def plan_safe_route_to_goal(self, robot_pos, goal_pos):
-        """Plan a safe route from robot to goal using safe spots"""
+        """Plan a safe route from robot to goal with perpendicular approach"""
         robot_quadrant = self.get_robot_quadrant(robot_pos)
-        goal_quadrant = self.get_ball_quadrant(goal_pos)
         
-        print(f"🎯 Planning route to goal: Robot in Q{robot_quadrant} → Goal in Q{goal_quadrant}")
+        print(f"🎯 Planning perpendicular route to goal: Robot in Q{robot_quadrant}")
         
-        # Always go to safe spot closest to goal first
-        goal_safe_spot = self.safe_spots[goal_quadrant]
+        # Get perpendicular approach point and nearest safe spots to goal
+        perp_approach, nearest_q, second_nearest_q = self.calculate_perpendicular_approach_point(goal_pos)
         
-        # If robot and goal are in same quadrant or safely connected, go via goal's safe spot
-        if self.is_cross_safe_path(robot_quadrant, goal_quadrant):
-            print(f"✅ Direct path to goal safe: Q{robot_quadrant} → Q{goal_quadrant}")
-            return [self.safe_spots[robot_quadrant], goal_safe_spot, goal_pos]
+        # Build route: Robot → Nearest safe spot to goal → Perpendicular approach → Goal
+        route_waypoints = []
         
-        # Need intermediate safe spots to reach goal safely
-        print(f"⚠️ Need safe route to goal via waypoints")
-        
-        # Use same logic as ball navigation but end at goal
-        if robot_quadrant == 1 and goal_quadrant == 4:
-            route_waypoints = [self.safe_spots[1], self.safe_spots[2], self.safe_spots[4], goal_pos]
-        elif robot_quadrant == 1 and goal_quadrant == 3:
-            route_waypoints = [self.safe_spots[1], self.safe_spots[2], self.safe_spots[3], goal_pos]
-        elif robot_quadrant == 2 and goal_quadrant == 3:
-            route_waypoints = [self.safe_spots[2], self.safe_spots[4], self.safe_spots[3], goal_pos]
-        elif robot_quadrant == 2 and goal_quadrant == 4:
-            route_waypoints = [self.safe_spots[2], self.safe_spots[1], self.safe_spots[4], goal_pos]
-        elif robot_quadrant == 3 and goal_quadrant == 2:
-            route_waypoints = [self.safe_spots[3], self.safe_spots[1], self.safe_spots[2], goal_pos]
-        elif robot_quadrant == 3 and goal_quadrant == 1:
-            route_waypoints = [self.safe_spots[3], self.safe_spots[4], self.safe_spots[1], goal_pos]
-        elif robot_quadrant == 4 and goal_quadrant == 1:
-            route_waypoints = [self.safe_spots[4], self.safe_spots[3], self.safe_spots[1], goal_pos]
-        elif robot_quadrant == 4 and goal_quadrant == 2:
-            route_waypoints = [self.safe_spots[4], self.safe_spots[3], self.safe_spots[2], goal_pos]
+        # First, get to the nearest safe spot to goal using normal safe routing
+        if self.is_cross_safe_path(robot_quadrant, nearest_q):
+            # Can go directly to nearest safe spot
+            route_waypoints.extend([self.safe_spots[robot_quadrant], self.safe_spots[nearest_q]])
         else:
-            # Same quadrant or adjacent
-            route_waypoints = [self.safe_spots[robot_quadrant], goal_safe_spot, goal_pos]
+            # Need intermediate waypoints to reach nearest safe spot
+            if robot_quadrant == 1 and nearest_q == 4:
+                route_waypoints.extend([self.safe_spots[1], self.safe_spots[2], self.safe_spots[4]])
+            elif robot_quadrant == 1 and nearest_q == 3:
+                route_waypoints.extend([self.safe_spots[1], self.safe_spots[2], self.safe_spots[3]])
+            elif robot_quadrant == 2 and nearest_q == 3:
+                route_waypoints.extend([self.safe_spots[2], self.safe_spots[4], self.safe_spots[3]])
+            elif robot_quadrant == 2 and nearest_q == 1:
+                route_waypoints.extend([self.safe_spots[2], self.safe_spots[1]])
+            elif robot_quadrant == 3 and nearest_q == 2:
+                route_waypoints.extend([self.safe_spots[3], self.safe_spots[1], self.safe_spots[2]])
+            elif robot_quadrant == 3 and nearest_q == 4:
+                route_waypoints.extend([self.safe_spots[3], self.safe_spots[4]])
+            elif robot_quadrant == 4 and nearest_q == 1:
+                route_waypoints.extend([self.safe_spots[4], self.safe_spots[3], self.safe_spots[1]])
+            elif robot_quadrant == 4 and nearest_q == 2:
+                route_waypoints.extend([self.safe_spots[4], self.safe_spots[3], self.safe_spots[2]])
+            else:
+                # Fallback
+                route_waypoints.extend([self.safe_spots[robot_quadrant], self.safe_spots[nearest_q]])
         
-        print(f"🛡️ Safe route to goal planned: {len(route_waypoints)} waypoints")
+        # Then go to perpendicular approach point and finally to goal
+        route_waypoints.extend([perp_approach, goal_pos])
+        
+        print(f"🛡️ Perpendicular goal route planned: {len(route_waypoints)} waypoints")
         for i, waypoint in enumerate(route_waypoints):
-            print(f"   Waypoint {i+1}: {waypoint}")
+            if waypoint == perp_approach:
+                print(f"   {i+1}: {waypoint} (PERPENDICULAR APPROACH)")
+            elif waypoint == goal_pos:
+                print(f"   {i+1}: {waypoint} (GOAL)")
+            else:
+                print(f"   {i+1}: {waypoint} (SAFE SPOT)")
             
         return route_waypoints
     
     def is_waypoint(self, position):
-        """Check if a position is a safe spot waypoint (not a ball target)"""
+        """Check if a position is a waypoint (safe spot or perpendicular approach point)"""
+        # Check if it's a safe spot
         for spot_pos in self.safe_spots.values():
             if position == spot_pos:
                 return True
+        
+        # Check if it might be a perpendicular approach point (between two safe spots)
+        # We can check if it's roughly between any two safe spots
+        safe_positions = list(self.safe_spots.values())
+        for i in range(len(safe_positions)):
+            for j in range(i + 1, len(safe_positions)):
+                pos1 = safe_positions[i]
+                pos2 = safe_positions[j]
+                
+                # Calculate midpoint between these two safe spots
+                midpoint_x = (pos1[0] + pos2[0]) // 2
+                midpoint_y = (pos1[1] + pos2[1]) // 2
+                
+                # Check if position is close to this midpoint (within 20 pixels)
+                if abs(position[0] - midpoint_x) < 20 and abs(position[1] - midpoint_y) < 20:
+                    return True
+        
         return False
     
     def filter_balls_by_safe_access(self, robot_pos, balls):
