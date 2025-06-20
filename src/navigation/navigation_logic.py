@@ -20,13 +20,13 @@ def handle_robot_navigation(navigation_info, commander, route_manager):
     print("Navigation: Target={} Angle diff={:.1f}deg, Distance={:.1f}cm".format(
         target_type, angle_diff, distance_cm))
     
-    # PRECISE HITTING ZONE: Looser zone for waypoints, tighter for targets
-    hitting_zone_min = -5.0 if is_waypoint else -1.0  # Looser for waypoints
-    hitting_zone_max = 5.0 if is_waypoint else 1.0    # Looser for waypoints
+    # FORGIVING HITTING ZONE: Much looser zones for waypoints only  
+    hitting_zone_min = -8.0 if is_waypoint else -1.0  # Very loose for waypoints, precise for balls/goal
+    hitting_zone_max = 8.0 if is_waypoint else 1.0    # Very loose for waypoints, precise for balls/goal
     in_hitting_zone = hitting_zone_min <= angle_diff <= hitting_zone_max
     
     # Different distance thresholds for waypoints vs targets  
-    approach_distance = 25 if is_waypoint else 22  # 25cm acceptance zone for waypoints
+    approach_distance = 25 if is_waypoint else 22  # 25cm for safe spots, 22cm for balls/goal
     
     # DEBUG: Show current state vs thresholds every frame
     print("  DEBUG: Distance={:.1f}cm (≤{:.1f}cm?), Angle={:.1f}° in [{:.1f}°,{:.1f}°]? = {}".format(
@@ -92,8 +92,8 @@ def handle_turn_correction(angle_diff, hitting_zone_min, hitting_zone_max, comma
 
 def handle_forward_movement(distance_cm, angle_diff, commander):
     """Handles careful forward movement"""
-    # Adaptive distance based on proximity to target
-    remaining_distance = distance_cm - 22
+    # Adaptive distance based on proximity to target  
+    remaining_distance = distance_cm - 22  # Use 22cm as target distance for balls/goal
     
     if remaining_distance <= 0:
         move_distance = 0 # Stop if already at or past the target
