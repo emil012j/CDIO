@@ -95,7 +95,7 @@ class RouteManager:
         
         print(f"✅ SAFE ROUTE CREATED: {len(self.route)} waypoints")
         for i, point in enumerate(self.route):
-            point_type = "WAYPOINT" if point not in filtered_balls else "BALL"
+            point_type = "WAYPOINT" if self.safe_spot_manager.is_waypoint(point) else "BALL"
             print(f"   {i+1}: {point} ({point_type})")
             
     def get_current_target(self):
@@ -173,6 +173,32 @@ class RouteManager:
         self.route_created = False
         self.collection_attempts = 0
         print("🔄 ROUTE RESET") 
+
+    def create_goal_route(self, robot_center, goal_position):
+        """Create a safe route to goal using safe spots"""
+        if not goal_position:
+            return
+            
+        print("🎯 CREATING SAFE GOAL ROUTE...")
+        
+        # Get safe route to goal
+        goal_waypoints = self.safe_spot_manager.plan_safe_route_to_goal(robot_center, goal_position)
+        
+        self.route = goal_waypoints
+        self.current_target_index = 0
+        self.route_created = True
+        
+        print(f"✅ SAFE GOAL ROUTE CREATED: {len(self.route)} waypoints")
+        for i, point in enumerate(self.route):
+            point_type = "WAYPOINT" if self.safe_spot_manager.is_waypoint(point) else "GOAL"
+            print(f"   {i+1}: {point} ({point_type})")
+
+    def is_current_target_waypoint(self):
+        """Check if current target is a waypoint (not ball/goal)"""
+        current_target = self.get_current_target()
+        if current_target:
+            return self.safe_spot_manager.is_waypoint(current_target)
+        return False
 
     def filter_close_balls(self, balls, min_distance=40):
         """Fjern bolde der er for tæt på hinanden"""

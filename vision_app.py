@@ -221,23 +221,36 @@ def main():
                 goal_position = goal_utils.get_goal_position()
                 print("[DEBUG] goal_position:", goal_position)  # <--- DEBUG
                 if goal_position:
-                    # Calculate navigation to goal
-                    navigation_info = calculate_navigation_command(robot_head, robot_tail, goal_position, scale_factor)
-                    print("Navigation info to goal:", navigation_info) # <--- DEBUG
+                    # Create safe route to goal if not already created
+                    if not route_manager.route_created:
+                        route_manager.create_goal_route(robot_center, goal_position)
+                    
+                    target_position = route_manager.get_current_target()
+                    if target_position:
+                        # Calculate navigation to current target (waypoint or goal)
+                        navigation_info = calculate_navigation_command(robot_head, robot_tail, target_position, scale_factor)
+                        print("Navigation info to target:", navigation_info) # <--- DEBUG
 
-                    # Add detailed debug print for distance
-                    current_distance_to_goal = 999 # Default to a high value if navigation_info is None
-                    if navigation_info:
-                        current_distance_to_goal = navigation_info.get("distance_cm", 999)
-                    print(f"[DEBUG] Current distance to goal: {current_distance_to_goal:.1f} cm") # New debug line
+                        # Add detailed debug print for distance
+                        current_distance_to_target = 999 # Default to a high value if navigation_info is None
+                        if navigation_info:
+                            current_distance_to_target = navigation_info.get("distance_cm", 999)
+                        print(f"[DEBUG] Current distance to target: {current_distance_to_target:.1f} cm") # New debug line
 
-                    # Determine if robot is close enough to goal or needs to navigate
-                    if current_distance_to_goal < 26 and current_distance_to_goal > 0: # Use 22cm as threshold for goal approach as well
-                        current_state = BALL_RELEASE
-                        print("*** REACHED GOAL APPROACH DISTANCE - SWITCHING TO BALL_RELEASE ***")
-                    elif navigation_info: # Only navigate if not yet at approach distance
-                        print("[DEBUG] Calling handle_robot_navigation for goal (GOAL_NAVIGATION state)")  # <--- DEBUG
-                        handle_robot_navigation(navigation_info, commander, route_manager)
+                        # Check if we reached current target
+                        if current_distance_to_target < 26 and current_distance_to_target > 0:
+                            if route_manager.is_current_target_waypoint():
+                                print("*** REACHED WAYPOINT - ADVANCING TO NEXT TARGET ***")
+                                route_manager.advance_to_next_target()
+                            else:
+                                # Reached final goal
+                                current_state = BALL_RELEASE
+                                print("*** REACHED GOAL - SWITCHING TO BALL_RELEASE ***")
+                        elif navigation_info: # Only navigate if not yet at target
+                            print("[DEBUG] Calling handle_robot_navigation for target")  # <--- DEBUG
+                            handle_robot_navigation(navigation_info, commander, route_manager)
+                    else:
+                        print("ERROR: No target in goal route!")
                 else:
                     print("ERROR: No goal position set - cannot navigate to goal!")
 
