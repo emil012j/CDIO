@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """
-hovedprogrammet der skal køre på pc'en
- Starter kamera+YOLO, detekterer robot+bolde, beregner navigation, sender kommandoer, viser live video
+Main program that runs on the PC
+Starts camera+YOLO, detects robot+balls, calculates navigation, sends commands, shows live video
 """
 
 import cv2
@@ -18,7 +18,6 @@ from src.utils.vision_helpers import choose_unblocked_ball
 from src.config.settings import *
 from src.camera.goal_calibrator import GoalCalibrator
 from src.camera.goal_utils import GoalUtils
-
 # Global route manager
 route_manager = RouteManager()
 
@@ -37,7 +36,7 @@ def main():
         print("You will need to calibrate the goal position before starting the mission.")
         print("Press 'c' during operation to start goal calibration.")
 
-    print("Loader YOLO model...")
+    print("Loading YOLO model...")
     model = load_yolo_model()
     if model is None:
         return
@@ -58,7 +57,7 @@ def main():
 
     current_state = ROUTE_PLANNING
     STORAGE_CAPACITY = 6
-    TOTAL_BALLS_ON_COURT = 1 # Vigtigt vi skriver det korrekte antal bolde vi tester med
+    TOTAL_BALLS_ON_COURT = 11 # Important we write the correct number of balls we are testing with
     current_run_balls = 0
     total_balls_collected = 0
     previous_ball_count = 0
@@ -122,7 +121,7 @@ def main():
                 head_x, head_y = robot_head["pos"]
                 cross_x, cross_y = cross_pos
                 dist_to_cross = ((head_x - cross_x) ** 2 + (head_y - cross_y) ** 2) ** 0.5
-                if dist_to_cross <= 100 and not just_avoided_cross:
+                if dist_to_cross <= 120 and not just_avoided_cross:
                     # Dynamic turn direction: turn away from cross
                     turn_direction = "right" if cross_x > head_x else "left"
                     if commander.can_send_command():
@@ -316,7 +315,7 @@ def main():
                 last_print_time = current_time
 
     except KeyboardInterrupt:
-        print("camera released")
+        print("Camera released")
     finally:
         camera.release()
         cv2.destroyAllWindows()

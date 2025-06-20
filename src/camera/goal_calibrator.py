@@ -1,5 +1,5 @@
 """
-Simpel goal position click-calibration
+Simple goal position click-calibration
 """
 
 import cv2
@@ -14,23 +14,23 @@ class GoalCalibrator:
         """Click to set goal position"""
         if event == cv2.EVENT_LBUTTONDOWN:
             self.goal_position = (x, y)
-            print("Goal sat til: ({}, {}) - tryk 'q' for at gemme".format(x, y))
+            print("Goal set to: ({}, {}) - press 'q' to save".format(x, y))
 
     def save_goal(self):
-        """Gem goal position"""
+        """Save goal position"""
         if self.goal_position:
             # Convert tuple to list for JSON serialization
             goal_list = [self.goal_position[0], self.goal_position[1]]
             data = {'calibrated': True, 'goal_position': goal_list}
             with open(self.goal_file, 'w') as f:
                 json.dump(data, f, indent=2)  # Pretty format for readability
-            print("Goal gemt: {} -> {}".format(self.goal_position, self.goal_file))
+            print("Goal saved: {} -> {}".format(self.goal_position, self.goal_file))
             return True
         return False
 
     def start_calibration(self, frame):
         """Start click calibration with proper event loop"""
-        print("Click på goal position, tryk 'q' for at gemme, 'ESC' for at annullere")
+        print("Click on goal position, press 'q' to save, 'ESC' to cancel")
         cv2.namedWindow("Goal Calibration")
         cv2.setMouseCallback("Goal Calibration", self.mouse_callback)
         

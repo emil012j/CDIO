@@ -1,5 +1,5 @@
 """
-Simpel goal position loader og display
+Simple goal position loader and display
 """
 
 import json
@@ -13,7 +13,7 @@ class GoalUtils:
         self.load_goal()
     
     def load_goal(self):
-        """Load goal position fra fil"""
+        """Load goal position from file"""
         try:
             if os.path.exists(self.goal_file):
                 with open(self.goal_file, 'r') as f:
@@ -26,11 +26,11 @@ class GoalUtils:
         return False
     
     def get_goal_position(self):
-        """Få goal position"""
+        """Get goal position"""
         return self.goal_position
     
     def draw_goal_on_frame(self, frame):
-        """Tegn goal på frame"""
+        """Draw goal on frame"""
         if self.goal_position:
             cv2.circle(frame, self.goal_position, 10, (255, 0, 0), -1)
             cv2.putText(frame, "GOAL", (self.goal_position[0]+15, self.goal_position[1]), 

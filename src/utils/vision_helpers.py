@@ -1,13 +1,13 @@
 # -*- coding: utf-8 -*-
 """
-Hjælpefunktioner til vision systemet
+Helper functions for the vision system
 """
 
 from shapely.geometry import LineString, Point
 from ..config.settings import *
 
 def is_cross_blocking_path(robot_head, robot_tail, ball_pos, cross_pos):
-    """Tjek om kors blokerer stien fra robot til bold"""
+    """Check if cross is blocking the path from robot to ball"""
     if not cross_pos:
         return False
     robot_x = (robot_head["pos"][0] + robot_tail["pos"][0]) // 2
@@ -16,7 +16,7 @@ def is_cross_blocking_path(robot_head, robot_tail, ball_pos, cross_pos):
     return path.distance(Point(cross_pos)) < CROSS_AVOID_RADIUS
 
 def choose_unblocked_ball(robot_head, robot_tail, balls, cross_pos):
-    """Vælg bold der ikke er blokeret af kors"""
+    """Choose ball that is not blocked by cross"""
     for ball in balls:
         if not is_cross_blocking_path(robot_head, robot_tail, ball, cross_pos):
             return ball

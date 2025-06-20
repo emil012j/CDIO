@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
- Initialiserer kamera, læser frames, tegner detection bokse, viser status
+Initializes camera, reads frames, draws detection boxes, shows status
 """
 
 import cv2
@@ -12,9 +12,9 @@ from ..config.settings import *
 from ..camera.goal_calibrator import GoalCalibrator
 
 
-#kamera manager, der håndterer kameraet og viser det på skærmen
+# Camera manager that handles the camera and displays it on the screen
 class CameraManager:
-    #initialiserer kameraet
+    # Initializes the camera
     def __init__(self):
         self.cap = None
         self.is_initialized = False
@@ -42,7 +42,7 @@ class CameraManager:
                 print("ERROR: Camera failed to open")
                 return False
             
-            # Set camera resolution og indstillinger
+            # Set camera resolution and settings
             width, height = CAMERA_RESOLUTION
             self.cap.set(cv2.CAP_PROP_FRAME_WIDTH, width)
             self.cap.set(cv2.CAP_PROP_FRAME_HEIGHT, height)
@@ -70,13 +70,13 @@ class CameraManager:
                 self.cap.release()
             return False
     
-    #læser frames fra kameraet
+    # Reads frames from the camera
     def read_frame(self):
         if not self.is_initialized or self.cap is None:
             return None
             
         try:
-            ret, frame = self.cap.read()  # Læser frames fra kamera
+            ret, frame = self.cap.read()  # Reads frames from the camera
             if ret and frame is not None:
                 # Apply undistortion if calibration data is available
                 return self.undistort_frame(frame)
@@ -84,7 +84,7 @@ class CameraManager:
         except Exception:
             return None
     
-    #afslutter kameraet ved at trykke escape
+    # Releases the camera when escape is pressed
     def release(self):
         if self.cap is not None:
             self.cap.release()
@@ -95,7 +95,7 @@ class CameraManager:
         """Destructor to ensure camera is released"""
         self.release()
 
-    def undistort_frame(self, frame): # Denne funktion var den som printede det lort med "WARNING: Camera calibration data not found"
+    def undistort_frame(self, frame):
         """Undistort frame using calibration data"""
         if self.camera_matrix is None or self.distortion_coefficients is None:
             
@@ -134,15 +134,16 @@ class CameraManager:
             print(f"ERROR during undistortion: {e}")
             return frame
 
-    #tegner detection bokse
+# Draws detection boxes
 def draw_detection_box(frame, position, label, color):
     try:
-        cv2.circle(frame, position, 10, color, -1)  # Tegner detection bokse
+        cv2.circle(frame, position, 10, color, -1)  # Draws detection boxes
         cv2.putText(frame, label, (position[0] + 15, position[1] - 10), 
                    cv2.FONT_HERSHEY_SIMPLEX, 0.6, color, 2)
     except Exception:
         pass
 
+# Starts goal calibration process
 def calibrate_goal(self):
         """Start goal calibration process"""
         if self.cap is None:
@@ -151,7 +152,7 @@ def calibrate_goal(self):
         # Note: start_calibration doesn't return a value, it handles its own UI loop
         self.goal_calibrator.start_calibration(self.cap)
 
-#tegner navigation information som feks. vinklen mellem robot og bold, og afstanden til bold
+# Draws navigation information such as the angle between robot and ball, and the distance to the ball
 def draw_navigation_info(frame, robot_center, target_ball, robot_heading, target_heading, navigation_info=None):
     try:
         if robot_center and target_ball:
@@ -173,7 +174,7 @@ def draw_navigation_info(frame, robot_center, target_ball, robot_heading, target
     except Exception:
         pass
 
-#viser status information på skærmen som feks. om robotten har head, tail og bold, og skaleringsfaktor
+# Shows status information on the screen such as whether the robot has head, tail, and ball, and the scale factor
 def display_status(frame, robot_head, robot_tail, balls, scale_factor, navigation_info=None):
     try:
         # Show status information

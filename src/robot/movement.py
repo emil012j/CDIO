@@ -1,23 +1,23 @@
 # -*- coding: utf-8 -*-
 """
-tidbaseret drejning/fremad, udfører kommandoer den får fra camera
+Time-based turning/forward movement, executes commands received from camera
 """
 
 from time import sleep
 from ..config.settings import *
 
-# Simple movement metoder er nu i robot controller
+# Simple movement methods are now in robot controller
 
-#udfører kommandoer fra vision system
+# Executes commands from vision system
 def execute_movement_command(robot_controller, command):
     try:
-        cmd_type = command.get('command')  # Udfører kommandoer fra vision system
+        cmd_type = command.get('command')  # Executes commands from vision system
         
         if cmd_type == "simple_turn":
             direction = command.get('direction', 'left')
             duration = command.get('duration', 0.5)
-            # Konverter duration til vinkel grader
-            # ESTIMATED_TURN_RATE er grader per sekund, så angle = duration * rate
+            # Convert duration to angle degrees
+            # ESTIMATED_TURN_RATE is degrees per second, so angle = duration * rate
             angle_degrees = duration * ESTIMATED_TURN_RATE
             print("Converting turn: {:.3f}s duration -> {:.1f} degrees (ESTIMATED_TURN_RATE={})".format(
                 duration, angle_degrees, ESTIMATED_TURN_RATE))
@@ -63,14 +63,14 @@ def execute_movement_command(robot_controller, command):
         print("Error executing movement command: {}".format(e))
         robot_controller.stop_all_motors()
 
-#KOORDINAT NAVIGATION SOM I DEN GAMLE FIL
+# COORDINATE NAVIGATION AS IN THE OLD FILE
 def execute_coordinate_command(robot_controller, command):
     try:
         if 'coordinates' in command:
             coords = command['coordinates']
             print("\nReceived coordinates: {}".format(coords))
             
-            # Koordinater kommer i mm, konverter til cm for beregning
+            # Coordinates come in mm, convert to cm for calculation
             target_x = coords['target_x'] / 10.0
             target_y = coords['target_y'] / 10.0  
             current_x = coords['current_x'] / 10.0
@@ -79,12 +79,12 @@ def execute_coordinate_command(robot_controller, command):
             dx = target_x - current_x
             dy = target_y - current_y
             
-            # Beregn target vinkel og normaliser den
+            # Calculate target angle and normalize it
             import math
             target_angle = math.degrees(math.atan2(dy, dx))
             target_angle = robot_controller.normalize_angle(target_angle)
             
-            # Beregn korteste drejning fra nuværende vinkel
+            # Calculate shortest turn from current angle
             current_angle = robot_controller.normalize_angle(robot_controller.get_current_heading())
             angle_diff = robot_controller.normalize_angle(target_angle - current_angle)
             
@@ -94,15 +94,15 @@ def execute_coordinate_command(robot_controller, command):
             print("Current angle: {}, Target angle: {}, Need to turn: {}".format(
                 current_angle, target_angle, angle_diff))
             
-            # Drej mod målet med simple turn
-            if abs(angle_diff) > 5:  # Threshold for drejning
+            # Turn towards target with simple turn
+            if abs(angle_diff) > 5:  # Threshold for turning
                 direction = "right" if angle_diff > 0 else "left"
-                # Send direkte vinkel i grader i stedet for duration
+                # Send direct angle in degrees instead of duration
                 robot_controller.simple_turn(direction, abs(angle_diff))
             
-            # Beregn afstand og kør
+            # Calculate distance and drive
             distance = math.sqrt(dx*dx + dy*dy)
-            if distance > 2:  # Minimum afstand threshold
+            if distance > 2:  # Minimum distance threshold
                 print("Driving {:.1f} cm".format(distance))
                 robot_controller.simple_forward(distance)
             
