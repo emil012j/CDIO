@@ -4,7 +4,7 @@ Settings for the robot, e.g. IP, port, camera, models, colors, etc.
 """
 
 # Network settings (IP, port)
-ROBOT_IP = "192.168.65.158"
+ROBOT_IP = "192.168.158.158"
 COMMAND_PORT = 1233
 
 # Camera settings (resolution, confidence)
@@ -29,8 +29,7 @@ CLASS_COLORS = {
     "orange ball": (0, 140, 255), 
     "white ball": (255, 255, 255), 
     "robothead": (0, 0, 255), 
-    "robottail": (255, 0, 255),
-    "wall": (0, 0, 255)  # RED for walls
+    "robottail": (255, 0, 255)
 }
 
 # Vision system settings

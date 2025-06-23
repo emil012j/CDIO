@@ -12,7 +12,6 @@ class SafeSpotManager:
         self.center_y = self.camera_height // 2
         
         # Define 4 safe spots in each quadrant (away from center cross)
-        # These are positioned ~20% from edges to avoid walls and center
         margin_x = int(self.camera_width * 0.2)
         margin_y = int(self.camera_height * 0.2)
         
@@ -168,34 +167,14 @@ class SafeSpotManager:
         # Get perpendicular approach point and nearest safe spots to goal
         perp_approach, nearest_q, second_nearest_q = self.calculate_perpendicular_approach_point(goal_pos)
         
-        # Build route: Robot → Nearest safe spot to goal → Perpendicular approach → Goal
+        # Build route: Robot → Perpendicular approach → Goal
         route_waypoints = []
         
-        # First, get to the nearest safe spot to goal using normal safe routing
-        if self.is_cross_safe_path(robot_quadrant, nearest_q):
-            # Can go directly to nearest safe spot
-            route_waypoints.extend([self.safe_spots[robot_quadrant], self.safe_spots[nearest_q]])
-        else:
-            # Need intermediate waypoints to reach nearest safe spot
-            if robot_quadrant == 1 and nearest_q == 4:
-                route_waypoints.extend([self.safe_spots[1], self.safe_spots[2], self.safe_spots[4]])
-            elif robot_quadrant == 1 and nearest_q == 3:
-                route_waypoints.extend([self.safe_spots[1], self.safe_spots[2], self.safe_spots[3]])
-            elif robot_quadrant == 2 and nearest_q == 3:
-                route_waypoints.extend([self.safe_spots[2], self.safe_spots[4], self.safe_spots[3]])
-            elif robot_quadrant == 2 and nearest_q == 1:
-                route_waypoints.extend([self.safe_spots[2], self.safe_spots[1]])
-            elif robot_quadrant == 3 and nearest_q == 2:
-                route_waypoints.extend([self.safe_spots[3], self.safe_spots[1], self.safe_spots[2]])
-            elif robot_quadrant == 3 and nearest_q == 4:
-                route_waypoints.extend([self.safe_spots[3], self.safe_spots[4]])
-            elif robot_quadrant == 4 and nearest_q == 1:
-                route_waypoints.extend([self.safe_spots[4], self.safe_spots[3], self.safe_spots[1]])
-            elif robot_quadrant == 4 and nearest_q == 2:
-                route_waypoints.extend([self.safe_spots[4], self.safe_spots[3], self.safe_spots[2]])
-            else:
-                # Fallback
-                route_waypoints.extend([self.safe_spots[robot_quadrant], self.safe_spots[nearest_q]])
+        # Add robot's current safe spot if not already close to it
+        robot_safe_spot = self.safe_spots.get(robot_quadrant)
+        if robot_safe_spot and (abs(robot_pos[0] - robot_safe_spot[0]) > 50 or \
+                                abs(robot_pos[1] - robot_safe_spot[1]) > 50):
+            route_waypoints.append(robot_safe_spot)
         
         # Then go to perpendicular approach point and finally to goal
         route_waypoints.extend([perp_approach, goal_pos])

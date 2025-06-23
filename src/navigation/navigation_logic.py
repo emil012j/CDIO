@@ -109,10 +109,6 @@ def handle_forward_movement(distance_cm, angle_diff, commander):
     if move_distance < 0.5 and remaining_distance > 0:
         move_distance = 0.5
     
-    print("IN HITTING ZONE - CAREFUL FORWARD {:.1f} cm (distance:{:.1f}cm, angle:{:.1f}deg) [Wall approach active]".format(
-        move_distance, distance_cm, angle_diff))
-    
-    # Use normal forward command (forward_precise doesn't exist on robot)
     commander.send_forward_command(move_distance)
 
 def handle_waypoint_arrival(distance_cm, angle_diff, commander, route_manager):

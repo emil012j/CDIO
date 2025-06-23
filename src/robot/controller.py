@@ -18,6 +18,7 @@ class RobotController:
         self.left_motor = LargeMotor('outA')
         self.right_motor = LargeMotor('outD')
         self.tank_drive = MoveTank('outA', 'outD')
+        self.motor_lock = threading.Lock() # Add a lock for motor control
 
         # Medium motor for collect mechanism
         self.collect_motor = MediumMotor('outC')
@@ -49,12 +50,13 @@ class RobotController:
     def stop_all_motors(self):
         """Emergency stop for all motors"""
         try:
-            self.tank_drive.off()
-            self.left_motor.stop()
-            self.right_motor.stop()
-            self.collect_motor.off()
-         
-            print("All motors stopped")
+            with self.motor_lock:
+                self.tank_drive.off()
+                self.left_motor.stop()
+                self.right_motor.stop()
+                self.collect_motor.off()
+             
+                print("All motors stopped")
         except Exception as e:
             print("Error stopping motors: {}".format(e))
     
@@ -102,12 +104,13 @@ class RobotController:
             print("Angle too small, skipping turn")
             return
         
-        if direction == "right":
-            # Turn right: left motor forward, right motor backward (motors are reversed)
-            self.tank_drive.on_for_rotations(speed, -speed, rotations)
-        else:
-            # Turn left: left motor backward, right motor forward (motors are reversed)  
-            self.tank_drive.on_for_rotations(-speed, speed, rotations)
+        with self.motor_lock:
+            if direction == "right":
+                # Turn right: left motor forward, right motor backward (motors are reversed)
+                self.tank_drive.on_for_rotations(speed, -speed, rotations)
+            else:
+                # Turn left: left motor backward, right motor forward (motors are reversed)  
+                self.tank_drive.on_for_rotations(-speed, speed, rotations)
             
         print("Simple turn complete")
     
@@ -126,12 +129,13 @@ class RobotController:
             print("Rotation too small, skipping turn")
             return
         
-        if direction == "right":
-            # Turn right: left motor forward, right motor backward (motors are reversed)
-            self.tank_drive.on_for_rotations(speed, -speed, rotations)
-        else:
-            # Turn left: left motor backward, right motor forward (motors are reversed)  
-            self.tank_drive.on_for_rotations(-speed, speed, rotations)
+        with self.motor_lock:
+            if direction == "right":
+                # Turn right: left motor forward, right motor backward (motors are reversed)
+                self.tank_drive.on_for_rotations(speed, -speed, rotations)
+            else:
+                # Turn left: left motor backward, right motor forward (motors are reversed)  
+                self.tank_drive.on_for_rotations(-speed, speed, rotations)
             
         print("Simple turn rotation complete")
     
@@ -168,8 +172,9 @@ class RobotController:
             print("Simple forward: {:.1f} cm ({:.3f} rotations) - NO OVERSHOOT".format(
                 distance_cm, rotations))
         
-        # Both motors forward (motors are reversed, so use negative values)
-        self.tank_drive.on_for_rotations(-speed, -speed, rotations)
+        with self.motor_lock:
+            # Both motors forward (motors are reversed, so use negative values)
+            self.tank_drive.on_for_rotations(-speed, -speed, rotations)
         
         print("Simple forward complete")
     
@@ -188,8 +193,9 @@ class RobotController:
         
         print("Simple backward: {:.1f} cm ({:.3f} rotations)".format(distance_cm, rotations))
         
-        # Both motors backward (motors are reversed, so use positive values)
-        self.tank_drive.on_for_rotations(speed, speed, rotations)
+        with self.motor_lock:
+            # Both motors backward (motors are reversed, so use positive values)
+            self.tank_drive.on_for_rotations(speed, speed, rotations)
         
         print("Simple backward complete")
 
@@ -259,8 +265,8 @@ class RobotController:
                     print("Harvester restarted after blockage")
                     sleep(2)
             except Exception as e:
-                print("Error in blockage monitor")
-            sleep(0.2) #Check 5 times per second
+                print("Error in blockage monitor: {e}") # Improved error logging
+            sleep(0.2)
     
     def stop_monitoring(self):
         self.monitoring = False

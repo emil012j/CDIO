@@ -6,7 +6,7 @@ Route visualization - handles drawing of route, targets, and robot navigation on
 import cv2
 import math
 
-def draw_route_and_targets(display_frame, robot_head, robot_tail, route_manager, walls, corrected_head=None, corrected_tail=None):
+def draw_route_and_targets(display_frame, robot_head, robot_tail, route_manager, corrected_head=None, corrected_tail=None):
     """Draw the entire route and navigation information on the screen"""
     if not robot_head or not robot_tail:
         return
@@ -29,31 +29,14 @@ def draw_route_and_targets(display_frame, robot_head, robot_tail, route_manager,
     # DRAW ROUTE: Show the entire route and current target
     current_target = route_manager.get_current_target()
     if current_target:
-        # Check if this is a wall approach (adjusted target)
-        original_target = route_manager.route[route_manager.current_target_index] if route_manager.current_target_index < len(route_manager.route) else current_target
-        is_wall_approach = (current_target != original_target)
-        
         # Draw line to current target (YELLOW) from corrected/robot center
         cv2.line(display_frame, corrected_center, current_target, (255, 0, 255), 2)
         
-        if is_wall_approach:
-            # Draw original ball position (CYAN)
-            cv2.circle(display_frame, original_target, 8, (255, 255, 0), 2)
-            cv2.putText(display_frame, "BALL", (original_target[0] + 10, original_target[1] - 10), 
-                       cv2.FONT_HERSHEY_SIMPLEX, 0.4, (255, 255, 0), 1)
-            # Draw approach point (YELLOW)
-            cv2.circle(display_frame, current_target, 15, (0, 255, 255), 3)
-            cv2.putText(display_frame, "WALL APPROACH {}".format(route_manager.current_target_index + 1), 
-                       (current_target[0] + 20, current_target[1] - 20), 
-                       cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 255, 255), 2)
-            # Draw line from approach to ball
-            cv2.line(display_frame, current_target, original_target, (255, 255, 0), 2)
-        else:
-            # Normal ball target
-            cv2.circle(display_frame, current_target, 15, (0, 255, 255), 2)
-            cv2.putText(display_frame, "TARGET {}".format(route_manager.current_target_index + 1), 
-                       (current_target[0] + 20, current_target[1] - 20), 
-                       cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 255, 255), 2)
+        # Normal ball target
+        cv2.circle(display_frame, current_target, 15, (0, 255, 255), 2)
+        cv2.putText(display_frame, "TARGET {}".format(route_manager.current_target_index + 1), 
+                   (current_target[0] + 20, current_target[1] - 20), 
+                   cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 255, 255), 2)
     
     # Draw the entire route as colored circles
     for i, waypoint in enumerate(route_manager.route):
@@ -69,13 +52,6 @@ def draw_route_and_targets(display_frame, robot_head, robot_tail, route_manager,
             # Future targets: BLUE
             cv2.putText(display_frame, str(i + 1), (waypoint[0] - 5, waypoint[1] + 5), 
                        cv2.FONT_HERSHEY_SIMPLEX, 0.4, (255, 0, 0), 1)
-    
-    # DRAW WALLS (just marking, no circles since walls are elongated)
-    for wall in walls:
-        # Wall as small red square
-        cv2.rectangle(display_frame, (wall[0]-10, wall[1]-10), (wall[0]+10, wall[1]+10), (0, 0, 255), -1)
-        cv2.putText(display_frame, "WALL", (wall[0] + 15, wall[1]), 
-                   cv2.FONT_HERSHEY_SIMPLEX, 0.4, (0, 0, 255), 1)
 
 def draw_robot_heading(display_frame, robot_head, robot_tail):
     """Draw robot heading line"""

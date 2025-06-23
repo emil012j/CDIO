@@ -87,7 +87,7 @@ def main():
             scale_factor = calculate_scale_factor(results, model)
             cross_pos = get_cross_position(results, model)
             display_frame = frame.copy()
-            robot_head, robot_tail, balls, walls, log_info_list = process_detections_and_draw(results, model, display_frame, scale_factor)
+            robot_head, robot_tail, balls, log_info_list = process_detections_and_draw(results, model, display_frame, scale_factor)
 
             if robot_head and robot_tail:
                 robot_center = (
@@ -151,7 +151,7 @@ def main():
                     balls = filtered_balls
                 # If we have balls, create a route and move to collection
                 if balls and current_run_balls < STORAGE_CAPACITY:
-                    route_manager.create_route_from_balls(balls, robot_center, walls, cross_pos)
+                    route_manager.create_route_from_balls(balls, robot_center, cross_pos)
                     if route_manager.get_current_target():
                         current_state = BALL_COLLECTION
                         print("*** ROUTE PLANNED - SWITCHING TO BALL_COLLECTION ***")
@@ -194,7 +194,6 @@ def main():
                 elif balls and current_run_balls < STORAGE_CAPACITY:
                     target_ball = route_manager.get_current_target()
                     if target_ball:
-                        # Use the actual ball position directly - no wall approach modification
                         navigation_info = calculate_navigation_command(robot_head, robot_tail, target_ball, scale_factor)
                         # Capture success of navigation/collection attempt
                         collection_attempt_successful = handle_robot_navigation(navigation_info, commander, route_manager)
@@ -242,10 +241,13 @@ def main():
                             if route_manager.is_current_target_waypoint():
                                 print("*** REACHED WAYPOINT - ADVANCING TO NEXT TARGET ***")
                                 route_manager.advance_to_next_target()
-                            else:
+                            elif target_position == goal_position: # Check if current target is the final goal
                                 # Reached final goal
                                 current_state = BALL_RELEASE
                                 print("*** REACHED GOAL - SWITCHING TO BALL_RELEASE ***")
+                            else: # We are at an intermediate point but not a waypoint. This should not happen if route planning is correct.
+                                print("WARNING: Reached intermediate point not classified as waypoint. Advancing to next target.")
+                                route_manager.advance_to_next_target()
                         elif navigation_info: # Only navigate if not yet at target
                             print("[DEBUG] Calling handle_robot_navigation for target")  # <--- DEBUG
                             handle_robot_navigation(navigation_info, commander, route_manager)
@@ -270,7 +272,7 @@ def main():
             # Visualization
             corrected_head_for_drawing = navigation_info.get('corrected_head') if navigation_info else None
             corrected_tail_for_drawing = navigation_info.get('corrected_tail') if navigation_info else None
-            draw_route_and_targets(display_frame, robot_head, robot_tail, route_manager, walls, 
+            draw_route_and_targets(display_frame, robot_head, robot_tail, route_manager, 
                                    corrected_head=corrected_head_for_drawing, 
                                    corrected_tail=corrected_tail_for_drawing)
             draw_robot_heading(display_frame, robot_head, robot_tail)
@@ -317,12 +319,11 @@ def main():
 
             # Status print (unchanged)
             if current_time - last_print_time >= PRINT_INTERVAL:
-                print("STATUS - Frame: {}, Robot: {}/{}, Balls: {}, Walls: {}, Scale: {:.2f}".format(
+                print("STATUS - Frame: {}, Robot: {}/{}, Balls: {}, Scale: {:.2f}".format(
                     frame_count,
                     "YES" if robot_head else "NO",
                     "YES" if robot_tail else "NO", 
                     len(balls),
-                    len(walls),
                     scale_factor if scale_factor else 0
                 ))
                 last_print_time = current_time

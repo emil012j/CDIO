@@ -21,7 +21,7 @@ class RouteManager:
         self.target_start_time = None  # When robot started working on current target
         self.max_target_time = 30.0   # Max seconds to spend on one target (30 seconds)
         
-    def create_route_from_balls(self, balls, robot_center, walls=None, cross_pos=None):
+    def create_route_from_balls(self, balls, robot_center, cross_pos=None):
         """Lav en fast rute fra robot position til alle bolde med cross-safe navigation"""
         if self.route_created or not balls:
             return
@@ -171,48 +171,16 @@ class RouteManager:
             
     def get_current_target(self):
         """Få nuværende mål i ruten"""
-        if not self.route or self.current_target_index >= len(self.route):
+        print(f"DEBUG: get_current_target called. Route length: {len(self.route)}, Current index: {self.current_target_index}")
+        if not self.route:
+            print("DEBUG: get_current_target - Route is empty. Returning None.")
             return None
-        return self.route[self.current_target_index]
-        
-    def get_wall_approach_point(self, ball_pos, walls, scale_factor):
-        """Beregn optimal tilgangspunkt for bold tæt på væg (vinkelret tilgang)"""
-        if not walls or scale_factor is None:
-            return ball_pos
-            
-        # Find nærmeste væg til bolden
-        closest_wall = None
-        min_distance = float('inf')
-        
-        for wall in walls:
-            distance = math.sqrt((ball_pos[0] - wall[0])**2 + (ball_pos[1] - wall[1])**2)
-            if distance < min_distance:
-                min_distance = distance
-                closest_wall = wall
-        
-        # Hvis bold er tættere end 150 px (ca 30 cm) til væg, beregn vinkelret tilgang
-        if closest_wall and min_distance < 150:
-            # Beregn vektor fra væg til bold
-            wall_to_ball_x = ball_pos[0] - closest_wall[0]
-            wall_to_ball_y = ball_pos[1] - closest_wall[1]
-            
-            # Normaliser vektor
-            length = math.sqrt(wall_to_ball_x**2 + wall_to_ball_y**2)
-            if length > 0:
-                norm_x = wall_to_ball_x / length
-                norm_y = wall_to_ball_y / length
-                
-                # Tilgangspunkt er 50 px (ca 10 cm) bag bolden i vinkelret retning fra væg
-                approach_x = int(ball_pos[0] + norm_x * 50)  # 10 cm bag bolden
-                approach_y = int(ball_pos[1] + norm_y * 50)
-                
-                print("🧱 WALL APPROACH: Ball at ({}, {}) near wall at ({}, {})".format(
-                    ball_pos[0], ball_pos[1], closest_wall[0], closest_wall[1]))
-                print("   → Approach point: ({}, {}) - 10cm behind ball, perpendicular to wall".format(approach_x, approach_y))
-                
-                return (approach_x, approach_y)
-        
-        return ball_pos
+        if self.current_target_index >= len(self.route):
+            print(f"DEBUG: get_current_target - current_target_index ({self.current_target_index}) out of bounds for route length ({len(self.route)}). Returning None.")
+            return None
+        target = self.route[self.current_target_index]
+        print(f"DEBUG: get_current_target - Returning target: {target}")
+        return target
         
     def advance_to_next_target(self):
         """Gå til næste punkt i ruten"""
@@ -220,8 +188,7 @@ class RouteManager:
         self.collected_balls_count += 1
         self.collection_attempts = 0  # Reset attempts for new target
         self.target_start_time = time.time()  # Reset timer for new target
-        print("🎯 ADVANCING TO NEXT TARGET: {}/{}".format(
-            self.current_target_index + 1, len(self.route)))
+        print(f"🎯 ADVANCING TO NEXT TARGET: {self.current_target_index + 1}/{len(self.route)} (Route length: {len(self.route)})")
             
     def increment_collection_attempts(self):
         """Øg antal forsøg på nuværende target"""
@@ -276,6 +243,7 @@ class RouteManager:
     def create_goal_route(self, robot_center, goal_position):
         """Create a safe route to goal using safe spots"""
         if not goal_position:
+            print("ERROR: create_goal_route - goal_position is None. Cannot create route.")
             return
             
         print("🎯 CREATING SAFE GOAL ROUTE...")
@@ -287,7 +255,7 @@ class RouteManager:
         self.current_target_index = 0
         self.route_created = True
         self.start_target_timer()  # Start timer for first target
-        
+
         print(f"✅ SAFE GOAL ROUTE CREATED: {len(self.route)} waypoints")
         for i, point in enumerate(self.route):
             point_type = "WAYPOINT" if self.safe_spot_manager.is_waypoint(point) else "GOAL"
