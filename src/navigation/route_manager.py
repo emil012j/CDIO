@@ -88,9 +88,22 @@ class RouteManager:
                         min_distance = distance
                         target_ball = ball
                 
-                # Direct route to ball in same quadrant (no safe spots needed)
-                print(f"🎯 Collecting ball in same quadrant Q{current_quadrant}: {target_ball}")
-                route_points.append(target_ball)
+                # Check if current position is already a safe spot
+                current_safe_spot = self.safe_spot_manager.get_safe_spot(current_quadrant)
+                is_at_safe_spot = False
+                if current_safe_spot:
+                    is_at_safe_spot = (abs(current_pos[0] - current_safe_spot[0]) < 50 and 
+                                     abs(current_pos[1] - current_safe_spot[1]) < 50)
+                
+                if not is_at_safe_spot and current_safe_spot:
+                    # Not at safe spot - navigate to safe spot first, then to ball
+                    print(f"🛡️ Not at safe spot - routing: Current pos → Q{current_quadrant} safe → Ball")
+                    route_points.append(current_safe_spot)  # Go to safe spot first
+                    route_points.append(target_ball)       # Then to ball
+                else:
+                    # Already at safe spot - direct route to ball
+                    print(f"🎯 At safe spot - direct route to ball in Q{current_quadrant}")
+                    route_points.append(target_ball)
                 
             # RULE 2: No balls in current quadrant - must go via safe spots to other quadrants
             elif cross_quadrant_balls:
@@ -107,7 +120,21 @@ class RouteManager:
                 ball_quadrant = self.safe_spot_manager.get_ball_quadrant(target_ball)
                 print(f"🚦 Cross-quadrant collection: Q{current_quadrant} → Q{ball_quadrant}")
                 
-                # ENFORCE SAFE SPOT NAVIGATION: Must go via safe spots
+                # ALWAYS route through safe spots for cross-quadrant movement
+                # Step 1: Go to current quadrant's safe spot (if not already there)
+                current_safe_spot = self.safe_spot_manager.get_safe_spot(current_quadrant)
+                is_at_safe_spot = False
+                if current_safe_spot:
+                    is_at_safe_spot = (abs(current_pos[0] - current_safe_spot[0]) < 50 and 
+                                     abs(current_pos[1] - current_safe_spot[1]) < 50)
+                
+                if not is_at_safe_spot and current_safe_spot:
+                    print(f"🛡️ First, navigate to Q{current_quadrant} safe spot")
+                    route_points.append(current_safe_spot)
+                    # Update current position for next calculation
+                    current_pos = current_safe_spot
+                
+                # Step 2: Get safe route from current quadrant safe spot to target ball
                 safe_route = self.safe_spot_manager.plan_safe_route_to_ball(current_pos, target_ball)
                 
                 # Add all waypoints from safe route
@@ -120,7 +147,15 @@ class RouteManager:
             
             if target_ball:
                 remaining_balls.remove(target_ball)
-                current_pos = target_ball
+                # IMPORTANT: Set current position to the ball's quadrant safe spot, not the ball itself
+                # This ensures next cross-quadrant movement starts from safe spot
+                ball_quadrant = self.safe_spot_manager.get_ball_quadrant(target_ball)
+                ball_safe_spot = self.safe_spot_manager.get_safe_spot(ball_quadrant)
+                if ball_safe_spot:
+                    current_pos = ball_safe_spot
+                    print(f"📍 After collecting ball, positioning at Q{ball_quadrant} safe spot for next navigation")
+                else:
+                    current_pos = target_ball  # Fallback to ball position
             else:
                 break
         
