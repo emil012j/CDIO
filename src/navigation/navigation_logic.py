@@ -38,7 +38,7 @@ def handle_robot_navigation(navigation_info, commander, route_manager):
     
     # FORWARD PHASE: Careful forward movement when in hitting zone
     elif distance_cm > approach_distance:
-        return handle_forward_movement(distance_cm, angle_diff, commander)
+        return handle_forward_movement(distance_cm, angle_diff, commander, approach_distance)
     
     # ARRIVAL HANDLING: Different behavior for waypoints vs targets
     else:
@@ -90,10 +90,10 @@ def handle_turn_correction(angle_diff, hitting_zone_min, hitting_zone_max, comma
         angle_diff, hitting_zone_min, hitting_zone_max, rotations))
     commander.send_turn_rotation_command(direction, rotations)
 
-def handle_forward_movement(distance_cm, angle_diff, commander):
+def handle_forward_movement(distance_cm, angle_diff, commander, approach_distance):
     """Handles careful forward movement"""
     # Adaptive distance based on proximity to target  
-    remaining_distance = distance_cm - 22  # Use 22cm as target distance for balls/goal
+    remaining_distance = distance_cm - approach_distance  # Use dynamic approach_distance
     
     if remaining_distance <= 0:
         move_distance = 0 # Stop if already at or past the target

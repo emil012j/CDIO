@@ -98,42 +98,7 @@ def main():
 
             navigation_info = None
 
-            # --- Cross avoidance flag reset (always runs) ---
-            if just_avoided_cross:
-                if cross_pos and robot_head:
-                    head_x, head_y = robot_head["pos"]
-                    cross_x, cross_y = cross_pos
-                    dist_to_cross = ((head_x - cross_x) ** 2 + (head_y - cross_y) ** 2) ** 0.5
-                    if dist_to_cross > 180:  # Use a larger threshold for reset
-                        just_avoided_cross = False
-                        cross_avoid_reset_time = None
-                else:
-                    if cross_avoid_reset_time is None:
-                        cross_avoid_reset_time = time.time()
-                    elif time.time() - cross_avoid_reset_time > 2:  # 2 seconds without seeing the cross
-                        just_avoided_cross = False
-                        cross_avoid_reset_time = None
-            else:
-                cross_avoid_reset_time = None
-
-            # --- Cross avoidance logic (dynamic turn direction, using head position) ---
-            if cross_pos and robot_head:
-                head_x, head_y = robot_head["pos"]
-                cross_x, cross_y = cross_pos
-                dist_to_cross = ((head_x - cross_x) ** 2 + (head_y - cross_y) ** 2) ** 0.5
-                if dist_to_cross <= 120 and not just_avoided_cross:
-                    # Dynamic turn direction: turn away from cross
-                    turn_direction = "right" if cross_x > head_x else "left"
-                    if commander.can_send_command():
-                        print(f"*** CLOSE TO CROSS - GOING BACKWARDS AND TURNING {turn_direction.upper()} ***")
-                        commander.send_backward_command(distance=20)
-                        time.sleep(1)
-                        commander.send_turn_rotation_command(turn_direction, 0.5)
-                        time.sleep(1)
-                        commander.send_forward_command(distance=15)
-                        time.sleep(1)
-                        just_avoided_cross = True
-                        continue
+          
 
             if current_state == ROUTE_PLANNING:
                 print("[DEBUG] State: ROUTE_PLANNING")
@@ -205,6 +170,7 @@ def main():
                     else:
                         # No more targets in current route, go back to route planning if more balls are on field
                         if balls:
+                            route_manager.reset_route() # Reset route before replanning
                             current_state = ROUTE_PLANNING
                             print("*** ROUTE EXHAUSTED - REPLANNING ROUTE ***")
                         else: # No more balls to plan for
@@ -220,11 +186,16 @@ def main():
                 goal_position = goal_utils.get_goal_position()
                 print("[DEBUG] goal_position:", goal_position)  # <--- DEBUG
                 if goal_position:
-                    # Create safe route to goal if not already created
-                    if not route_manager.route_created:
+                    target_position = route_manager.get_current_target() # Get the current target FIRST
+
+                    # If no route is created yet, or the current target is None (route exhausted/invalid)
+                    if not route_manager.route_created or target_position is None:
+                        # Reset the route manager's state to ensure a clean slate for new route
+                        route_manager.reset_route()
                         route_manager.create_goal_route(robot_center, goal_position)
-                    
-                    target_position = route_manager.get_current_target()
+                        # After creating, try to get the target again
+                        target_position = route_manager.get_current_target()
+
                     if target_position:
                         # Calculate navigation to current target (waypoint or goal)
                         navigation_info = calculate_navigation_command(robot_head, robot_tail, target_position, scale_factor)
@@ -238,15 +209,16 @@ def main():
 
                         # Check if we reached current target
                         if current_distance_to_target < 26 and current_distance_to_target > 0:
-                            if route_manager.is_current_target_waypoint():
-                                print("*** REACHED WAYPOINT - ADVANCING TO NEXT TARGET ***")
-                                route_manager.advance_to_next_target()
-                            elif target_position == goal_position: # Check if current target is the final goal
+                            # Prioritize checking for final goal before waypoints
+                            if target_position == goal_position: 
                                 # Reached final goal
                                 current_state = BALL_RELEASE
                                 print("*** REACHED GOAL - SWITCHING TO BALL_RELEASE ***")
-                            else: # We are at an intermediate point but not a waypoint. This should not happen if route planning is correct.
-                                print("WARNING: Reached intermediate point not classified as waypoint. Advancing to next target.")
+                            elif route_manager.is_current_target_waypoint():
+                                print("*** REACHED WAYPOINT - ADVANCING TO NEXT TARGET ***")
+                                route_manager.advance_to_next_target()
+                            else: 
+                                print("WARNING: Reached intermediate point not classified as waypoint nor goal. Advancing to next target.")
                                 route_manager.advance_to_next_target()
                         elif navigation_info: # Only navigate if not yet at target
                             print("[DEBUG] Calling handle_robot_navigation for target")  # <--- DEBUG

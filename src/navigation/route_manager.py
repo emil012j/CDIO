@@ -31,7 +31,7 @@ class RouteManager:
         # Filter out balls too close to center cross
         safe_balls = []
         for ball in balls:
-            if not self.safe_spot_manager.is_near_center_cross(ball, cross_radius=80):
+            if not self.safe_spot_manager.is_near_center_cross(ball, cross_radius=40):
                 safe_balls.append(ball)
             else:
                 print(f"⚠️ Skipping ball at {ball} - too close to center cross")

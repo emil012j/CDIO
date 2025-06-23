@@ -191,27 +191,11 @@ class SafeSpotManager:
         return route_waypoints
     
     def is_waypoint(self, position):
-        """Check if a position is a waypoint (safe spot or perpendicular approach point)"""
+        """Check if a position is a waypoint (safe spot)"""
         # Check if it's a safe spot
         for spot_pos in self.safe_spots.values():
             if position == spot_pos:
                 return True
-        
-        # Check if it might be a perpendicular approach point (between two safe spots)
-        # We can check if it's roughly between any two safe spots
-        safe_positions = list(self.safe_spots.values())
-        for i in range(len(safe_positions)):
-            for j in range(i + 1, len(safe_positions)):
-                pos1 = safe_positions[i]
-                pos2 = safe_positions[j]
-                
-                # Calculate midpoint between these two safe spots
-                midpoint_x = (pos1[0] + pos2[0]) // 2
-                midpoint_y = (pos1[1] + pos2[1]) // 2
-                
-                # Check if position is close to this midpoint (within 20 pixels)
-                if abs(position[0] - midpoint_x) < 20 and abs(position[1] - midpoint_y) < 20:
-                    return True
         
         return False
     
