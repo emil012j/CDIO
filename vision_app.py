@@ -6,6 +6,7 @@ Starts camera+YOLO, detects robot+balls, calculates navigation, sends commands, 
 
 import cv2
 import time
+import math
 from src.camera.detection import load_yolo_model, run_detection, process_detections_and_draw, calculate_scale_factor, get_cross_position
 from src.camera.coordinate_calculation import calculate_navigation_command
 from src.camera.camera_manager import CameraManager, draw_navigation_info, display_status
@@ -18,11 +19,20 @@ from src.utils.vision_helpers import choose_unblocked_ball
 from src.config.settings import *
 from src.camera.goal_calibrator import GoalCalibrator
 from src.camera.goal_utils import GoalUtils
+
 # Global route manager
 route_manager = RouteManager()
 
 # --- Cross area radius in pixels (adjust as needed) ---
 CROSS_RADIUS = 60
+
+def balls_have_moved(balls, previous_balls, threshold=15):
+    if len(balls) != len(previous_balls):
+        return True
+    for b in balls:
+        if all(math.dist(b, pb) > threshold for pb in previous_balls):
+            return True
+    return False
 
 def main():
     print("Setting up goal position...")
@@ -73,6 +83,8 @@ def main():
     just_avoided_cross = False
     cross_avoid_reset_time = None
 
+    previous_balls = []
+
     try:
         while True:
             frame = camera.read_frame()
@@ -88,6 +100,13 @@ def main():
             cross_pos = get_cross_position(results, model)
             display_frame = frame.copy()
             robot_head, robot_tail, balls, log_info_list = process_detections_and_draw(results, model, display_frame, scale_factor)
+
+            # --- Route reset if balls have moved ---
+            if balls_have_moved(balls, previous_balls, threshold=15) and route_manager.route_created:
+                print("[INFO] Balls have moved! Resetting route.")
+                route_manager.reset_route()
+                current_state = ROUTE_PLANNING
+            previous_balls = balls.copy()
 
             if robot_head and robot_tail:
                 robot_center = (

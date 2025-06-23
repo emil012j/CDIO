@@ -26,7 +26,7 @@ class RouteManager:
         if self.route_created or not balls:
             return
             
-        print("🗺️  CREATING SAFE BALL COLLECTION ROUTE...")
+        print("  CREATING SAFE BALL COLLECTION ROUTE...")
         
         # Filter out balls too close to center cross
         safe_balls = []
@@ -34,12 +34,12 @@ class RouteManager:
             if not self.safe_spot_manager.is_near_center_cross(ball, cross_radius=80):
                 safe_balls.append(ball)
             else:
-                print(f"⚠️ Skipping ball at {ball} - too close to center cross")
+                print(f" Skipping ball at {ball} - too close to center cross")
         
-        print(f"📍 Safe balls (away from center): {len(safe_balls)}/{len(balls)}")
+        print(f" Safe balls (away from center): {len(safe_balls)}/{len(balls)}")
         
         if not safe_balls:
-            print("❌ No safe balls found away from center cross!")
+            print(" No safe balls found away from center cross!")
             return
         
         # Prioritize balls by safe access from robot's current quadrant
@@ -47,10 +47,10 @@ class RouteManager:
         
         # Filter close balls to avoid clustering
         filtered_balls = self.filter_close_balls(prioritized_balls, min_distance=40)
-        print(f"✅ Final balls (no clustering): {len(filtered_balls)}/{len(prioritized_balls)}")
+        print(f" Final balls (no clustering): {len(filtered_balls)}/{len(prioritized_balls)}")
         
         if not filtered_balls:
-            print("❌ No accessible balls found after filtering!")
+            print(" No accessible balls found after filtering!")
             return
         
         # Create route using STRICT quadrant rules for ball collection
@@ -58,7 +58,7 @@ class RouteManager:
         current_pos = robot_center
         remaining_balls = list(filtered_balls)
         
-        print("🏠 APPLYING STRICT QUADRANT RULES FOR BALL COLLECTION...")
+        print("APPLYING STRICT QUADRANT RULES FOR BALL COLLECTION...")
         
         # Build route with strict quadrant-aware navigation
         while remaining_balls:
@@ -79,7 +79,7 @@ class RouteManager:
             
             # RULE 1: If there are balls in current quadrant, collect them first
             if same_quadrant_balls:
-                print(f"🏠 Robot in Q{current_quadrant}: Found {len(same_quadrant_balls)} balls in same quadrant")
+                print(f"Robot in Q{current_quadrant}: Found {len(same_quadrant_balls)} balls in same quadrant")
                 # Choose closest ball in same quadrant
                 min_distance = float('inf')
                 for ball in same_quadrant_balls:
@@ -97,17 +97,17 @@ class RouteManager:
                 
                 if not is_at_safe_spot and current_safe_spot:
                     # Not at safe spot - navigate to safe spot first, then to ball
-                    print(f"🛡️ Not at safe spot - routing: Current pos → Q{current_quadrant} safe → Ball")
+                    print(f"Not at safe spot - routing: Current pos → Q{current_quadrant} safe → Ball")
                     route_points.append(current_safe_spot)  # Go to safe spot first
                     route_points.append(target_ball)       # Then to ball
                 else:
                     # Already at safe spot - direct route to ball
-                    print(f"🎯 At safe spot - direct route to ball in Q{current_quadrant}")
+                    print(f"At safe spot - direct route to ball in Q{current_quadrant}")
                     route_points.append(target_ball)
                 
             # RULE 2: No balls in current quadrant - must go via safe spots to other quadrants
             elif cross_quadrant_balls:
-                print(f"🏠 Robot in Q{current_quadrant}: No balls in same quadrant, checking cross-quadrant balls")
+                print(f" Robot in Q{current_quadrant}: No balls in same quadrant, checking cross-quadrant balls")
                 
                 # Choose closest cross-quadrant ball
                 min_distance = float('inf')
@@ -118,7 +118,7 @@ class RouteManager:
                         target_ball = ball
                 
                 ball_quadrant = self.safe_spot_manager.get_ball_quadrant(target_ball)
-                print(f"🚦 Cross-quadrant collection: Q{current_quadrant} → Q{ball_quadrant}")
+                print(f" Cross-quadrant collection: Q{current_quadrant} → Q{ball_quadrant}")
                 
                 # ALWAYS route through safe spots for cross-quadrant movement
                 # Step 1: Go to current quadrant's safe spot (if not already there)
@@ -129,7 +129,7 @@ class RouteManager:
                                      abs(current_pos[1] - current_safe_spot[1]) < 50)
                 
                 if not is_at_safe_spot and current_safe_spot:
-                    print(f"🛡️ First, navigate to Q{current_quadrant} safe spot")
+                    print(f" First, navigate to Q{current_quadrant} safe spot")
                     route_points.append(current_safe_spot)
                     # Update current position for next calculation
                     current_pos = current_safe_spot
@@ -142,7 +142,7 @@ class RouteManager:
                     route_points.append(waypoint)
                 
             else:
-                print("❌ No balls remaining")
+                print("No balls remaining")
                 break
             
             if target_ball:
@@ -153,7 +153,7 @@ class RouteManager:
                 ball_safe_spot = self.safe_spot_manager.get_safe_spot(ball_quadrant)
                 if ball_safe_spot:
                     current_pos = ball_safe_spot
-                    print(f"📍 After collecting ball, positioning at Q{ball_quadrant} safe spot for next navigation")
+                    print(f" After collecting ball, positioning at Q{ball_quadrant} safe spot for next navigation")
                 else:
                     current_pos = target_ball  # Fallback to ball position
             else:
@@ -164,7 +164,7 @@ class RouteManager:
         self.route_created = True
         self.start_target_timer()  # Start timer for first target
         
-        print(f"✅ SAFE ROUTE CREATED: {len(self.route)} waypoints")
+        print(f"SAFE ROUTE CREATED: {len(self.route)} waypoints")
         for i, point in enumerate(self.route):
             point_type = "WAYPOINT" if self.safe_spot_manager.is_waypoint(point) else "BALL"
             print(f"   {i+1}: {point} ({point_type})")
@@ -188,19 +188,19 @@ class RouteManager:
         self.collected_balls_count += 1
         self.collection_attempts = 0  # Reset attempts for new target
         self.target_start_time = time.time()  # Reset timer for new target
-        print(f"🎯 ADVANCING TO NEXT TARGET: {self.current_target_index + 1}/{len(self.route)} (Route length: {len(self.route)})")
+        print(f"ADVANCING TO NEXT TARGET: {self.current_target_index + 1}/{len(self.route)} (Route length: {len(self.route)})")
             
     def increment_collection_attempts(self):
         """Øg antal forsøg på nuværende target"""
         self.collection_attempts += 1
-        print("⚠️  Collection attempt {}/{} for current target".format(
+        print(" Collection attempt {}/{} for current target".format(
             self.collection_attempts, self.max_attempts))
         return self.collection_attempts >= self.max_attempts
         
     def start_target_timer(self):
         """Start timer for current target"""
         self.target_start_time = time.time()
-        print(f"⏱️ Timer started for target - max {self.max_target_time} seconds")
+        print(f"Timer started for target - max {self.max_target_time} seconds")
     
     def check_target_timeout(self):
         """Check if current target has timed out"""
@@ -212,7 +212,7 @@ class RouteManager:
         is_timeout = elapsed_time > self.max_target_time
         
         if is_timeout:
-            print(f"⏰ TARGET TIMEOUT: {elapsed_time:.1f}s > {self.max_target_time}s")
+            print(f" TARGET TIMEOUT: {elapsed_time:.1f}s > {self.max_target_time}s")
         
         return is_timeout
     
@@ -222,9 +222,9 @@ class RouteManager:
         timeout_exceeded = self.check_target_timeout()
         
         if attempts_exceeded:
-            print(f"⚠️ Skipping target: max attempts ({self.max_attempts}) reached")
+            print(f" Skipping target: max attempts ({self.max_attempts}) reached")
         if timeout_exceeded:
-            print(f"⏰ Skipping target: timeout ({self.max_target_time}s) exceeded")
+            print(f" Skipping target: timeout ({self.max_target_time}s) exceeded")
             
         return attempts_exceeded or timeout_exceeded
         
@@ -238,7 +238,7 @@ class RouteManager:
         self.current_target_index = 0
         self.route_created = False
         self.collection_attempts = 0
-        print("🔄 ROUTE RESET") 
+        print(" ROUTE RESET") 
 
     def create_goal_route(self, robot_center, goal_position):
         """Create a safe route to goal using safe spots"""
@@ -246,7 +246,7 @@ class RouteManager:
             print("ERROR: create_goal_route - goal_position is None. Cannot create route.")
             return
             
-        print("🎯 CREATING SAFE GOAL ROUTE...")
+        print(" CREATING SAFE GOAL ROUTE...")
         
         # Get safe route to goal
         goal_waypoints = self.safe_spot_manager.plan_safe_route_to_goal(robot_center, goal_position)
@@ -256,7 +256,7 @@ class RouteManager:
         self.route_created = True
         self.start_target_timer()  # Start timer for first target
 
-        print(f"✅ SAFE GOAL ROUTE CREATED: {len(self.route)} waypoints")
+        print(f" SAFE GOAL ROUTE CREATED: {len(self.route)} waypoints")
         for i, point in enumerate(self.route):
             point_type = "WAYPOINT" if self.safe_spot_manager.is_waypoint(point) else "GOAL"
             print(f"   {i+1}: {point} ({point_type})")
