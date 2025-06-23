@@ -83,7 +83,8 @@ def main():
             results = run_detection(model, frame)
             scale_factor = calculate_scale_factor(results, model)
             cross_pos = get_cross_position(results, model)
-            print(f"[DEBUG] Raw cross_pos from detection: {cross_pos}") # Added debug print
+            if cross_pos is None:
+                scale_factor = 2.02 # Set fallback scale_factor if cross is not detected
             display_frame = frame.copy()
             robot_head, robot_tail, balls, walls, log_info_list = process_detections_and_draw(results, model, display_frame, scale_factor)
 
@@ -122,9 +123,11 @@ def main():
                         print("*** ROUTE PLANNED - SWITCHING TO BALL_COLLECTION ***")
                     else:
                         current_state = GOAL_NAVIGATION
+                        current_path_to_goal = [] # Clear path if no balls found, and going to goal navigation
                         print("No valid target found in route planning, staying in ROUTE_PLANNING.")
                 elif current_run_balls >= STORAGE_CAPACITY:
                     current_state = GOAL_NAVIGATION
+                    current_path_to_goal = [] # Clear path when storage is full
                     print("*** STORAGE FULL - SWITCHING TO GOAL_NAVIGATION ***")
                     route_manager.reset_route()
                 elif not balls and total_balls_collected >= TOTAL_BALLS_ON_COURT:
@@ -132,12 +135,14 @@ def main():
                     route_manager.reset_route()
                 elif not balls and current_run_balls > 0: # Collected some, but no more visible balls
                     current_state = GOAL_NAVIGATION
+                    current_path_to_goal = [] # Clear path when no more balls on field
                     print("*** NO MORE BALLS ON FIELD - DELIVERING WHAT'S COLLECTED ***")
                     route_manager.reset_route()
                 else: # No balls found and not yet collected any, or all collected
                     commander.can_send_command()
                     commander.send_forward_command(distance=10)
                     current_state = GOAL_NAVIGATION
+                    current_path_to_goal = [] # Clear path as a fallback
                     route_manager.reset_route()
                     print("No balls to collect or all collected, staying in ROUTE_PLANNING or COMPLETE.")
 
@@ -147,10 +152,12 @@ def main():
                 
                 if current_run_balls >= STORAGE_CAPACITY:
                     current_state = GOAL_NAVIGATION
+                    current_path_to_goal = [] # Clear path when storage is full
                     print("*** STORAGE FULL - SWITCHING TO GOAL_NAVIGATION ***")
                     route_manager.reset_route()
                 elif not balls and current_run_balls > 0: # Collected some, but no more visible balls
                     current_state = GOAL_NAVIGATION
+                    current_path_to_goal = [] # Clear path when no more balls on field
                     print("*** NO MORE BALLS ON FIELD - DELIVERING WHAT'S COLLECTED ***")
                     route_manager.reset_route()
                 elif not balls and current_run_balls == 0 and total_balls_collected >= TOTAL_BALLS_ON_COURT:
@@ -281,14 +288,18 @@ def main():
                         print(f"[DEBUG] Current distance to immediate target: {current_distance_to_target:.1f} cm") # New debug line
 
                         # Determine if robot is close enough to goal or needs to navigate
-                        if current_distance_to_target < 40 and current_distance_to_target > 0: # Increased threshold for waypoint/goal approach
+                        if current_distance_to_target < 22 and current_distance_to_target > 0: # Standardized threshold to 22cm
                             if len(current_path_to_goal) > 1: # If it was a waypoint
                                 print(f"Waypoint {current_path_to_goal[0]} reached. Moving to next segment for GOAL_NAVIGATION.")
                                 current_path_to_goal.pop(0) # Remove the reached waypoint
-                            else: # If it was the final goal target
-                                current_state = BALL_RELEASE
-                                print("*** REACHED GOAL APPROACH DISTANCE - SWITCHING TO BALL_RELEASE ***")
-                                current_path_to_goal = [] # Clear path after reaching goal
+                            else: # If it was the final target in current_path_to_goal
+                                if target_to_navigate == goal_position: # Check if the target is specifically the goal
+                                    current_state = BALL_RELEASE
+                                    print("*** REACHED GOAL - SWITCHING TO BALL_RELEASE ***")
+                                else:
+                                    # This case should ideally not be reached if logic is correct, but as a safeguard:
+                                    print(f"DEBUG: Reached {target_to_navigate} but it's not the goal ({goal_position}). Staying in GOAL_NAVIGATION.")
+                                    # You might want to add a fallback here, e.g., re-plan or advance route if this happens unexpectedly
                         elif navigation_info: # Only navigate if not yet at approach distance
                             print("[DEBUG] Calling handle_robot_navigation for goal (GOAL_NAVIGATION state)")  # <--- DEBUG
                             handle_robot_navigation(navigation_info, commander, route_manager)

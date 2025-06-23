@@ -96,6 +96,47 @@ def get_obb_corners(center_x, center_y, width, height, angle_degrees):
     # Translate corners to world coordinates
     return [(cx + center_x, cy + center_y) for cx, cy in rotated_corners]
 
+def will_rotation_cause_collision(head, tail, cross_rect, angle_change):
+    """
+    Checks if rotating the robot by a given angle will cause a collision with the cross_rect.
+    Assumes rotation around the robot's midpoint.
+
+    Args:
+        head (tuple): (x, y) coordinates of the robot's head.
+        tail (tuple): (x, y) coordinates of the robot's tail.
+        cross_rect (dict): Dictionary defining the cross's OBB.
+        angle_change (float): The angle in degrees the robot will rotate.
+
+    Returns:
+        bool: True if a collision is detected, False otherwise.
+    """
+    # Calculate robot's center (midpoint of head and tail)
+    robot_center_x = (head[0] + tail[0]) / 2
+    robot_center_y = (head[1] + tail[1]) / 2
+    robot_center = (robot_center_x, robot_center_y)
+
+    # Rotate head and tail points around the robot's center
+    rotated_head = rotate_point(head, robot_center, angle_change)
+    rotated_tail = rotate_point(tail, robot_center, angle_change)
+
+    # Get the corners of the cross OBB
+    cross_corners = get_obb_corners(
+        cross_rect['center_x'], cross_rect['center_y'],
+        cross_rect['width'], cross_rect['height'], cross_rect['angle']
+    )
+
+    # Define the robot's segment after rotation
+    robot_segment = (rotated_head, rotated_tail)
+
+    # Check for intersection with any of the four edges of the cross OBB
+    for i in range(4):
+        cross_edge = (cross_corners[i], cross_corners[(i + 1) % 4])
+        if intersect_segments(robot_segment[0], robot_segment[1],
+                              cross_edge[0], cross_edge[1]):
+            return True
+    
+    return False
+
 # --- Main Pathfinding Logic ---
 
 def compute_path_around_cross(robot_pos, goal_pos, cross_rect):
@@ -157,7 +198,7 @@ def compute_path_around_cross(robot_pos, goal_pos, cross_rect):
     cross_product = vx * cy - vy * cx
 
     # Offset distance for the waypoint - make it a bit larger than the cross's half-width/height
-    offset_distance = max(cross_rect['width'], cross_rect['height']) / 2 + 200 # Increased offset for more buffer
+    offset_distance = max(cross_rect['width'], cross_rect['height']) / 2 + 250 # Increased offset for more buffer
 
     # Calculate a vector perpendicular to (vx, vy)
     # If cross_product > 0, cross is to the "left" (counter-clockwise)
@@ -310,10 +351,11 @@ def handle_ball_collection(distance_cm, angle_diff, hitting_zone_min, hitting_zo
     print("*** EXECUTING BLIND BALL COLLECTION ***")
     # Assuming send_blind_collection_command returns True on success, False on failure.
     # If it does not return anything, we will assume it is always successful for now.
-    collection_successful = commander.send_blind_collection_command(duration=2) # Default 2 seconds
+    collection_successful = commander.send_blind_ball_collection_command() # Removed duration=2
     
     if collection_successful:
         print("Blind collection command sent successfully!")
+        route_manager.collection_command_sent_for_current_target = True # Set the flag
         return True
     else:
         print("Blind collection command FAILED!")

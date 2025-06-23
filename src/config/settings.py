@@ -19,8 +19,6 @@ MODEL_PATH = "my_model3.pt"
 CROSS_DIAMETER_MM = 200.0
 EGG_SIZE_THRESHOLD_MM = 58.0
 CROSS_AVOID_RADIUS = 100  # Tune as needed. Used to avoid the robot running into the cross.
-GOAL_LEFT = (0, 300) # Left goal position in pixels
-GOAL_RIGHT = (1279, 300) # Right goal position in pixels
 
 # Colors for visualization
 CLASS_COLORS = {
