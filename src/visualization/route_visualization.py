@@ -6,7 +6,7 @@ Route visualization - handles drawing of route, targets, and robot navigation on
 import cv2
 import math
 
-def draw_route_and_targets(display_frame, robot_head, robot_tail, route_manager, walls, corrected_head=None, corrected_tail=None):
+def draw_route_and_targets(display_frame, robot_head, robot_tail, route_manager, walls, current_path_to_goal, corrected_head=None, corrected_tail=None):
     """Draw the entire route and navigation information on the screen"""
     if not robot_head or not robot_tail:
         return
@@ -55,6 +55,24 @@ def draw_route_and_targets(display_frame, robot_head, robot_tail, route_manager,
                        (current_target[0] + 20, current_target[1] - 20), 
                        cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 255, 255), 2)
     
+    # Draw waypoints from current_path_to_goal (if they exist and are more than just the final target)
+    if current_path_to_goal and len(current_path_to_goal) > 1: 
+        # Corrected robot head position for drawing if available
+        # If corrected_head is not provided, use robot_head's position
+        corrected_center = (int(corrected_head[0]), int(corrected_head[1])) if corrected_head else ((robot_head["pos"][0] + robot_tail["pos"][0]) // 2, (robot_head["pos"][1] + robot_tail["pos"][1]) // 2)
+
+        for i, waypoint in enumerate(current_path_to_goal):
+            # Ensure waypoint coordinates are integers
+            wp_int = (int(waypoint[0]), int(waypoint[1]))
+
+            if i == 0: # The immediate target (waypoint)
+                cv2.circle(display_frame, wp_int, 8, (0, 165, 255), -1) # Orange circle
+                cv2.line(display_frame, corrected_center, wp_int, (255, 0, 255), 2) # Line from robot to waypoint
+            else: # Subsequent waypoints in the path
+                cv2.circle(display_frame, wp_int, 5, (255, 255, 0), -1) # Cyan circle
+                # Draw a line from the previous waypoint to this one
+                # For now, let's just draw the point, complex line drawing between waypoints can be added later
+
     # Draw the entire route as colored circles
     for i, waypoint in enumerate(route_manager.route):
         if i < route_manager.current_target_index:

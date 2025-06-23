@@ -150,7 +150,7 @@ def calculate_navigation_command(robot_head, robot_tail, target_ball, scale_fact
     if robot_heading is None:
         return None
     
-    # Calculate target heading using original ball position
+    # Calculate target heading using robot_center for general navigation and ball collection
     target_heading = calculate_angle_from_positions(robot_center, target_ball)
     
     # Calculate angle difference

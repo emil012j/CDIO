@@ -76,20 +76,51 @@ def calculate_scale_factor(results, model):
 # Finds the position of the red cross in the image
 def get_cross_position(results, model):
     try:
+        print(f"[DEBUG] get_cross_position: Entering function. results is None: {results is None}")
         if results is None or not hasattr(results, 'obb') or results.obb is None:
+            print("[DEBUG] get_cross_position: results or results.obb is None/invalid. Returning None.")
             return None
+        
         cross_id_target = get_class_id('cross', model)
+        print(f"[DEBUG] get_cross_position: cross_id_target = {cross_id_target}")
         if cross_id_target is None:
+            print("[DEBUG] get_cross_position: cross_id_target is None. 'cross' class not found in model.names. Returning None.")
             return None
+        
+        print(f"[DEBUG] get_cross_position: Number of OBB detections: {len(results.obb.cls)}")
         for i in range(len(results.obb.cls)):
             cls_id = int(results.obb.cls[i])
+            print(f"[DEBUG] get_cross_position: Checking detection {i}, cls_id: {cls_id}")
             if cls_id == cross_id_target:
-                box = results.obb.xyxy[i].cpu().numpy()
-                x_center = (box[0] + box[2]) / 2
-                y_center = (box[1] + box[3]) / 2
-                return (x_center, y_center)
+                # Attempt to get OBB info from xywhr (oriented bounding box with rotation)
+                if hasattr(results.obb, 'xywhr') and results.obb.xywhr is not None and len(results.obb.xywhr) > i:
+                    cx, cy, w, h, _ = results.obb.xywhr[i].cpu().numpy()
+                    angle = calculate_orientation(results.obb, i, model.names[cls_id])
+                    print(f"[DEBUG] get_cross_position: Cross detected using xywhr! OBB: center=({cx}, {cy}), dim=({w}, {h}), angle={angle}")
+                # Fallback to xyxy if xywhr is not available (axis-aligned bounding box)
+                elif hasattr(results.obb, 'xyxy') and results.obb.xyxy is not None and len(results.obb.xyxy) > i:
+                    box = results.obb.xyxy[i].cpu().numpy()
+                    cx = (box[0] + box[2]) / 2
+                    cy = (box[1] + box[3]) / 2
+                    w = box[2] - box[0]
+                    h = box[3] - box[1]
+                    angle = 0.0 # Assume 0 angle for axis-aligned box
+                    print(f"[DEBUG] get_cross_position: Cross detected using xyxy! AABB: center=({cx}, {cy}), dim=({w}, {h}), angle={angle}")
+                else:
+                    print(f"[DEBUG] get_cross_position: Cross detected (cls_id={cls_id}), but neither xywhr nor xyxy attributes found for this detection. Skipping.")
+                    continue # Skip this detection if no usable bounding box format
+
+                return {
+                    'center_x': float(cx),
+                    'center_y': float(cy),
+                    'width': float(w),
+                    'height': float(h),
+                    'angle': float(angle)
+                }
+        print("[DEBUG] get_cross_position: Cross not found in detections. Returning None.")
         return None
-    except Exception:
+    except Exception as e:
+        print(f"[DEBUG] get_cross_position: An exception occurred: {e}. Returning None.")
         return None
     
 # Calculates the orientation of the object
@@ -198,15 +229,17 @@ def process_detections_and_draw(results, model, frame, scale_factor=None):
                 x1, y1, x2, y2 = map(int, results.obb.xyxy[i])
                 cx_calc, cy_calc = (x1+x2)//2, (y1+y2)//2
                 has_pos_info = True
-            elif hasattr(results.obb, 'xywh') and results.obb.xywh is not None and len(results.obb.xywh) > i:
-                cx_wh, cy_wh, _, _ = results.obb.xywh[i]
-                cx_calc, cy_calc = int(cx_wh), int(cy_wh)
-                x1 = cx_calc - 50
-                y1 = cy_calc - 50
-                x2 = cx_calc + 50
-                y2 = cy_calc + 50
+            # Prioritize xywhr for oriented bounding boxes
+            elif hasattr(results.obb, 'xywhr') and results.obb.xywhr is not None and len(results.obb.xywhr) > i:
+                cx_whr, cy_whr, w_whr, h_whr, _ = results.obb.xywhr[i].cpu().numpy()
+                cx_calc, cy_calc = int(cx_whr), int(cy_whr)
+                # For drawing, approximate x1,y1,x2,y2 from center, width, height
+                x1 = int(cx_whr - w_whr / 2)
+                y1 = int(cy_whr - h_whr / 2)
+                x2 = int(cx_whr + w_whr / 2)
+                y2 = int(cy_whr + h_whr / 2)
                 has_pos_info = True
-                
+            
             if not has_pos_info:
                 continue
                 

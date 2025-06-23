@@ -131,7 +131,6 @@ class RouteManager:
     def advance_to_next_target(self):
         """Go to next point in the route"""
         self.current_target_index += 1
-        self.collected_balls_count += 1
         self.collection_attempts = 0  # Reset attempts for new target
         print("ADVANCING TO NEXT TARGET: {}/{}".format(
             self.current_target_index + 1, len(self.route)))

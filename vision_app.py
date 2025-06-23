@@ -11,7 +11,7 @@ from src.camera.coordinate_calculation import calculate_navigation_command
 from src.camera.camera_manager import CameraManager, draw_navigation_info, display_status
 from src.communication.vision_commander import VisionCommander
 from src.navigation.route_manager import RouteManager
-from src.navigation.navigation_logic import handle_robot_navigation
+from src.navigation.navigation_logic import handle_robot_navigation, compute_path_around_cross
 from src.visualization.route_visualization import draw_route_and_targets, draw_robot_heading, draw_route_status
 from src.utils.vision_helpers import choose_unblocked_ball
 from src.config.settings import *
@@ -56,7 +56,7 @@ def main():
 
     current_state = ROUTE_PLANNING
     STORAGE_CAPACITY = 6
-    TOTAL_BALLS_ON_COURT = 11 # Important we write the correct number of balls we are testing with
+    TOTAL_BALLS_ON_COURT = 7 # Important we write the correct number of balls we are testing with
     current_run_balls = 0
     total_balls_collected = 0
     previous_ball_count = 0
@@ -68,8 +68,7 @@ def main():
     frame_count = 0
 
     collected_balls_positions = []
-    just_avoided_cross = False
-    cross_avoid_reset_time = None
+    current_path_to_goal = [] # New: List to hold waypoints from compute_path_around_cross
 
     try:
         while True:
@@ -84,6 +83,7 @@ def main():
             results = run_detection(model, frame)
             scale_factor = calculate_scale_factor(results, model)
             cross_pos = get_cross_position(results, model)
+            print(f"[DEBUG] Raw cross_pos from detection: {cross_pos}") # Added debug print
             display_frame = frame.copy()
             robot_head, robot_tail, balls, walls, log_info_list = process_detections_and_draw(results, model, display_frame, scale_factor)
 
@@ -96,60 +96,27 @@ def main():
 
             navigation_info = None
 
-            # --- Cross avoidance flag reset (always runs) ---
-            if just_avoided_cross:
-                if cross_pos and robot_head:
-                    head_x, head_y = robot_head["pos"]
-                    cross_x, cross_y = cross_pos
-                    dist_to_cross = ((head_x - cross_x) ** 2 + (head_y - cross_y) ** 2) ** 0.5
-                    if dist_to_cross > 180:  # Use a larger threshold for reset
-                        just_avoided_cross = False
-                        cross_avoid_reset_time = None
-                else:
-                    if cross_avoid_reset_time is None:
-                        cross_avoid_reset_time = time.time()
-                    elif time.time() - cross_avoid_reset_time > 2:  # 2 seconds without seeing the cross
-                        just_avoided_cross = False
-                        cross_avoid_reset_time = None
-            else:
-                cross_avoid_reset_time = None
-
-            # --- Cross avoidance logic (dynamic turn direction, using head position) ---
-            if cross_pos and robot_head:
-                head_x, head_y = robot_head["pos"]
-                cross_x, cross_y = cross_pos
-                dist_to_cross = ((head_x - cross_x) ** 2 + (head_y - cross_y) ** 2) ** 0.5
-                if dist_to_cross <= 120 and not just_avoided_cross:
-                    # Dynamic turn direction: turn away from cross
-                    turn_direction = "right" if cross_x > head_x else "left"
-                    if commander.can_send_command():
-                        print(f"*** CLOSE TO CROSS - GOING BACKWARDS AND TURNING {turn_direction.upper()} ***")
-                        commander.send_backward_command(distance=20)
-                        time.sleep(1)
-                        commander.send_turn_rotation_command(turn_direction, 0.5)
-                        time.sleep(1)
-                        commander.send_forward_command(distance=15)
-                        time.sleep(1)
-                        just_avoided_cross = True
-                        continue
-
             if current_state == ROUTE_PLANNING:
                 print("[DEBUG] State: ROUTE_PLANNING")
-                # --- Filter out balls inside the cross area ---
-                if balls and cross_pos:
-                    filtered_balls = []
-                    cross_x, cross_y = cross_pos
-                    for ball in balls:
-                        ball_x, ball_y = ball
-                        dist_to_cross = ((ball_x - cross_x) ** 2 + (ball_y - cross_y) ** 2) ** 0.5
-                        if dist_to_cross > CROSS_RADIUS:
-                            filtered_balls.append(ball)
-                        else:
-                            print(f"[INFO] Skipping ball at {ball} because it is inside the cross area.")
-                    balls = filtered_balls
+                # Removed filtering out balls inside the cross area based on CROSS_RADIUS.
+                # The cross avoidance is now handled by compute_path_around_cross.
+                # if balls and cross_pos:
+                #     filtered_balls = []
+                #     cross_center_x = cross_pos['center_x']
+                #     cross_center_y = cross_pos['center_y']
+                #     for ball in balls:
+                #         ball_x, ball_y = ball
+                #         dist_to_cross = ((ball_x - cross_center_x) ** 2 + (ball_y - cross_center_y) ** 2) ** 0.5
+                #         if dist_to_cross > CROSS_RADIUS:
+                #             filtered_balls.append(ball)
+                #         else:
+                #             print(f"[INFO] Skipping ball at {ball} because it is inside the cross area.")
+                #     balls = filtered_balls
                 # If we have balls, create a route and move to collection
                 if balls and current_run_balls < STORAGE_CAPACITY:
-                    route_manager.create_route_from_balls(balls, robot_center, walls, cross_pos)
+                    # Pass the full cross_pos OBB dict to route_manager if it needs it for its route creation
+                    # For now, it only needs a point, so passing the center for consistency if not refactoring route_manager
+                    route_manager.create_route_from_balls(balls, robot_center, walls, (cross_pos['center_x'], cross_pos['center_y']) if cross_pos else None)
                     if route_manager.get_current_target():
                         current_state = BALL_COLLECTION
                         print("*** ROUTE PLANNED - SWITCHING TO BALL_COLLECTION ***")
@@ -192,15 +159,67 @@ def main():
                 elif balls and current_run_balls < STORAGE_CAPACITY:
                     target_ball = route_manager.get_current_target()
                     if target_ball:
-                        # Use the actual ball position directly - no wall approach modification
-                        navigation_info = calculate_navigation_command(robot_head, robot_tail, target_ball, scale_factor)
-                        # Capture success of navigation/collection attempt
-                        collection_attempt_successful = handle_robot_navigation(navigation_info, commander, route_manager)
-                        if collection_attempt_successful:
-                            current_run_balls += 1
-                            total_balls_collected += 1
-                            print("*** BALL COLLECTED CONFIRMED! Run: {}/{}, Total: {}/{} ***".format(
-                                current_run_balls, STORAGE_CAPACITY, total_balls_collected, TOTAL_BALLS_ON_COURT))
+                        print(f"[DEBUG] BALL_COLLECTION: target_ball = {target_ball}")
+                        print(f"[DEBUG] BALL_COLLECTION: current_path_to_goal (before check) = {current_path_to_goal}")
+
+                        target_to_navigate = None
+                        
+                        # Condition to force recalculation of path
+                        force_recalculate_path = False
+                        if cross_pos and robot_head: # Cross is detected
+                            if len(current_path_to_goal) == 1: # And current path is direct
+                                current_immediate_target = current_path_to_goal[0]
+                                if current_immediate_target == target_ball: # Check if the single waypoint is the ultimate target
+                                    print("[DEBUG] BALL_COLLECTION: Cross detected, current path is direct to ball. Forcing recalculation.")
+                                    force_recalculate_path = True
+
+                        if not current_path_to_goal or force_recalculate_path:
+                            # Calculate path if no waypoints are pending or forced recalculation
+                            current_path_to_goal = [] # Clear before recalculating
+                            if cross_pos and robot_head: # Ensure robot_head exists for robot_pos
+                                print(f"[DEBUG] BALL_COLLECTION: Calling compute_path_around_cross with robot_head={{robot_head['pos']}}, target_ball={target_ball}, cross_pos={cross_pos}")
+                                path_segment = compute_path_around_cross(robot_head["pos"], target_ball, cross_pos)
+                                current_path_to_goal.extend(path_segment) # Add all waypoints/target to the list
+                                print(f"[DEBUG] BALL_COLLECTION: compute_path_around_cross returned {path_segment}")
+                                print(f"[DEBUG] BALL_COLLECTION: current_path_to_goal (after new path) = {current_path_to_goal}")
+                            else:
+                                # If no cross or robot_head, navigate directly to ball
+                                print("[DEBUG] BALL_COLLECTION: No cross_pos or robot_head, navigating directly to ball.")
+                                current_path_to_goal.append(target_ball)
+                        
+                        if current_path_to_goal:
+                            target_to_navigate = current_path_to_goal[0] # Get the immediate waypoint/target
+                            print(f"[DEBUG] BALL_COLLECTION: target_to_navigate = {target_to_navigate}")
+
+                        if target_to_navigate:
+                            # Use the immediate target for navigation calculation
+                            navigation_info = calculate_navigation_command(robot_head, robot_tail, target_to_navigate, scale_factor)
+                            collection_attempt_successful = handle_robot_navigation(navigation_info, commander, route_manager)
+                            
+                            # Check if the immediate target (waypoint or final ball) is reached
+                            # This is a simplified check. A robust solution needs more precise 'waypoint reached' logic.
+                            # For now, if navigation command was sent and distance to immediate target is small, assume reached.
+                            if navigation_info and navigation_info.get("distance_cm", 999) < 40: # Increased threshold for waypoint reached
+                                if len(current_path_to_goal) > 1: # If it was a waypoint
+                                    print(f"Waypoint {current_path_to_goal[0]} reached. Moving to next segment.")
+                                    current_path_to_goal.pop(0) # Remove the reached waypoint
+                                else: # If it was the final ball target
+                                    if collection_attempt_successful: # Only consider ball collected if handle_robot_navigation succeeded
+                                        current_run_balls += 1
+                                        total_balls_collected += 1
+                                        print("*** BALL COLLECTED CONFIRMED! Run: {}/{}, Total: {}/{} ***".format(
+                                            current_run_balls, STORAGE_CAPACITY, total_balls_collected, TOTAL_BALLS_ON_COURT))
+                                        current_path_to_goal = [] # Clear path after collection
+                                        route_manager.advance_to_next_target() # Move to next ball in route
+                            else:
+                                if navigation_info: # Only print distance if navigation_info is valid
+                                    print(f"[DEBUG] BALL_COLLECTION: Distance to immediate target {navigation_info.get('distance_cm', 'N/A')} cm, not yet reached.")
+                        else:
+                            # This part might be reached if target_to_navigate somehow became None
+                            print("DEBUG: No target to navigate to in BALL_COLLECTION.")
+                            # If no target or path is determined, try replanning
+                            current_state = ROUTE_PLANNING
+                            print("*** NO TARGET OR PATH - REPLANNING ROUTE ***")
                     else:
                         # No more targets in current route, go back to route planning if more balls are on field
                         if balls:
@@ -210,6 +229,7 @@ def main():
                             current_state = GOAL_NAVIGATION # Go to deliver what's collected
                             print("*** NO MORE BALLS TO PLAN FOR - DELIVERING WHAT'S COLLECTED ***")
                             route_manager.reset_route()
+                            current_path_to_goal = [] # Clear any pending path
                 else: # Fallback to route planning if no balls but not full storage and not collected all
                     current_state = ROUTE_PLANNING
                     print("No balls to collect, returning to ROUTE_PLANNING to re-evaluate.")
@@ -219,23 +239,61 @@ def main():
                 goal_position = goal_utils.get_goal_position()
                 print("[DEBUG] goal_position:", goal_position)  # <--- DEBUG
                 if goal_position:
-                    # Calculate navigation to goal
-                    navigation_info = calculate_navigation_command(robot_head, robot_tail, goal_position, scale_factor)
-                    print("Navigation info to goal:", navigation_info) # <--- DEBUG
+                    print(f"[DEBUG] GOAL_NAVIGATION: goal_position = {goal_position}")
+                    print(f"[DEBUG] GOAL_NAVIGATION: current_path_to_goal (before check) = {current_path_to_goal}")
 
-                    # Add detailed debug print for distance
-                    current_distance_to_goal = 999 # Default to a high value if navigation_info is None
-                    if navigation_info:
-                        current_distance_to_goal = navigation_info.get("distance_cm", 999)
-                    print(f"[DEBUG] Current distance to goal: {current_distance_to_goal:.1f} cm") # New debug line
+                    target_to_navigate = None
 
-                    # Determine if robot is close enough to goal or needs to navigate
-                    if current_distance_to_goal < 26 and current_distance_to_goal > 0: # Use 22cm as threshold for goal approach as well
-                        current_state = BALL_RELEASE
-                        print("*** REACHED GOAL APPROACH DISTANCE - SWITCHING TO BALL_RELEASE ***")
-                    elif navigation_info: # Only navigate if not yet at approach distance
-                        print("[DEBUG] Calling handle_robot_navigation for goal (GOAL_NAVIGATION state)")  # <--- DEBUG
-                        handle_robot_navigation(navigation_info, commander, route_manager)
+                    # Condition to force recalculation of path
+                    force_recalculate_path = False
+                    if cross_pos and robot_head: # Cross is detected
+                        if len(current_path_to_goal) == 1: # And current path is direct
+                            current_immediate_target = current_path_to_goal[0]
+                            if current_immediate_target == goal_position: # Check if the single waypoint is the ultimate target
+                                print("[DEBUG] GOAL_NAVIGATION: Cross detected, current path is direct to goal. Forcing recalculation.")
+                                force_recalculate_path = True
+
+                    if not current_path_to_goal or force_recalculate_path:
+                        # Calculate path to goal if no waypoints are pending or forced recalculation
+                        current_path_to_goal = [] # Clear before recalculating
+                        if cross_pos and robot_head: # Ensure robot_head exists for robot_pos
+                            print(f"[DEBUG] GOAL_NAVIGATION: Calling compute_path_around_cross with robot_head={{robot_head['pos']}}, goal_position={goal_position}, cross_pos={cross_pos}")
+                            path_segment = compute_path_around_cross(robot_head["pos"], goal_position, cross_pos)
+                            current_path_to_goal.extend(path_segment)
+                            print(f"[DEBUG] GOAL_NAVIGATION: compute_path_around_cross returned {path_segment}")
+                            print(f"[DEBUG] GOAL_NAVIGATION: current_path_to_goal (after new path) = {current_path_to_goal}")
+                        else:
+                            # If no cross or robot_head, navigate directly to goal
+                            print("[DEBUG] GOAL_NAVIGATION: No cross_pos or robot_head, navigating directly to goal.")
+                            current_path_to_goal.append(goal_position)
+                    
+                    if current_path_to_goal:
+                        target_to_navigate = current_path_to_goal[0] # Get the immediate waypoint/target
+                        print(f"[DEBUG] GOAL_NAVIGATION: target_to_navigate = {target_to_navigate}")
+
+                    if target_to_navigate:
+                        navigation_info = calculate_navigation_command(robot_head, robot_tail, target_to_navigate, scale_factor)
+                        print("Navigation info to goal:", navigation_info) # <--- DEBUG
+
+                        current_distance_to_target = 999 # Default to a high value if navigation_info is None
+                        if navigation_info:
+                            current_distance_to_target = navigation_info.get("distance_cm", 999)
+                        print(f"[DEBUG] Current distance to immediate target: {current_distance_to_target:.1f} cm") # New debug line
+
+                        # Determine if robot is close enough to goal or needs to navigate
+                        if current_distance_to_target < 40 and current_distance_to_target > 0: # Increased threshold for waypoint/goal approach
+                            if len(current_path_to_goal) > 1: # If it was a waypoint
+                                print(f"Waypoint {current_path_to_goal[0]} reached. Moving to next segment for GOAL_NAVIGATION.")
+                                current_path_to_goal.pop(0) # Remove the reached waypoint
+                            else: # If it was the final goal target
+                                current_state = BALL_RELEASE
+                                print("*** REACHED GOAL APPROACH DISTANCE - SWITCHING TO BALL_RELEASE ***")
+                                current_path_to_goal = [] # Clear path after reaching goal
+                        elif navigation_info: # Only navigate if not yet at approach distance
+                            print("[DEBUG] Calling handle_robot_navigation for goal (GOAL_NAVIGATION state)")  # <--- DEBUG
+                            handle_robot_navigation(navigation_info, commander, route_manager)
+                    else:
+                        print("DEBUG: No target to navigate to in GOAL_NAVIGATION.")
                 else:
                     print("ERROR: No goal position set - cannot navigate to goal!")
 
@@ -245,6 +303,7 @@ def main():
                 commander.send_release_balls_command(duration=4) # Use 4 seconds as per last discussion
                 current_run_balls = 0 # Reset collected balls for current run
                 route_manager.reset_route() # Reset route after delivery
+                current_path_to_goal = [] # Clear path after delivery
 
                 if current_run_balls >= TOTAL_BALLS_ON_COURT: # Check if all balls are collected total
                     print("*** ALL BALLS DELIVERED - MISSION COMPLETE ***")
@@ -255,7 +314,7 @@ def main():
             # Visualization
             corrected_head_for_drawing = navigation_info.get('corrected_head') if navigation_info else None
             corrected_tail_for_drawing = navigation_info.get('corrected_tail') if navigation_info else None
-            draw_route_and_targets(display_frame, robot_head, robot_tail, route_manager, walls, 
+            draw_route_and_targets(display_frame, robot_head, robot_tail, route_manager, walls, current_path_to_goal,
                                    corrected_head=corrected_head_for_drawing, 
                                    corrected_tail=corrected_tail_for_drawing)
             draw_robot_heading(display_frame, robot_head, robot_tail)
@@ -264,13 +323,15 @@ def main():
 
             if navigation_info:
                 # Use the same target that was used for navigation calculation
-                if current_state == BALL_COLLECTION:
-                    actual_target = route_manager.get_current_target()  # Same target used for navigation
+                # Now use the immediate target from current_path_to_goal for drawing
+                actual_target = None
+                if current_path_to_goal:
+                    actual_target = current_path_to_goal[0]
+                elif current_state == BALL_COLLECTION:
+                    actual_target = route_manager.get_current_target() # Fallback, should be in current_path_to_goal
                 elif current_state == GOAL_NAVIGATION:
-                    actual_target = goal_utils.get_goal_position()
-                else:
-                    actual_target = None
-                    
+                    actual_target = goal_utils.get_goal_position() # Fallback
+                
                 draw_navigation_info(
                     display_frame,
                     navigation_info["robot_center"],
