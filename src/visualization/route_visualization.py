@@ -99,7 +99,14 @@ def draw_robot_heading(display_frame, robot_head, robot_tail):
 def draw_route_status(display_frame, route_manager):
     """Draw route status information on the screen"""
     if route_manager.route:
-        route_text = "ROUTE: {}/{} waypoints (attempts: {}/{})".format(
+        # Calculate elapsed time on current target
+        elapsed_time = 0.0
+        if route_manager.target_start_time:
+            import time
+            elapsed_time = time.time() - route_manager.target_start_time
+        
+        route_text = "ROUTE: {}/{} waypoints (attempts: {}/{}, time: {:.1f}s/{:.0f}s)".format(
             route_manager.current_target_index + 1, len(route_manager.route),
-            route_manager.collection_attempts, route_manager.max_attempts)
+            route_manager.collection_attempts, route_manager.max_attempts,
+            elapsed_time, route_manager.max_target_time)
         cv2.putText(display_frame, route_text, (10, 220), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 255), 2) 
