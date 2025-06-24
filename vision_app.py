@@ -222,7 +222,8 @@ def main():
                 if goal_position:
                     # Create safe route to goal if not already created
                     if not route_manager.route_created:
-                        route_manager.create_goal_route(robot_center, goal_position)
+                        goal_marker = goal_utils.get_goal_marker()
+                        route_manager.create_goal_route(robot_center, goal_position, goal_marker)
                     
                     target_position = route_manager.get_current_target()
                     if target_position:
@@ -278,6 +279,7 @@ def main():
             draw_robot_heading(display_frame, robot_head, robot_tail)
             draw_route_status(display_frame, route_manager)
             goal_utils.draw_goal_on_frame(display_frame)
+            goal_utils.draw_marker_on_frame(display_frame)
             
             # Draw safe spots and quadrant system
             safe_spot_manager.draw_safe_spots(display_frame)

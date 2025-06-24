@@ -226,17 +226,17 @@ class RouteManager:
         self.route_created = False
         self.collection_attempts = 0
         print("🔄 ROUTE RESET") 
-
-    def create_goal_route(self, robot_center, goal_position):
-        """Create a safe route to goal using safe spots"""
+    
+    def create_goal_route(self, robot_center, goal_position, goal_marker=None):
+        """Create a safe route to goal using safe spots and (optionally) a marker"""
         if not goal_position:
             print("ERROR: create_goal_route - goal_position is None. Cannot create route.")
             return
             
         print("🎯 CREATING SAFE GOAL ROUTE...")
         
-        # Get safe route to goal
-        goal_waypoints = self.safe_spot_manager.plan_safe_route_to_goal(robot_center, goal_position)
+        # Get safe route to goal, passing marker if available
+        goal_waypoints = self.safe_spot_manager.plan_safe_route_to_goal(robot_center, goal_position, goal_marker)
         
         self.route = goal_waypoints
         self.current_target_index = 0
