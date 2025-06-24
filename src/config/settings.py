@@ -37,7 +37,7 @@ ORIENTED_OBJECTS = ["robothead", "robottail", "egg", "cross"]
 EGG_OBB_ASPECT_RATIO_THRESHOLD = 1.3
 
 # Navigation parameters - no sensors, only vision navigation
-COMMAND_COOLDOWN = 0.5  # CAREFUL: Increased from 0.3 to 0.5 for better measurement between commands
+COMMAND_COOLDOWN = 0.4  # CAREFUL: Increased from 0.3 to 0.5 for better measurement between commands
 PRINT_INTERVAL = 3      # Faster status updates
 TURN_THRESHOLD = 10     # minimum number of degrees to turn.
 DISTANCE_THRESHOLD = 30 # cm - stop 30 cm from ball for precise correction
@@ -48,5 +48,5 @@ PICKUP_FORWARD_DISTANCE = 35  # cm - distance to drive forward to collect ball
 PICKUP_BACKWARD_DISTANCE = 35  # cm - distance to back up after collection
 
 ROBOT_TURN_SPEED = 20 # FASTER: Motor speed for turning (increased from 10 to 25)
-ROBOT_FORWARD_SPEED = 35 # FASTER: Motor speed for forward movement (increased from 30 to 50)  
+ROBOT_FORWARD_SPEED = 40 # FASTER: Motor speed for forward movement (increased from 30 to 50)  
 ESTIMATED_TURN_RATE = 180.0  # degrees per second - updated based on wheel calibration (half rotation = 90°)

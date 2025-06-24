@@ -185,6 +185,9 @@ def main():
                     print("*** STORAGE FULL - SWITCHING TO GOAL_NAVIGATION ***")
                     route_manager.reset_route()
                 elif not balls and current_run_balls > 0: # Collected some, but no more visible balls
+                    if commander.can_send_command():
+                        commander.send_forward_command(distance=5)
+                        time.sleep(1)
                     current_state = GOAL_NAVIGATION
                     print("*** NO MORE BALLS ON FIELD - DELIVERING WHAT'S COLLECTED ***")
                     route_manager.reset_route()

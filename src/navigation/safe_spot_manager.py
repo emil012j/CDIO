@@ -161,7 +161,7 @@ class SafeSpotManager:
             closest_safe_spot = self.get_safe_spot_closest_to_marker(goal_marker)
             if closest_safe_spot is not None:
                 # Only add if not already at that safe spot
-                if math.dist(robot_pos, closest_safe_spot) > 50:
+                if math.dist(robot_pos, closest_safe_spot) > 35:
                     # If diagonal crossing is needed to reach that safe spot, add the diagonal avoidance logic
                     safe_spot_quadrant = None
                     for q, pos in self.safe_spots.items():
