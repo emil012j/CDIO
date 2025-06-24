@@ -74,7 +74,7 @@ class SafeSpotManager:
         return nearest_quadrant, nearest_spot
     
     def plan_safe_route_to_ball(self, robot_pos, ball_pos):
-        """Plan a safe route from robot to ball using safe spots if needed"""
+        """Plan a safe route from robot to ball using safe spots only for diagonal crossing"""
         robot_quadrant = self.get_robot_quadrant(robot_pos)
         ball_quadrant = self.get_ball_quadrant(ball_pos)
 
@@ -89,16 +89,12 @@ class SafeSpotManager:
             return route_waypoints
 
         # Diagonal crossing (Q1<->Q4 or Q2<->Q3): must use a safe spot in an adjacent quadrant
-        # Q1 <-> Q4: must go via Q2 or Q3
-        # Q2 <-> Q3: must go via Q1 or Q4
         if (robot_quadrant == 1 and ball_quadrant == 4) or (robot_quadrant == 4 and ball_quadrant == 1):
             # Choose nearest of Q2 or Q3 safe spot
             candidates = [self.safe_spots[2], self.safe_spots[3]]
-            
         elif (robot_quadrant == 2 and ball_quadrant == 3) or (robot_quadrant == 3 and ball_quadrant == 2):
             # Choose nearest of Q1 or Q4 safe spot
             candidates = [self.safe_spots[1], self.safe_spots[4]]
-            
         else:
             # Should not happen, fallback to direct
             route_waypoints.append(ball_pos)
@@ -156,7 +152,7 @@ class SafeSpotManager:
         return perpendicular_approach, nearest_spot[0], second_nearest_spot[0]
 
     def plan_safe_route_to_goal(self, robot_pos, goal_pos):
-        """Plan a safe route from robot to goal using safe spots"""
+        """Plan a safe route from robot to goal using safe spots only for diagonal crossing"""
         robot_quadrant = self.get_robot_quadrant(robot_pos)
         goal_quadrant = self.get_robot_quadrant(goal_pos)
 
@@ -164,19 +160,35 @@ class SafeSpotManager:
 
         route_waypoints = []
 
-        # Step 1: Go to own safe spot if not already there
-        own_safe_spot = self.safe_spots[robot_quadrant]
-        if math.dist(robot_pos, own_safe_spot) > 50:
-            print(f"🛡️ Adding own safe spot: {own_safe_spot}")
-            route_waypoints.append(own_safe_spot)
+        # If same quadrant or adjacent, go direct
+        if self.is_cross_safe_path(robot_quadrant, goal_quadrant):
+            print(f"✅ Direct path safe: Q{robot_quadrant} → Q{goal_quadrant}")
+            route_waypoints.append(goal_pos)
+            return route_waypoints
 
-        # Step 2: If not already in goal quadrant, go to its safe spot
-        if robot_quadrant != goal_quadrant:
-            goal_safe_spot = self.safe_spots[goal_quadrant]
-            print(f"🛡️ Adding goal quadrant safe spot: {goal_safe_spot}")
-            route_waypoints.append(goal_safe_spot)
+        # Diagonal crossing (Q1<->Q4 or Q2<->Q3): must use a safe spot in an adjacent quadrant
+        if (robot_quadrant == 1 and goal_quadrant == 4) or (robot_quadrant == 4 and goal_quadrant == 1):
+            # Choose nearest of Q2 or Q3 safe spot
+            candidates = [self.safe_spots[2], self.safe_spots[3]]
+        elif (robot_quadrant == 2 and goal_quadrant == 3) or (robot_quadrant == 3 and goal_quadrant == 2):
+            # Choose nearest of Q1 or Q4 safe spot
+            candidates = [self.safe_spots[1], self.safe_spots[4]]
+        else:
+            # Should not happen, fallback to direct
+            route_waypoints.append(goal_pos)
+            return route_waypoints
 
-        # Step 3: Go to the goal
+        # Find the closest candidate safe spot to the robot's current position
+        min_dist = float('inf')
+        best_spot = None
+        for spot in candidates:
+            dist = math.dist(robot_pos, spot)
+            if dist < min_dist:
+                min_dist = dist
+                best_spot = spot
+
+        print(f"🛡️ Crossing diagonally, adding safe spot: {best_spot}")
+        route_waypoints.append(best_spot)
         route_waypoints.append(goal_pos)
 
         print(f"🛡️ Safe goal route planned: {len(route_waypoints)} waypoints")
