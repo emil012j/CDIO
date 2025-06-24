@@ -87,23 +87,10 @@ class RouteManager:
                     if distance < min_distance:
                         min_distance = distance
                         target_ball = ball
-                
-                # Check if current position is already a safe spot
-                current_safe_spot = self.safe_spot_manager.get_safe_spot(current_quadrant)
-                is_at_safe_spot = False
-                if current_safe_spot:
-                    is_at_safe_spot = (abs(current_pos[0] - current_safe_spot[0]) < 50 and 
-                                     abs(current_pos[1] - current_safe_spot[1]) < 50)
-                
-                if not is_at_safe_spot and current_safe_spot:
-                    # Not at safe spot - navigate to safe spot first, then to ball
-                    print(f"🛡️ Not at safe spot - routing: Current pos → Q{current_quadrant} safe → Ball")
-                    route_points.append(current_safe_spot)  # Go to safe spot first
-                    route_points.append(target_ball)       # Then to ball
-                else:
-                    # Already at safe spot - direct route to ball
-                    print(f"🎯 At safe spot - direct route to ball in Q{current_quadrant}")
-                    route_points.append(target_ball)
+
+                # Go directly to the ball (no safe spot at start)
+                print(f"🎯 Direct route to ball in Q{current_quadrant}")
+                route_points.append(target_ball)
                 
             # RULE 2: No balls in current quadrant - must go via safe spots to other quadrants
             elif cross_quadrant_balls:
