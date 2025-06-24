@@ -223,7 +223,7 @@ class RobotController:
         
         # Step 2: Back up 20 cm
         print("STEP 2: Backing up 20 cm")
-        self.simple_backward(20)
+        self.simple_backward(10)
         
         # Step 3: Rotate 180 degrees for next ball
         print("STEP 3: Rotating 180 degrees for next ball")

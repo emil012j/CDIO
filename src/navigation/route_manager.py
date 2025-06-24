@@ -112,8 +112,8 @@ class RouteManager:
                 current_safe_spot = self.safe_spot_manager.get_safe_spot(current_quadrant)
                 is_at_safe_spot = False
                 if current_safe_spot:
-                    is_at_safe_spot = (abs(current_pos[0] - current_safe_spot[0]) < 20 and 
-                                     abs(current_pos[1] - current_safe_spot[1]) < 20)
+                    is_at_safe_spot = (abs(current_pos[0] - current_safe_spot[0]) < 30 and 
+                                     abs(current_pos[1] - current_safe_spot[1]) < 30)
                 
                 if not is_at_safe_spot and current_safe_spot:
                     print(f"🛡️ First, navigate to Q{current_quadrant} safe spot")
