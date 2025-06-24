@@ -159,34 +159,59 @@ class SafeSpotManager:
         return perpendicular_approach, nearest_spot[0], second_nearest_spot[0]
 
     def plan_safe_route_to_goal(self, robot_pos, goal_pos):
-        """Plan a safe route from robot to goal with perpendicular approach"""
+        """Plan a safe route from robot to goal with proper safe spot navigation"""
         robot_quadrant = self.get_robot_quadrant(robot_pos)
+        goal_quadrant = self.get_robot_quadrant(goal_pos)  # Treat goal like a ball for quadrant calculation
         
-        print(f"🎯 Planning perpendicular route to goal: Robot in Q{robot_quadrant}")
+        print(f"🎯 Planning safe route to goal: Robot in Q{robot_quadrant} → Goal in Q{goal_quadrant}")
         
-        # Get perpendicular approach point and nearest safe spots to goal
-        perp_approach, nearest_q, second_nearest_q = self.calculate_perpendicular_approach_point(goal_pos)
+        # Check if direct path is safe (same quadrant or adjacent)
+        if self.is_cross_safe_path(robot_quadrant, goal_quadrant):
+            print(f"✅ Direct path to goal safe: Q{robot_quadrant} → Q{goal_quadrant}")
+            return [goal_pos]  # Direct route
         
-        # Build route: Robot → Perpendicular approach → Goal
-        route_waypoints = []
+        # Diagonal crossing needed - use safe spots
+        print(f"⚠️ Diagonal crossing to goal needed: Q{robot_quadrant} → Q{goal_quadrant}")
         
-        # Add robot's current safe spot if not already close to it
-        robot_safe_spot = self.safe_spots.get(robot_quadrant)
-        if robot_safe_spot and (abs(robot_pos[0] - robot_safe_spot[0]) > 50 or \
-                                abs(robot_pos[1] - robot_safe_spot[1]) > 50):
-            route_waypoints.append(robot_safe_spot)
+        # Choose the most efficient intermediate safe spot for diagonal crossing
+        if robot_quadrant == 1 and goal_quadrant == 4:
+            # Q1 → Q4: Must go via Q2 or Q3 safe spots
+            route_waypoints = [self.safe_spots[1], self.safe_spots[2], self.safe_spots[4], goal_pos]  # Q1→Q2→Q4→goal
+        elif robot_quadrant == 1 and goal_quadrant == 3:
+            # Q1 → Q3: Go via Q2 safe spot
+            route_waypoints = [self.safe_spots[1], self.safe_spots[2], self.safe_spots[3], goal_pos]  # Q1→Q2→Q3→goal
+        elif robot_quadrant == 2 and goal_quadrant == 3:
+            # Q2 → Q3: Must go via Q1 or Q4 safe spots
+            route_waypoints = [self.safe_spots[2], self.safe_spots[4], self.safe_spots[3], goal_pos]  # Q2→Q4→Q3→goal
+        elif robot_quadrant == 2 and goal_quadrant == 4:
+            # Q2 → Q4: Go via Q1 safe spot
+            route_waypoints = [self.safe_spots[2], self.safe_spots[1], self.safe_spots[4], goal_pos]  # Q2→Q1→Q4→goal
+        elif robot_quadrant == 3 and goal_quadrant == 2:
+            # Q3 → Q2: Must go via Q1 or Q4 safe spots
+            route_waypoints = [self.safe_spots[3], self.safe_spots[1], self.safe_spots[2], goal_pos]  # Q3→Q1→Q2→goal
+        elif robot_quadrant == 3 and goal_quadrant == 1:
+            # Q3 → Q1: Go via Q4 safe spot
+            route_waypoints = [self.safe_spots[3], self.safe_spots[4], self.safe_spots[1], goal_pos]  # Q3→Q4→Q1→goal
+        elif robot_quadrant == 4 and goal_quadrant == 1:
+            # Q4 → Q1: Must go via Q2 or Q3 safe spots
+            route_waypoints = [self.safe_spots[4], self.safe_spots[3], self.safe_spots[1], goal_pos]  # Q4→Q3→Q1→goal
+        elif robot_quadrant == 4 and goal_quadrant == 2:
+            # Q4 → Q2: Go via Q3 safe spot
+            route_waypoints = [self.safe_spots[4], self.safe_spots[3], self.safe_spots[2], goal_pos]  # Q4→Q3→Q2→goal
+        else:
+            # Same quadrant or adjacent - go to own safe spot then goal
+            route_waypoints = [self.safe_spots[robot_quadrant], goal_pos]
         
-        # Then go to perpendicular approach point and finally to goal
-        route_waypoints.extend([perp_approach, goal_pos])
-        
-        print(f"🛡️ Perpendicular goal route planned: {len(route_waypoints)} waypoints")
+        print(f"🛡️ Safe goal route planned: {len(route_waypoints)} waypoints")
         for i, waypoint in enumerate(route_waypoints):
-            if waypoint == perp_approach:
-                print(f"   {i+1}: {waypoint} (PERPENDICULAR APPROACH)")
-            elif waypoint == goal_pos:
+            if waypoint == goal_pos:
                 print(f"   {i+1}: {waypoint} (GOAL)")
             else:
-                print(f"   {i+1}: {waypoint} (SAFE SPOT)")
+                # Find which safe spot this is
+                for quadrant, spot_pos in self.safe_spots.items():
+                    if waypoint == spot_pos:
+                        print(f"   {i+1}: {waypoint} (SAFE SPOT Q{quadrant})")
+                        break
             
         return route_waypoints
     
