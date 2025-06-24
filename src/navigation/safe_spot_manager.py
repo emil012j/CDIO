@@ -88,37 +88,33 @@ class SafeSpotManager:
         # Need to go via safe spots to avoid crossing center
         print(f"⚠️ Need safe route via waypoints (cannot go Q{robot_quadrant} → Q{ball_quadrant} directly)")
         
-        # Find intermediate quadrant(s) to reach target safely
         route_waypoints = []
+        
+        # Always go to own safe spot first if not already there
+        own_safe_spot = self.safe_spots[robot_quadrant]
+        if math.dist(robot_pos, own_safe_spot) > 50:
+            print(f"🛡️ Adding own safe spot: {own_safe_spot}")
+            route_waypoints.append(own_safe_spot)
         
         # Strategy: Go through intermediate safe spots to avoid diagonal crossing
         if robot_quadrant == 1 and ball_quadrant == 4:
-            # Q1 → Q4: Must go via Q2 or Q3 safe spots
-            route_waypoints = [self.safe_spots[1], self.safe_spots[2], self.safe_spots[4], ball_pos]  # Q1→Q2→Q4→ball
+            route_waypoints += [self.safe_spots[2], self.safe_spots[4], ball_pos]  # Q1→Q2→Q4→ball
         elif robot_quadrant == 1 and ball_quadrant == 3:
-            # Q1 → Q3: Go via Q2 safe spot
-            route_waypoints = [self.safe_spots[1], self.safe_spots[2], self.safe_spots[3], ball_pos]  # Q1→Q2→Q3→ball
+            route_waypoints += [self.safe_spots[2], self.safe_spots[3], ball_pos]  # Q1→Q2→Q3→ball
         elif robot_quadrant == 2 and ball_quadrant == 3:
-            # Q2 → Q3: Must go via Q1 or Q4 safe spots  
-            route_waypoints = [self.safe_spots[2], self.safe_spots[4], self.safe_spots[3], ball_pos]  # Q2→Q4→Q3→ball
+            route_waypoints += [self.safe_spots[4], self.safe_spots[3], ball_pos]  # Q2→Q4→Q3→ball
         elif robot_quadrant == 2 and ball_quadrant == 4:
-            # Q2 → Q4: Go via Q1 safe spot
-            route_waypoints = [self.safe_spots[2], self.safe_spots[1], self.safe_spots[4], ball_pos]  # Q2→Q1→Q4→ball
+            route_waypoints += [self.safe_spots[1], self.safe_spots[4], ball_pos]  # Q2→Q1→Q4→ball
         elif robot_quadrant == 3 and ball_quadrant == 2:
-            # Q3 → Q2: Must go via Q1 or Q4 safe spots
-            route_waypoints = [self.safe_spots[3], self.safe_spots[1], self.safe_spots[2], ball_pos]  # Q3→Q1→Q2→ball
+            route_waypoints += [self.safe_spots[1], self.safe_spots[2], ball_pos]  # Q3→Q1→Q2→ball
         elif robot_quadrant == 3 and ball_quadrant == 1:
-            # Q3 → Q1: Go via Q4 safe spot
-            route_waypoints = [self.safe_spots[3], self.safe_spots[4], self.safe_spots[1], ball_pos]  # Q3→Q4→Q1→ball
+            route_waypoints += [self.safe_spots[4], self.safe_spots[1], ball_pos]  # Q3→Q4→Q1→ball
         elif robot_quadrant == 4 and ball_quadrant == 1:
-            # Q4 → Q1: Must go via Q2 or Q3 safe spots
-            route_waypoints = [self.safe_spots[4], self.safe_spots[3], self.safe_spots[1], ball_pos]  # Q4→Q3→Q1→ball
+            route_waypoints += [self.safe_spots[3], self.safe_spots[1], ball_pos]  # Q4→Q3→Q1→ball
         elif robot_quadrant == 4 and ball_quadrant == 2:
-            # Q4 → Q2: Go via Q3 safe spot
-            route_waypoints = [self.safe_spots[4], self.safe_spots[3], self.safe_spots[2], ball_pos]  # Q4→Q3→Q2→ball
+            route_waypoints += [self.safe_spots[3], self.safe_spots[2], ball_pos]  # Q4→Q3→Q2→ball
         else:
-            # Same quadrant or adjacent - go to own safe spot then ball
-            route_waypoints = [self.safe_spots[robot_quadrant], ball_pos]
+            route_waypoints += [self.safe_spots[robot_quadrant], ball_pos]
         
         print(f"🛡️ Safe route planned: {len(route_waypoints)} waypoints")
         for i, waypoint in enumerate(route_waypoints):
