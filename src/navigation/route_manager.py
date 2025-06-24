@@ -4,6 +4,9 @@ Route-based navigation system that replaces "nearest ball" with fixed route plan
 """
 
 import math
+import time
+
+# from .safe_spot_manager import SafeSpotManager
 
 class RouteManager:
     def __init__(self):
@@ -13,6 +16,11 @@ class RouteManager:
         self.collected_balls_count = 0
         self.collection_attempts = 0  # Count attempts on current target
         self.max_attempts = 3  # Max attempts before giving up on a ball
+        # self.safe_spot_manager = SafeSpotManager()  # Safe spot navigation system
+        
+        # Timer-based timeout for ball collection
+        self.target_start_time = None  # When robot started working on current target
+        self.max_target_time = 15.0   # Max seconds to spend on one target (30 seconds)
         
     def create_route_from_balls(self, balls, robot_center, walls=None, cross_pos=None):
         """Create a fixed route from robot position to all balls with collision avoidance"""
@@ -78,6 +86,7 @@ class RouteManager:
         self.route = route_points
         self.current_target_index = 0
         self.route_created = True
+        self.start_target_timer() # Start timer for the first target
         
         print("ROUTE CREATED: {} waypoints".format(len(self.route)))
         for i, point in enumerate(self.route):
@@ -133,6 +142,7 @@ class RouteManager:
         self.current_target_index += 1
         self.collected_balls_count += 1
         self.collection_attempts = 0  # Reset attempts for new target
+        self.target_start_time = time.time()  # Reset timer for new target
         print("ADVANCING TO NEXT TARGET: {}/{}".format(
             self.current_target_index + 1, len(self.route)))
             
@@ -143,9 +153,36 @@ class RouteManager:
             self.collection_attempts, self.max_attempts))
         return self.collection_attempts >= self.max_attempts
         
+    def start_target_timer(self):
+        """Start timer for current target"""
+        self.target_start_time = time.time()
+        print(f"Timer started for target - max {self.max_target_time} seconds")
+    
+    def check_target_timeout(self):
+        """Check if current target has timed out"""
+        if self.target_start_time is None:
+            self.start_target_timer()
+            return False
+            
+        elapsed_time = time.time() - self.target_start_time
+        is_timeout = elapsed_time > self.max_target_time
+        
+        if is_timeout:
+            print(f"TARGET TIMEOUT: {elapsed_time:.1f}s > {self.max_target_time}s")
+        
+        return is_timeout
+    
     def should_skip_current_target(self):
-        """Check if we should give up on current target"""
-        return self.collection_attempts >= self.max_attempts
+        """Check if we should give up on current target (attempts OR timeout)"""
+        attempts_exceeded = self.collection_attempts >= self.max_attempts
+        timeout_exceeded = self.check_target_timeout()
+        
+        if attempts_exceeded:
+            print(f"Skipping target: max attempts ({self.max_attempts}) reached")
+        if timeout_exceeded:
+            print(f"Skipping target: timeout ({self.max_target_time}s) exceeded")
+            
+        return attempts_exceeded or timeout_exceeded
         
     def is_route_complete(self):
         """Check if the route is complete"""
@@ -157,7 +194,28 @@ class RouteManager:
         self.current_target_index = 0
         self.route_created = False
         self.collection_attempts = 0
-        print("ROUTE RESET") 
+        self.target_start_time = None # Reset timer when route is reset
+        print("ROUTE RESET")
+
+    def create_goal_route(self, robot_center, goal_position):
+        """Create a safe route to goal using safe spots"""
+        # This method assumes safe_spot_manager is available if used
+        # For now, a simple direct route to goal
+        self.route = [goal_position]
+        self.current_target_index = 0
+        self.route_created = True
+        self.start_target_timer() # Start timer for the goal
+
+        print(f"SAFE GOAL ROUTE CREATED: {len(self.route)} waypoints")
+        for i, point in enumerate(self.route):
+            print(f"   {i+1}: {point} (GOAL)")
+
+    # The following methods are from the user's snippet and assume SafeSpotManager
+    # For now, they are commented out or simplified to avoid errors
+    def is_current_target_waypoint(self):
+        """Check if current target is a waypoint (not ball/goal)"""
+        # This method assumes safe_spot_manager
+        return False # Simplified for now
 
     def filter_close_balls(self, balls, min_distance=40):
         """Remove balls that are too close to each other"""

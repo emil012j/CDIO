@@ -21,8 +21,7 @@ def handle_robot_navigation(navigation_info, commander, route_manager):
     hitting_zone_max = 3.0
     in_hitting_zone = hitting_zone_min <= angle_diff <= hitting_zone_max
     
-    print("  DEBUG: Distance={:.1f}cm (<=22cm?), Angle={:.1f}° in [{:.1f}°,{:.1f}°]? = {}".format(
-        distance_cm, angle_diff, hitting_zone_min, hitting_zone_max, in_hitting_zone))
+    
     
     if not in_hitting_zone:
         return handle_turn_correction(angle_diff, hitting_zone_min, hitting_zone_max, commander, route_manager)
