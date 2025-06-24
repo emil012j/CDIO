@@ -77,49 +77,30 @@ class SafeSpotManager:
         """Plan a safe route from robot to ball using safe spots if needed"""
         robot_quadrant = self.get_robot_quadrant(robot_pos)
         ball_quadrant = self.get_ball_quadrant(ball_pos)
-        
+
         print(f"🗺️ Planning route: Robot in Q{robot_quadrant} → Ball in Q{ball_quadrant}")
-        
-        # If ball is in same quadrant or safely accessible, go direct
-        if self.is_cross_safe_path(robot_quadrant, ball_quadrant):
-            print(f"✅ Direct path safe: Q{robot_quadrant} → Q{ball_quadrant}")
-            return [ball_pos]  # Direct route
-        
-        # Need to go via safe spots to avoid crossing center
-        print(f"⚠️ Need safe route via waypoints (cannot go Q{robot_quadrant} → Q{ball_quadrant} directly)")
-        
+
         route_waypoints = []
-        
-        # Always go to own safe spot first if not already there
+
+        # Step 1: Go to own safe spot if not already there
         own_safe_spot = self.safe_spots[robot_quadrant]
         if math.dist(robot_pos, own_safe_spot) > 50:
             print(f"🛡️ Adding own safe spot: {own_safe_spot}")
             route_waypoints.append(own_safe_spot)
-        
-        # Strategy: Go through intermediate safe spots to avoid diagonal crossing
-        if robot_quadrant == 1 and ball_quadrant == 4:
-            route_waypoints += [self.safe_spots[2], self.safe_spots[4], ball_pos]  # Q1→Q2→Q4→ball
-        elif robot_quadrant == 1 and ball_quadrant == 3:
-            route_waypoints += [self.safe_spots[2], self.safe_spots[3], ball_pos]  # Q1→Q2→Q3→ball
-        elif robot_quadrant == 2 and ball_quadrant == 3:
-            route_waypoints += [self.safe_spots[4], self.safe_spots[3], ball_pos]  # Q2→Q4→Q3→ball
-        elif robot_quadrant == 2 and ball_quadrant == 4:
-            route_waypoints += [self.safe_spots[1], self.safe_spots[4], ball_pos]  # Q2→Q1→Q4→ball
-        elif robot_quadrant == 3 and ball_quadrant == 2:
-            route_waypoints += [self.safe_spots[1], self.safe_spots[2], ball_pos]  # Q3→Q1→Q2→ball
-        elif robot_quadrant == 3 and ball_quadrant == 1:
-            route_waypoints += [self.safe_spots[4], self.safe_spots[1], ball_pos]  # Q3→Q4→Q1→ball
-        elif robot_quadrant == 4 and ball_quadrant == 1:
-            route_waypoints += [self.safe_spots[3], self.safe_spots[1], ball_pos]  # Q4→Q3→Q1→ball
-        elif robot_quadrant == 4 and ball_quadrant == 2:
-            route_waypoints += [self.safe_spots[3], self.safe_spots[2], ball_pos]  # Q4→Q3→Q2→ball
-        else:
-            route_waypoints += [self.safe_spots[robot_quadrant], ball_pos]
-        
+
+        # Step 2: If not already in target quadrant, go to its safe spot
+        if robot_quadrant != ball_quadrant:
+            target_safe_spot = self.safe_spots[ball_quadrant]
+            print(f"🛡️ Adding target quadrant safe spot: {target_safe_spot}")
+            route_waypoints.append(target_safe_spot)
+
+        # Step 3: Go to the ball
+        route_waypoints.append(ball_pos)
+
         print(f"🛡️ Safe route planned: {len(route_waypoints)} waypoints")
         for i, waypoint in enumerate(route_waypoints):
             print(f"   Waypoint {i+1}: {waypoint}")
-            
+
         return route_waypoints
     
     def get_two_nearest_safe_spots_to_goal(self, goal_pos):
@@ -155,35 +136,33 @@ class SafeSpotManager:
         return perpendicular_approach, nearest_spot[0], second_nearest_spot[0]
 
     def plan_safe_route_to_goal(self, robot_pos, goal_pos):
-        """Plan a safe route from robot to goal with perpendicular approach"""
+        """Plan a safe route from robot to goal using safe spots"""
         robot_quadrant = self.get_robot_quadrant(robot_pos)
-        
-        print(f"🎯 Planning perpendicular route to goal: Robot in Q{robot_quadrant}")
-        
-        # Get perpendicular approach point and nearest safe spots to goal
-        perp_approach, nearest_q, second_nearest_q = self.calculate_perpendicular_approach_point(goal_pos)
-        
-        # Build route: Robot → Perpendicular approach → Goal
+        goal_quadrant = self.get_robot_quadrant(goal_pos)
+
+        print(f"🎯 Planning safe route to goal: Robot in Q{robot_quadrant} → Goal in Q{goal_quadrant}")
+
         route_waypoints = []
-        
-        # Add robot's current safe spot if not already close to it
-        robot_safe_spot = self.safe_spots.get(robot_quadrant)
-        if robot_safe_spot and (abs(robot_pos[0] - robot_safe_spot[0]) > 50 or \
-                                abs(robot_pos[1] - robot_safe_spot[1]) > 50):
-            route_waypoints.append(robot_safe_spot)
-        
-        # Then go to perpendicular approach point and finally to goal
-        route_waypoints.extend([perp_approach, goal_pos])
-        
-        print(f"🛡️ Perpendicular goal route planned: {len(route_waypoints)} waypoints")
+
+        # Step 1: Go to own safe spot if not already there
+        own_safe_spot = self.safe_spots[robot_quadrant]
+        if math.dist(robot_pos, own_safe_spot) > 50:
+            print(f"🛡️ Adding own safe spot: {own_safe_spot}")
+            route_waypoints.append(own_safe_spot)
+
+        # Step 2: If not already in goal quadrant, go to its safe spot
+        if robot_quadrant != goal_quadrant:
+            goal_safe_spot = self.safe_spots[goal_quadrant]
+            print(f"🛡️ Adding goal quadrant safe spot: {goal_safe_spot}")
+            route_waypoints.append(goal_safe_spot)
+
+        # Step 3: Go to the goal
+        route_waypoints.append(goal_pos)
+
+        print(f"🛡️ Safe goal route planned: {len(route_waypoints)} waypoints")
         for i, waypoint in enumerate(route_waypoints):
-            if waypoint == perp_approach:
-                print(f"   {i+1}: {waypoint} (PERPENDICULAR APPROACH)")
-            elif waypoint == goal_pos:
-                print(f"   {i+1}: {waypoint} (GOAL)")
-            else:
-                print(f"   {i+1}: {waypoint} (SAFE SPOT)")
-            
+            print(f"   Waypoint {i+1}: {waypoint}")
+
         return route_waypoints
     
     def is_waypoint(self, position):
