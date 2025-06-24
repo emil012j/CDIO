@@ -4,7 +4,7 @@ Settings for the robot, e.g. IP, port, camera, models, colors, etc.
 """
 
 # Network settings (IP, port)
-ROBOT_IP = "192.168.65.158"
+ROBOT_IP = "192.168.158.158"
 COMMAND_PORT = 1233
 
 # Camera settings (resolution, confidence)

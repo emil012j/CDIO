@@ -49,12 +49,17 @@ def main():
     commander = VisionCommander()
 
     # State management
+    PUSH_CROSS = "push_cross"
     ROUTE_PLANNING = "route_planning"
     BALL_COLLECTION = "ball_collection"
     GOAL_NAVIGATION = "goal_navigation"
     BALL_RELEASE = "ball_release"
 
-    current_state = ROUTE_PLANNING
+    current_state = PUSH_CROSS # Initial state
+    push_cross_start_time = 0
+    push_cross_duration = 10 # 10 seconds
+    pushed_cross_once = False # Flag to ensure PUSH_CROSS runs only once
+
     STORAGE_CAPACITY = 6
     TOTAL_BALLS_ON_COURT = 11 # Important we write the correct number of balls we are testing with
     current_run_balls = 0
@@ -68,8 +73,6 @@ def main():
     frame_count = 0
 
     collected_balls_positions = []
-    just_avoided_cross = False
-    cross_avoid_reset_time = None
 
     try:
         while True:
@@ -96,44 +99,34 @@ def main():
 
             navigation_info = None
 
-            # --- Cross avoidance flag reset (always runs) ---
-            if just_avoided_cross:
-                if cross_pos and robot_head:
-                    head_x, head_y = robot_head["pos"]
-                    cross_x, cross_y = cross_pos
-                    dist_to_cross = ((head_x - cross_x) ** 2 + (head_y - cross_y) ** 2) ** 0.5
-                    if dist_to_cross > 180:  # Use a larger threshold for reset
-                        just_avoided_cross = False
-                        cross_avoid_reset_time = None
+            if current_state == PUSH_CROSS:
+                print("[DEBUG] State: PUSH_CROSS")
+                if not pushed_cross_once:
+                    print(f"Entering PUSH_CROSS state: Driving forward for {push_cross_duration} seconds at full speed (no targeting).")
+                    # Send a continuous move command at full forward speed
+                    commander.send_continuous_move_command(speed=ROBOT_FORWARD_SPEED)
+                    
+                    push_cross_start_time = time.time()
+                    pushed_cross_once = True
+
+                elapsed_time = time.time() - push_cross_start_time
+
+                if elapsed_time >= push_cross_duration:
+                    print("PUSH_CROSS duration elapsed. Stopping, backing up 1 second, and transitioning to ROUTE_PLANNING.")
+                    commander.send_stop_command() # Stop the robot after the duration
+                    time.sleep(0.5) # Short delay to ensure stop command is processed before backing up
+
+                    # Back up for 1 second
+                    commander.send_backward_command(distance=10) # Assuming 10cm is roughly 1 second at ROBOT_FORWARD_SPEED
+                    time.sleep(1) # Ensure backward movement completes
+                    commander.send_stop_command() # Stop after backing up
+
+                    current_state = ROUTE_PLANNING # Transition to ROUTE_PLANNING
                 else:
-                    if cross_avoid_reset_time is None:
-                        cross_avoid_reset_time = time.time()
-                    elif time.time() - cross_avoid_reset_time > 2:  # 2 seconds without seeing the cross
-                        just_avoided_cross = False
-                        cross_avoid_reset_time = None
-            else:
-                cross_avoid_reset_time = None
+                    # Continue to drive forward (no action needed here as continuous command is sent once)
+                    pass
 
-            # --- Cross avoidance logic (dynamic turn direction, using head position) ---
-            if cross_pos and robot_head:
-                head_x, head_y = robot_head["pos"]
-                cross_x, cross_y = cross_pos
-                dist_to_cross = ((head_x - cross_x) ** 2 + (head_y - cross_y) ** 2) ** 0.5
-                if dist_to_cross <= 120 and not just_avoided_cross:
-                    # Dynamic turn direction: turn away from cross
-                    turn_direction = "right" if cross_x > head_x else "left"
-                    if commander.can_send_command():
-                        print(f"*** CLOSE TO CROSS - GOING BACKWARDS AND TURNING {turn_direction.upper()} ***")
-                        commander.send_backward_command(distance=20)
-                        time.sleep(1)
-                        commander.send_turn_rotation_command(turn_direction, 0.5)
-                        time.sleep(1)
-                        commander.send_forward_command(distance=15)
-                        time.sleep(1)
-                        just_avoided_cross = True
-                        continue
-
-            if current_state == ROUTE_PLANNING:
+            elif current_state == ROUTE_PLANNING:
                 print("[DEBUG] State: ROUTE_PLANNING")
                 # --- Filter out balls inside the cross area ---
                 if balls and cross_pos:
@@ -233,8 +226,9 @@ def main():
                     if current_distance_to_goal < 26 and current_distance_to_goal > 0: # Use 22cm as threshold for goal approach as well
                         current_state = BALL_RELEASE
                         print("*** REACHED GOAL APPROACH DISTANCE - SWITCHING TO BALL_RELEASE ***")
-                    elif navigation_info: # Only navigate if not yet at approach distance
+                    elif navigation_info:
                         print("[DEBUG] Calling handle_robot_navigation for goal (GOAL_NAVIGATION state)")  # <--- DEBUG
+                        # The handle_robot_navigation function already checks if a command can be sent
                         handle_robot_navigation(navigation_info, commander, route_manager)
                 else:
                     print("ERROR: No goal position set - cannot navigate to goal!")

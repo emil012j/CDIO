@@ -6,8 +6,8 @@
 
 ### When updating files:
 ```bash
-scp robot_app.py robot@192.168.65.158:/home/robot/
-scp -r src/ robot@192.168.65.158:/home/robot/
+scp robot_app.py robot@192.168.158.158:/home/robot/
+scp -r src/ robot@192.168.158.158:/home/robot/
 ```
 
 ### 1. On Robot:

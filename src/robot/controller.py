@@ -193,6 +193,19 @@ class RobotController:
         
         print("Simple backward complete")
 
+    def start_continuous_move(self, speed):
+        """Starts continuous movement of the robot at a given speed.
+        Negative speed for forward, positive for backward (based on observed behavior).
+        """
+        # Use negative speed for forward movement based on user's confirmation
+        self.tank_drive.on(left_speed=-speed, right_speed=-speed)
+        print("Robot started continuous move with speed: {}".format(speed))
+
+    def stop_continuous_move(self):
+        """Stops any continuous movement by turning off tank drive."""
+        self.tank_drive.off()
+        print("Robot stopped continuous move")
+
     def turn_180_degrees(self):
         """
         Precise 180 degree turn based on motor rotations
@@ -219,7 +232,7 @@ class RobotController:
         print("STEP 2: Backing up 20 cm")
         self.simple_backward(20)
         
-        # Step 3: Rotate 180 degrees for next ball
+        # Step 3: Rotate 180 degrees (ca 1 rotation in each direction)
         print("STEP 3: Rotating 180 degrees for next ball")
         # self.turn_180_degrees()
         

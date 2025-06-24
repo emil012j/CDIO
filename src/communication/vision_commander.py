@@ -129,3 +129,11 @@ class VisionCommander:
             "duration": duration
         }
         return self.send_command(command)
+
+    def send_continuous_move_command(self, speed):
+        """Send a continuous movement command to the robot (forward/backward at given speed)"""
+        command = {
+            "command": "continuous_move",
+            "speed": speed
+        }
+        return self.send_command(command)

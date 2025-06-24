@@ -56,6 +56,10 @@ def execute_movement_command(robot_controller, command):
             robot_controller.stop_all_motors()
             print("Stop command executed")
             
+        elif cmd_type == "continuous_move":
+            speed = command.get('speed', 0)
+            robot_controller.start_continuous_move(speed)
+
         else:
             print("Unknown command: {}".format(cmd_type))
     
