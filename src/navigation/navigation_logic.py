@@ -16,27 +16,20 @@ def handle_robot_navigation(navigation_info, commander, route_manager):
     print("Navigation: Target={} Angle diff={:.1f}deg, Distance={:.1f}cm".format(
         "Available", angle_diff, distance_cm))
     
-    # PRECISE HITTING ZONE: Tighter zone for better precision
-    hitting_zone_min = -1.0  # Tighter: Minimum precise angle to hit the ball
-    hitting_zone_max = 1.0   # Tighter: Maximum precise angle to hit the ball
+    # Udvidet hitting zone: ±3 grader
+    hitting_zone_min = -3.0
+    hitting_zone_max = 3.0
     in_hitting_zone = hitting_zone_min <= angle_diff <= hitting_zone_max
     
-    # DEBUG: Show current state vs thresholds every frame
     print("  DEBUG: Distance={:.1f}cm (<=22cm?), Angle={:.1f}° in [{:.1f}°,{:.1f}°]? = {}".format(
         distance_cm, angle_diff, hitting_zone_min, hitting_zone_max, in_hitting_zone))
     
-    # TURN PHASE: Correct angle if not in hitting zone
     if not in_hitting_zone:
         return handle_turn_correction(angle_diff, hitting_zone_min, hitting_zone_max, commander, route_manager)
-    
-    # FORWARD PHASE: Careful forward movement when in hitting zone
-    elif distance_cm > 22:  # Stop when we are 22 cm away for blind collection
+    elif distance_cm > 22:
         return handle_forward_movement(distance_cm, angle_diff, commander)
-    
-    # BLIND BALL COLLECTION: In hitting zone AND ≤22 cm away - start blind collection
     else:
-        return handle_ball_collection(distance_cm, angle_diff, -1.0, 1.0, # Precise hitting zone for collection
-                                    in_hitting_zone, commander, route_manager)
+        return handle_ball_collection(distance_cm, angle_diff, hitting_zone_min, hitting_zone_max, in_hitting_zone, commander, route_manager)
 
 def handle_turn_correction(angle_diff, hitting_zone_min, hitting_zone_max, commander, route_manager):
     """Handles angle correction"""
@@ -88,21 +81,15 @@ def handle_forward_movement(distance_cm, angle_diff, commander):
     if remaining_distance <= 0:
         move_distance = 0 # Stop if already at or past the target
     elif remaining_distance <= 5:
-        move_distance = 0.5 # Very small steps when very close
+        move_distance = 1.0 # Længere burst tæt på
     elif remaining_distance <= 30:
-        move_distance = 2.0 # Steps for 'close' range
+        move_distance = 4.0 # Længere burst mellemafstand
     else:
-        # Larger steps when further away, but capped to avoid overshooting
-        move_distance = min(remaining_distance * 0.2, 5.0) # Move 20% of remaining distance, max 5cm
-    
-    # Ensure a minimum movement if still far from target to prevent getting stuck
-    if move_distance < 0.5 and remaining_distance > 0:
-        move_distance = 0.5
-    
+        move_distance = min(remaining_distance * 0.3, 10.0) # 30% af resten, max 10cm
+    if move_distance < 1.0 and remaining_distance > 0:
+        move_distance = 1.0
     print("IN HITTING ZONE - CAREFUL FORWARD {:.1f} cm (distance:{:.1f}cm, angle:{:.1f}deg) [Wall approach active]".format(
         move_distance, distance_cm, angle_diff))
-    
-    # Use normal forward command (forward_precise doesn't exist on robot)
     commander.send_forward_command(move_distance)
 
 def handle_ball_collection(distance_cm, angle_diff, hitting_zone_min, hitting_zone_max, 

@@ -21,6 +21,17 @@ def main():
         print("Robot controller...")
         robot = RobotController()
         
+        # Kør 10 sekunder frem og 1 sekund bak ved opstart
+        robot.move_forward_continuous(100)  # Justér hastighed efter behov
+        sleep(4)
+        robot.stop_continuous_move()
+        sleep(0.2)
+        robot.move_backward_continuous(100)
+        sleep(1)
+        robot.stop_continuous_move()
+        sleep(0.2)
+        robot.start_blockage_monitoring()
+        
         # Starts network server to receive commands
         print("\n2. Starting command server...")
         server = RobotServer(robot)

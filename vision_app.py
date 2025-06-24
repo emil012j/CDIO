@@ -49,17 +49,13 @@ def main():
     commander = VisionCommander()
 
     # State management
-    PUSH_CROSS = "push_cross"
     ROUTE_PLANNING = "route_planning"
     BALL_COLLECTION = "ball_collection"
+    GOAL_NAVIGATION_WAYPOINT = "goal_navigation_waypoint"
     GOAL_NAVIGATION = "goal_navigation"
     BALL_RELEASE = "ball_release"
 
-    current_state = PUSH_CROSS # Initial state
-    push_cross_start_time = 0
-    push_cross_duration = 10 # 10 seconds
-    pushed_cross_once = False # Flag to ensure PUSH_CROSS runs only once
-
+    current_state = ROUTE_PLANNING # Initial state
     STORAGE_CAPACITY = 6
     TOTAL_BALLS_ON_COURT = 11 # Important we write the correct number of balls we are testing with
     current_run_balls = 0
@@ -99,34 +95,7 @@ def main():
 
             navigation_info = None
 
-            if current_state == PUSH_CROSS:
-                print("[DEBUG] State: PUSH_CROSS")
-                if not pushed_cross_once:
-                    print(f"Entering PUSH_CROSS state: Driving forward for {push_cross_duration} seconds at full speed (no targeting).")
-                    # Send a continuous move command at full forward speed
-                    commander.send_continuous_move_command(speed=ROBOT_FORWARD_SPEED)
-                    
-                    push_cross_start_time = time.time()
-                    pushed_cross_once = True
-
-                elapsed_time = time.time() - push_cross_start_time
-
-                if elapsed_time >= push_cross_duration:
-                    print("PUSH_CROSS duration elapsed. Stopping, backing up 1 second, and transitioning to ROUTE_PLANNING.")
-                    commander.send_stop_command() # Stop the robot after the duration
-                    time.sleep(0.5) # Short delay to ensure stop command is processed before backing up
-
-                    # Back up for 1 second
-                    commander.send_backward_command(distance=10) # Assuming 10cm is roughly 1 second at ROBOT_FORWARD_SPEED
-                    time.sleep(1) # Ensure backward movement completes
-                    commander.send_stop_command() # Stop after backing up
-
-                    current_state = ROUTE_PLANNING # Transition to ROUTE_PLANNING
-                else:
-                    # Continue to drive forward (no action needed here as continuous command is sent once)
-                    pass
-
-            elif current_state == ROUTE_PLANNING:
+            if current_state == ROUTE_PLANNING:
                 print("[DEBUG] State: ROUTE_PLANNING")
                 # --- Filter out balls inside the cross area ---
                 if balls and cross_pos:
@@ -147,37 +116,37 @@ def main():
                         current_state = BALL_COLLECTION
                         print("*** ROUTE PLANNED - SWITCHING TO BALL_COLLECTION ***")
                     else:
-                        current_state = GOAL_NAVIGATION
+                        current_state = GOAL_NAVIGATION_WAYPOINT
                         print("No valid target found in route planning, staying in ROUTE_PLANNING.")
                 elif current_run_balls >= STORAGE_CAPACITY:
-                    current_state = GOAL_NAVIGATION
-                    print("*** STORAGE FULL - SWITCHING TO GOAL_NAVIGATION ***")
+                    current_state = GOAL_NAVIGATION_WAYPOINT
+                    print("*** STORAGE FULL - SWITCHING TO GOAL_NAVIGATION_WAYPOINT ***")
                     route_manager.reset_route()
                 elif not balls and total_balls_collected >= TOTAL_BALLS_ON_COURT:
                     print("*** ALL BALLS COLLECTED - MISSION COMPLETE ***")
                     route_manager.reset_route()
                 elif not balls and current_run_balls > 0: # Collected some, but no more visible balls
-                    current_state = GOAL_NAVIGATION
-                    print("*** NO MORE BALLS ON FIELD - DELIVERING WHAT'S COLLECTED ***")
+                    current_state = GOAL_NAVIGATION_WAYPOINT
+                    print("*** NO MORE BALLS ON FIELD - DELIVERING WHAT'S COLLECTED (WAYPOINT) ***")
                     route_manager.reset_route()
                 else: # No balls found and not yet collected any, or all collected
                     commander.can_send_command()
                     commander.send_forward_command(distance=10)
-                    current_state = GOAL_NAVIGATION
+                    current_state = GOAL_NAVIGATION_WAYPOINT
                     route_manager.reset_route()
-                    print("No balls to collect or all collected, staying in ROUTE_PLANNING or COMPLETE.")
+                    print("No balls to collect or all collected, going to goal waypoint.")
 
             elif current_state == BALL_COLLECTION:
                 print("[DEBUG] State: BALL_COLLECTION")
                 print("[DEBUG] current_run_balls:", current_run_balls, "balls:", balls)
                 
                 if current_run_balls >= STORAGE_CAPACITY:
-                    current_state = GOAL_NAVIGATION
-                    print("*** STORAGE FULL - SWITCHING TO GOAL_NAVIGATION ***")
+                    current_state = GOAL_NAVIGATION_WAYPOINT
+                    print("*** STORAGE FULL - SWITCHING TO GOAL_NAVIGATION_WAYPOINT ***")
                     route_manager.reset_route()
                 elif not balls and current_run_balls > 0: # Collected some, but no more visible balls
-                    current_state = GOAL_NAVIGATION
-                    print("*** NO MORE BALLS ON FIELD - DELIVERING WHAT'S COLLECTED ***")
+                    current_state = GOAL_NAVIGATION_WAYPOINT
+                    print("*** NO MORE BALLS ON FIELD - DELIVERING WHAT'S COLLECTED (WAYPOINT) ***")
                     route_manager.reset_route()
                 elif not balls and current_run_balls == 0 and total_balls_collected >= TOTAL_BALLS_ON_COURT:
                     print("*** ALL BALLS COLLECTED - MISSION COMPLETE ***")
@@ -200,35 +169,42 @@ def main():
                             current_state = ROUTE_PLANNING
                             print("*** ROUTE EXHAUSTED - REPLANNING ROUTE ***")
                         else: # No more balls to plan for
-                            current_state = GOAL_NAVIGATION # Go to deliver what's collected
+                            current_state = GOAL_NAVIGATION_WAYPOINT # Go to deliver what's collected
                             print("*** NO MORE BALLS TO PLAN FOR - DELIVERING WHAT'S COLLECTED ***")
                             route_manager.reset_route()
                 else: # Fallback to route planning if no balls but not full storage and not collected all
                     current_state = ROUTE_PLANNING
                     print("No balls to collect, returning to ROUTE_PLANNING to re-evaluate.")
 
+            elif current_state == GOAL_NAVIGATION_WAYPOINT:
+                print("[DEBUG] State: GOAL_NAVIGATION_WAYPOINT")
+                waypoint = goal_utils.get_goal_waypoint()
+                navigation_info = calculate_navigation_command(robot_head, robot_tail, waypoint, scale_factor)
+                if navigation_info:
+                    distance_to_waypoint = navigation_info.get("distance_cm", 999)
+                    print(f"[DEBUG] Distance to waypoint: {distance_to_waypoint:.1f} cm")
+                    if distance_to_waypoint < 22 and distance_to_waypoint > 0:
+                        current_state = GOAL_NAVIGATION
+                        print("*** REACHED WAYPOINT - SWITCHING TO GOAL_NAVIGATION (final approach) ***")
+                    else:
+                        handle_robot_navigation(navigation_info, commander, route_manager)
+
             elif current_state == GOAL_NAVIGATION:
                 print("[DEBUG] State: GOAL_NAVIGATION") # <--- DEBUG
                 goal_position = goal_utils.get_goal_position()
                 print("[DEBUG] goal_position:", goal_position)  # <--- DEBUG
                 if goal_position:
-                    # Calculate navigation to goal
                     navigation_info = calculate_navigation_command(robot_head, robot_tail, goal_position, scale_factor)
                     print("Navigation info to goal:", navigation_info) # <--- DEBUG
-
-                    # Add detailed debug print for distance
                     current_distance_to_goal = 999 # Default to a high value if navigation_info is None
                     if navigation_info:
                         current_distance_to_goal = navigation_info.get("distance_cm", 999)
                     print(f"[DEBUG] Current distance to goal: {current_distance_to_goal:.1f} cm") # New debug line
-
-                    # Determine if robot is close enough to goal or needs to navigate
                     if current_distance_to_goal < 26 and current_distance_to_goal > 0: # Use 22cm as threshold for goal approach as well
                         current_state = BALL_RELEASE
                         print("*** REACHED GOAL APPROACH DISTANCE - SWITCHING TO BALL_RELEASE ***")
                     elif navigation_info:
                         print("[DEBUG] Calling handle_robot_navigation for goal (GOAL_NAVIGATION state)")  # <--- DEBUG
-                        # The handle_robot_navigation function already checks if a command can be sent
                         handle_robot_navigation(navigation_info, commander, route_manager)
                 else:
                     print("ERROR: No goal position set - cannot navigate to goal!")
@@ -260,6 +236,8 @@ def main():
                 # Use the same target that was used for navigation calculation
                 if current_state == BALL_COLLECTION:
                     actual_target = route_manager.get_current_target()  # Same target used for navigation
+                elif current_state == GOAL_NAVIGATION_WAYPOINT:
+                    actual_target = goal_utils.get_goal_waypoint()
                 elif current_state == GOAL_NAVIGATION:
                     actual_target = goal_utils.get_goal_position()
                 else:

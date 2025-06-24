@@ -4,11 +4,11 @@ Settings for the robot, e.g. IP, port, camera, models, colors, etc.
 """
 
 # Network settings (IP, port)
-ROBOT_IP = "192.168.158.158"
+ROBOT_IP = "192.168.8.97"
 COMMAND_PORT = 1233
 
 # Camera settings (resolution, confidence)
-CAMERA_SOURCE = 1
+CAMERA_SOURCE = 0
 CAMERA_RESOLUTION = (1280, 720)  
 CONFIDENCE_THRESHOLD = 0.35 #0.35
 
@@ -35,7 +35,7 @@ CLASS_COLORS = {
 
 # Vision system settings
 ORIENTED_OBJECTS = ["robothead", "robottail", "egg", "cross"]
-EGG_OBB_ASPECT_RATIO_THRESHOLD = 1.3
+EGG_OBB_ASPECT_RATIO_THRESHOLD = 1.5 #1.3
 
 # Navigation parameters - no sensors, only vision navigation
 COMMAND_COOLDOWN = 0.25  # CAREFUL: Increased from 0.3 to 0.5 for better measurement between commands
@@ -48,6 +48,6 @@ MAX_FORWARD_DISTANCE = 30 # maximum length for forward movement
 PICKUP_FORWARD_DISTANCE = 35  # cm - distance to drive forward to collect ball
 PICKUP_BACKWARD_DISTANCE = 35  # cm - distance to back up after collection
 
-ROBOT_TURN_SPEED = 25 # FASTER: Motor speed for turning (increased from 10 to 25)
-ROBOT_FORWARD_SPEED = 50 # FASTER: Motor speed for forward movement (increased from 30 to 50)  
+ROBOT_TURN_SPEED = 40 # FASTER: Motor speed for turning (increased from 10 to 25)
+ROBOT_FORWARD_SPEED = 70 # FASTER: Motor speed for forward movement (increased from 30 to 50)  
 ESTIMATED_TURN_RATE = 180.0  # degrees per second - updated based on wheel calibration (half rotation = 90°)

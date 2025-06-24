@@ -22,18 +22,6 @@ class RobotController:
         # Medium motor for collect mechanism
         self.collect_motor = MediumMotor('outC')
 
-        self.monitoring = True
-        self.blockage_thread = threading.Thread(target=self._monitor_harvester_blockage, daemon= True)
-        self.blockage_thread.start()
-
-        
-        # Re-enabled: Harvester motor needed for ball collection
-        try:
-            self.collect_motor.on(speed=-100)  # FASTER: Increased collect speed from -30 to -50
-            print("Collect mechanism started (Port C) - speed -50")
-        except Exception as e:
-            print("Failed to start collect mechanism:", e)
-
         # Initialize button (if available)
         try:
             self.button = Button()
@@ -193,13 +181,13 @@ class RobotController:
         
         print("Simple backward complete")
 
-    def start_continuous_move(self, speed):
-        """Starts continuous movement of the robot at a given speed.
-        Negative speed for forward, positive for backward (based on observed behavior).
-        """
-        # Use negative speed for forward movement based on user's confirmation
-        self.tank_drive.on(left_speed=-speed, right_speed=-speed)
-        print("Robot started continuous move with speed: {}".format(speed))
+    def move_forward_continuous(self, speed):
+        """Starts continuous forward movement of the robot at a given speed."""
+        self.tank_drive.on(left_speed=-abs(speed), right_speed=-abs(speed))
+
+    def move_backward_continuous(self, speed):
+        """Starts continuous backward movement of the robot at a given speed."""
+        self.tank_drive.on(left_speed=abs(speed), right_speed=abs(speed))
 
     def stop_continuous_move(self):
         """Stops any continuous movement by turning off tank drive."""
@@ -282,5 +270,18 @@ class RobotController:
         print("Cleaning up robot controller...")
         self.stop_all_motors()
         self.running = False 
+
+    def start_blockage_monitoring(self):
+        """Starter blockage-monitoring hvis den ikke allerede kører, og starter harvesteren."""
+        try:
+            self.collect_motor.on(speed=-100)
+            print("Collect mechanism started (Port C) - speed -100")
+        except Exception as e:
+            print("Failed to start collect mechanism:", e)
+        if not hasattr(self, 'blockage_thread') or not self.blockage_thread.is_alive():
+            self.monitoring = True
+            self.blockage_thread = threading.Thread(target=self._monitor_harvester_blockage, daemon=True)
+            self.blockage_thread.start()
+            print("Blockage monitoring started")
 
     

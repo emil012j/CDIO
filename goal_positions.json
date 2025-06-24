@@ -1,7 +1,11 @@
 {
   "calibrated": true,
   "goal_position": [
-    258,
-    355
+    1108,
+    353
+  ],
+  "goal_waypoint": [
+    769,
+    352
   ]
 }
