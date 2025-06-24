@@ -156,68 +156,51 @@ class SafeSpotManager:
         goal_quadrant = self.get_robot_quadrant(goal_pos)
         route_waypoints = []
 
-        # If marker is set, go to the safe spot closest to the marker (if not already there)
+        # Step 1: Go to the best safe spot (minimizes robot→safe spot + safe spot→goal)
+        best_safe_spot = self.get_best_safe_spot_for_goal(robot_pos, goal_pos)
+        if best_safe_spot is not None and math.dist(robot_pos, best_safe_spot) > 30:
+            # If diagonal crossing is needed to reach that safe spot, add the diagonal avoidance logic
+            safe_spot_quadrant = None
+            for q, pos in self.safe_spots.items():
+                if pos == best_safe_spot:
+                    safe_spot_quadrant = q
+                    break
+            if safe_spot_quadrant is not None and not self.is_cross_safe_path(robot_quadrant, safe_spot_quadrant):
+                # Diagonal crossing needed, so go via adjacent safe spot
+                if (robot_quadrant == 1 and safe_spot_quadrant == 4) or (robot_quadrant == 4 and safe_spot_quadrant == 1):
+                    candidates = [self.safe_spots[2], self.safe_spots[3]]
+                elif (robot_quadrant == 2 and safe_spot_quadrant == 3) or (robot_quadrant == 3 and safe_spot_quadrant == 2):
+                    candidates = [self.safe_spots[1], self.safe_spots[4]]
+                else:
+                    candidates = []
+                if candidates:
+                    best_intermediate = min(candidates, key=lambda spot: math.dist(robot_pos, spot))
+                    route_waypoints.append(best_intermediate)
+                    robot_pos = best_intermediate
+            # Now add the best safe spot
+            route_waypoints.append(best_safe_spot)
+            robot_pos = best_safe_spot
+
+        # Step 2: Go to marker if set
         if goal_marker:
-            closest_safe_spot = self.get_safe_spot_closest_to_marker(goal_marker)
-            if closest_safe_spot is not None:
-                # Only add if not already at that safe spot
-                if math.dist(robot_pos, closest_safe_spot) < 30:
-                    # If diagonal crossing is needed to reach that safe spot, add the diagonal avoidance logic
-                    safe_spot_quadrant = None
-                    for q, pos in self.safe_spots.items():
-                        if pos == closest_safe_spot:
-                            safe_spot_quadrant = q
-                            break
-                    if safe_spot_quadrant is not None and not self.is_cross_safe_path(robot_quadrant, safe_spot_quadrant):
-                        # Diagonal crossing needed, so go via adjacent safe spot
-                        if (robot_quadrant == 1 and safe_spot_quadrant == 4) or (robot_quadrant == 4 and safe_spot_quadrant == 1):
-                            candidates = [self.safe_spots[2], self.safe_spots[3]]
-                        elif (robot_quadrant == 2 and safe_spot_quadrant == 3) or (robot_quadrant == 3 and safe_spot_quadrant == 2):
-                            candidates = [self.safe_spots[1], self.safe_spots[4]]
-                        else:
-                            candidates = []
-                        if candidates:
-                            best_spot = min(candidates, key=lambda spot: math.dist(robot_pos, spot))
-                            route_waypoints.append(best_spot)
-                            robot_pos = best_spot
-                    # Now add the safe spot closest to marker
-                    route_waypoints.append(closest_safe_spot)
-                    robot_pos = closest_safe_spot
+            route_waypoints.append(goal_marker)
+            robot_pos = goal_marker
 
-                # Go to marker
-                route_waypoints.append(goal_marker)
-                robot_pos = goal_marker
-
-                # Finally, go to goal
-                route_waypoints.append(goal_pos)
-                return route_waypoints
-
-        # If no marker, use the old logic (diagonal avoidance only)
-        if not self.is_cross_safe_path(robot_quadrant, goal_quadrant):
-            if (robot_quadrant == 1 and goal_quadrant == 4) or (robot_quadrant == 4 and goal_quadrant == 1):
-                candidates = [self.safe_spots[2], self.safe_spots[3]]
-            elif (robot_quadrant == 2 and goal_quadrant == 3) or (robot_quadrant == 3 and goal_quadrant == 2):
-                candidates = [self.safe_spots[1], self.safe_spots[4]]
-            else:
-                candidates = []
-            if candidates:
-                best_spot = min(candidates, key=lambda spot: math.dist(robot_pos, spot))
-                route_waypoints.append(best_spot)
-
+        # Step 3: Go to goal
         route_waypoints.append(goal_pos)
         return route_waypoints
 
     
-    def get_safe_spot_closest_to_marker(self, marker_pos):
-        """Return the safe spot (position) closest to the marker"""
-        min_dist = float('inf')
+    def get_best_safe_spot_for_goal(self, robot_pos, goal_pos):
+        """Return the safe spot that minimizes robot→safe spot + safe spot→goal"""
+        min_total_dist = float('inf')
         best_spot = None
         for spot in self.safe_spots.values():
-            dist = math.dist(marker_pos, spot)
-            if dist < min_dist:
-                min_dist = dist
+            dist = math.dist(robot_pos, spot) + math.dist(spot, goal_pos)
+            if dist < min_total_dist:
+                min_total_dist = dist
                 best_spot = spot
-        return best_spot  # Will be None only if self.safe_spots is empty
+        return best_spot
     
     def is_waypoint(self, position):
         """Check if a position is a waypoint (safe spot or perpendicular approach point)"""
