@@ -113,18 +113,18 @@ def handle_forward_movement(distance_cm, angle_diff, commander):
 
 def handle_waypoint_arrival(distance_cm, angle_diff, commander, route_manager):
     """Handle arrival at a safe spot waypoint - 25cm diameter acceptance zone"""
-    print(f"🛡️ WAYPOINT ARRIVAL: Distance={distance_cm:.1f}cm, Angle={angle_diff:.1f}°")
+    print(f"WAYPOINT ARRIVAL: Distance={distance_cm:.1f}cm, Angle={angle_diff:.1f}°")
     
     # If still outside 12.5cm radius (25cm diameter), continue approaching
     if distance_cm > 12.5:  # 25cm diameter = 12.5cm radius
-        print(f"🛡️ APPROACHING WAYPOINT: Moving {distance_cm:.1f}cm closer")
+        print(f"APPROACHING WAYPOINT: Moving {distance_cm:.1f}cm closer")
         # Move carefully towards waypoint center
         move_distance = min(distance_cm * 0.4, 8.0)  # Move 40% of distance, max 8cm
         commander.send_forward_command(move_distance)
         return False  # Not yet reached
     
     # Inside 25cm diameter circle - advance to next target
-    print("🛡️ *** REACHED WAYPOINT (within 25cm diameter) - ADVANCING TO NEXT TARGET ***")
+    print("*** REACHED WAYPOINT (within 25cm diameter) - ADVANCING TO NEXT TARGET ***")
     route_manager.advance_to_next_target()
     return True  # Successfully reached waypoint
 

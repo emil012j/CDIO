@@ -30,7 +30,7 @@ class SafeSpotManager:
             4: [2, 3, 4]
         }
         
-        print("🛡️ Safe Spot Manager initialized:")
+        print("Safe Spot Manager initialized:")
         for spot_id, pos in self.safe_spots.items():
             print(f"   Safe Spot {spot_id}: {pos}")
     
@@ -78,13 +78,13 @@ class SafeSpotManager:
         robot_quadrant = self.get_robot_quadrant(robot_pos)
         ball_quadrant = self.get_ball_quadrant(ball_pos)
 
-        print(f"🗺️ Planning route: Robot in Q{robot_quadrant} → Ball in Q{ball_quadrant}")
+        print(f"Planning route: Robot in Q{robot_quadrant} -> Ball in Q{ball_quadrant}")
 
         route_waypoints = []
 
         # If same quadrant or adjacent, go direct
         if self.is_cross_safe_path(robot_quadrant, ball_quadrant):
-            print(f"✅ Direct path safe: Q{robot_quadrant} → Q{ball_quadrant}")
+            print(f"Direct path safe: Q{robot_quadrant} -> Q{ball_quadrant}")
             route_waypoints.append(ball_pos)
             return route_waypoints
 
@@ -109,11 +109,11 @@ class SafeSpotManager:
                 min_dist = dist
                 best_spot = spot
 
-        print(f"🛡️ Crossing diagonally, adding safe spot: {best_spot}")
+        print(f"Crossing diagonally, adding safe spot: {best_spot}")
         route_waypoints.append(best_spot)
         route_waypoints.append(ball_pos)
 
-        print(f"🛡️ Safe route planned: {len(route_waypoints)} waypoints")
+        print(f"Safe route planned: {len(route_waypoints)} waypoints")
         for i, waypoint in enumerate(route_waypoints):
             print(f"   Waypoint {i+1}: {waypoint}")
 
@@ -145,7 +145,7 @@ class SafeSpotManager:
         midpoint_y = (nearest_pos[1] + second_nearest_pos[1]) // 2
         perpendicular_approach = (midpoint_x, midpoint_y)
         
-        print(f"🎯 Perpendicular approach calculation:")
+        print(f"Perpendicular approach calculation:")
         print(f"   Nearest safe spots to goal: Q{nearest_spot[0]} {nearest_pos} and Q{second_nearest_spot[0]} {second_nearest_pos}")
         print(f"   Perpendicular approach point: {perpendicular_approach}")
         
@@ -258,7 +258,7 @@ class SafeSpotManager:
             else:
                 unsafe_balls.append(ball)
         
-        print(f"🛡️ Ball accessibility from Q{robot_quadrant}:")
+        print(f"Ball accessibility from Q{robot_quadrant}:")
         print(f"   Safe access: {len(safe_balls)} balls")
         print(f"   Needs waypoints: {len(unsafe_balls)} balls")
         
