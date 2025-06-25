@@ -56,7 +56,7 @@ def main():
     BALL_RELEASE = "ball_release"
 
     current_state = ROUTE_PLANNING
-    STORAGE_CAPACITY = 6
+    STORAGE_CAPACITY = 3
     TOTAL_BALLS_ON_COURT = 11 # Important we write the correct number of balls we are testing with
     current_run_balls = 0
     total_balls_collected = 0

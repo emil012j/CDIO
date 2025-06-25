@@ -8,7 +8,7 @@ ROBOT_IP = "192.168.158.158"
 COMMAND_PORT = 1233
 
 # Camera settings (resolution, confidence)
-CAMERA_SOURCE = 1
+CAMERA_SOURCE = 0
 CAMERA_RESOLUTION = (1280, 720)  
 CONFIDENCE_THRESHOLD = 0.35 #0.35
 
@@ -48,5 +48,5 @@ PICKUP_FORWARD_DISTANCE = 35  # cm - distance to drive forward to collect ball
 PICKUP_BACKWARD_DISTANCE = 35  # cm - distance to back up after collection
 
 ROBOT_TURN_SPEED = 20 # FASTER: Motor speed for turning (increased from 10 to 25)
-ROBOT_FORWARD_SPEED = 35 # FASTER: Motor speed for forward movement (increased from 30 to 50)  
+ROBOT_FORWARD_SPEED = 45 # FASTER: Motor speed for forward movement (increased from 30 to 50)  
 ESTIMATED_TURN_RATE = 180.0  # degrees per second - updated based on wheel calibration (half rotation = 90°)

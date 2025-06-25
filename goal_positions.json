@@ -1,7 +1,11 @@
 {
   "calibrated": true,
   "goal_position": [
-    1062,
-    357
+    1004,
+    340
+  ],
+  "goal_marker": [
+    786,
+    341
   ]
 }
