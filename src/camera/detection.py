@@ -148,22 +148,21 @@ def process_detections_and_draw(results, model, frame, scale_factor=None):
     robot_head = None
     robot_tail = None
     balls = []
-    walls = []  # Add walls to detection
     log_info_list = []
     
     # Check if we have valid detections
     if results is None or not hasattr(results, 'obb') or results.obb is None:
-        return robot_head, robot_tail, balls, walls, log_info_list
+        return robot_head, robot_tail, balls, log_info_list
     if not hasattr(results.obb, 'cls') or results.obb.cls is None:
-        return robot_head, robot_tail, balls, walls, log_info_list
+        return robot_head, robot_tail, balls, log_info_list
     
     try: 
         num_detections = len(results.obb.cls)
     except TypeError: 
-        return robot_head, robot_tail, balls, walls, log_info_list
+        return robot_head, robot_tail, balls, log_info_list
     
     if num_detections == 0:
-        return robot_head, robot_tail, balls, walls, log_info_list
+        return robot_head, robot_tail, balls, log_info_list
     
     # Draw centerlines as in the old file
     height, width = frame.shape[:2]
@@ -256,11 +255,9 @@ def process_detections_and_draw(results, model, frame, scale_factor=None):
                 elif display_label == "robottail":
                     robot_tail = {"pos": (cx_calc, cy_calc), "orientation": orientation_deg}
             
-            # Store balls (not eggs) and walls
+            # Store balls (not eggs)
             if "ball" in display_label.lower() and "egg" not in display_label.lower():
                 balls.append((cx_calc, cy_calc))
-            elif display_label.lower() == "wall":
-                walls.append((cx_calc, cy_calc))
             
             # Draw OBB or rectangle as in the old file
             color = CLASS_COLORS.get(display_label, (128, 128, 128))
@@ -299,9 +296,9 @@ def process_detections_and_draw(results, model, frame, scale_factor=None):
         except Exception as e:
             print("Error processing detection {}: {}".format(i, e))
     
-    return robot_head, robot_tail, balls, walls, log_info_list
+    return robot_head, robot_tail, balls, log_info_list
 
 # SIMPLIFIED PROCESSOR FOR COMPATIBILITY
 def process_detections(results, model):
-    robot_head, robot_tail, balls, walls, _ = process_detections_and_draw(results, model, np.zeros((480, 640, 3), dtype=np.uint8))
+    robot_head, robot_tail, balls, _ = process_detections_and_draw(results, model, np.zeros((480, 640, 3), dtype=np.uint8))
     return robot_head, robot_tail, balls, 0 

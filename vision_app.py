@@ -12,6 +12,7 @@ from src.camera.camera_manager import CameraManager, draw_navigation_info, displ
 from src.communication.vision_commander import VisionCommander
 from src.navigation.route_manager import RouteManager
 from src.navigation.navigation_logic import handle_robot_navigation
+from src.navigation.safe_spot_manager import SafeSpotManager
 from src.visualization.route_visualization import draw_route_and_targets, draw_robot_heading, draw_route_status
 from src.utils.vision_helpers import choose_unblocked_ball
 from src.config.settings import *
@@ -55,7 +56,7 @@ def main():
     BALL_RELEASE = "ball_release"
 
     current_state = ROUTE_PLANNING
-    STORAGE_CAPACITY = 6
+    STORAGE_CAPACITY = 3
     TOTAL_BALLS_ON_COURT = 11 # Important we write the correct number of balls we are testing with
     current_run_balls = 0
     total_balls_collected = 0
@@ -63,6 +64,7 @@ def main():
 
     global route_manager
     route_manager = RouteManager()
+    safe_spot_manager = SafeSpotManager()
 
     last_print_time = time.time()
     frame_count = 0
@@ -85,7 +87,7 @@ def main():
             scale_factor = calculate_scale_factor(results, model)
             cross_pos = get_cross_position(results, model)
             display_frame = frame.copy()
-            robot_head, robot_tail, balls, walls, log_info_list = process_detections_and_draw(results, model, display_frame, scale_factor)
+            robot_head, robot_tail, balls, log_info_list = process_detections_and_draw(results, model, display_frame, scale_factor)
 
             if robot_head and robot_tail:
                 robot_center = (
@@ -149,7 +151,7 @@ def main():
                     balls = filtered_balls
                 # If we have balls, create a route and move to collection
                 if balls and current_run_balls < STORAGE_CAPACITY:
-                    route_manager.create_route_from_balls(balls, robot_center, walls, cross_pos)
+                    route_manager.create_route_from_balls(balls, robot_center, cross_pos)
                     if route_manager.get_current_target():
                         current_state = BALL_COLLECTION
                         print("*** ROUTE PLANNED - SWITCHING TO BALL_COLLECTION ***")
@@ -192,7 +194,6 @@ def main():
                 elif balls and current_run_balls < STORAGE_CAPACITY:
                     target_ball = route_manager.get_current_target()
                     if target_ball:
-                        # Use the actual ball position directly - no wall approach modification
                         navigation_info = calculate_navigation_command(robot_head, robot_tail, target_ball, scale_factor)
                         # Capture success of navigation/collection attempt
                         collection_attempt_successful = handle_robot_navigation(navigation_info, commander, route_manager)
@@ -219,23 +220,40 @@ def main():
                 goal_position = goal_utils.get_goal_position()
                 print("[DEBUG] goal_position:", goal_position)  # <--- DEBUG
                 if goal_position:
-                    # Calculate navigation to goal
-                    navigation_info = calculate_navigation_command(robot_head, robot_tail, goal_position, scale_factor)
-                    print("Navigation info to goal:", navigation_info) # <--- DEBUG
+                    # Create safe route to goal if not already created
+                    if not route_manager.route_created:
+                        goal_marker = goal_utils.get_goal_marker()
+                        route_manager.create_goal_route(robot_center, goal_position, goal_marker)
+                    
+                    target_position = route_manager.get_current_target()
+                    if target_position:
+                        # Calculate navigation to current target (waypoint or goal)
+                        navigation_info = calculate_navigation_command(robot_head, robot_tail, target_position, scale_factor)
+                        print("Navigation info to target:", navigation_info) # <--- DEBUG
 
-                    # Add detailed debug print for distance
-                    current_distance_to_goal = 999 # Default to a high value if navigation_info is None
-                    if navigation_info:
-                        current_distance_to_goal = navigation_info.get("distance_cm", 999)
-                    print(f"[DEBUG] Current distance to goal: {current_distance_to_goal:.1f} cm") # New debug line
+                        # Add detailed debug print for distance
+                        current_distance_to_target = 999 # Default to a high value if navigation_info is None
+                        if navigation_info:
+                            current_distance_to_target = navigation_info.get("distance_cm", 999)
+                        print(f"[DEBUG] Current distance to target: {current_distance_to_target:.1f} cm") # New debug line
 
-                    # Determine if robot is close enough to goal or needs to navigate
-                    if current_distance_to_goal < 26 and current_distance_to_goal > 0: # Use 22cm as threshold for goal approach as well
-                        current_state = BALL_RELEASE
-                        print("*** REACHED GOAL APPROACH DISTANCE - SWITCHING TO BALL_RELEASE ***")
-                    elif navigation_info: # Only navigate if not yet at approach distance
-                        print("[DEBUG] Calling handle_robot_navigation for goal (GOAL_NAVIGATION state)")  # <--- DEBUG
-                        handle_robot_navigation(navigation_info, commander, route_manager)
+                        # Check if we reached current target
+                        if current_distance_to_target < 26 and current_distance_to_target > 0:
+                            if route_manager.is_current_target_waypoint():
+                                print("*** REACHED WAYPOINT - ADVANCING TO NEXT TARGET ***")
+                                route_manager.advance_to_next_target()
+                            elif target_position == goal_position: # Check if current target is the final goal
+                                # Reached final goal
+                                current_state = BALL_RELEASE
+                                print("*** REACHED GOAL - SWITCHING TO BALL_RELEASE ***")
+                            else: # We are at an intermediate point but not a waypoint. This should not happen if route planning is correct.
+                                print("WARNING: Reached intermediate point not classified as waypoint. Advancing to next target.")
+                                route_manager.advance_to_next_target()
+                        elif navigation_info: # Only navigate if not yet at target
+                            print("[DEBUG] Calling handle_robot_navigation for target")  # <--- DEBUG
+                            handle_robot_navigation(navigation_info, commander, route_manager)
+                    else:
+                        print("ERROR: No target in goal route!")
                 else:
                     print("ERROR: No goal position set - cannot navigate to goal!")
 
@@ -255,12 +273,16 @@ def main():
             # Visualization
             corrected_head_for_drawing = navigation_info.get('corrected_head') if navigation_info else None
             corrected_tail_for_drawing = navigation_info.get('corrected_tail') if navigation_info else None
-            draw_route_and_targets(display_frame, robot_head, robot_tail, route_manager, walls, 
+            draw_route_and_targets(display_frame, robot_head, robot_tail, route_manager, 
                                    corrected_head=corrected_head_for_drawing, 
                                    corrected_tail=corrected_tail_for_drawing)
             draw_robot_heading(display_frame, robot_head, robot_tail)
             draw_route_status(display_frame, route_manager)
             goal_utils.draw_goal_on_frame(display_frame)
+            goal_utils.draw_marker_on_frame(display_frame)
+            
+            # Draw safe spots and quadrant system
+            safe_spot_manager.draw_safe_spots(display_frame)
 
             if navigation_info:
                 # Use the same target that was used for navigation calculation
@@ -299,12 +321,11 @@ def main():
 
             # Status print (unchanged)
             if current_time - last_print_time >= PRINT_INTERVAL:
-                print("STATUS - Frame: {}, Robot: {}/{}, Balls: {}, Walls: {}, Scale: {:.2f}".format(
+                print("STATUS - Frame: {}, Robot: {}/{}, Balls: {}, Scale: {:.2f}".format(
                     frame_count,
                     "YES" if robot_head else "NO",
                     "YES" if robot_tail else "NO", 
                     len(balls),
-                    len(walls),
                     scale_factor if scale_factor else 0
                 ))
                 last_print_time = current_time

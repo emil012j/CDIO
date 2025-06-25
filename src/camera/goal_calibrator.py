@@ -9,30 +9,42 @@ class GoalCalibrator:
     def __init__(self):
         self.goal_file = "goal_positions.json"
         self.goal_position = None
-        
+        self.goal_marker = None
+        self.click_count = 0
+
     def mouse_callback(self, event, x, y, flags, param):
-        """Click to set goal position"""
         if event == cv2.EVENT_LBUTTONDOWN:
-            self.goal_position = (x, y)
-            print("Goal set to: ({}, {}) - press 'q' to save".format(x, y))
+            if self.click_count == 0:
+                self.goal_position = (x, y)
+                print("Goal set to: ({}, {}) - click again to set approach marker".format(x, y))
+                self.click_count += 1
+            elif self.click_count == 1:
+                self.goal_marker = (x, y)
+                print("Goal marker set to: ({}, {}) - press 'q' to save".format(x, y))
+                self.click_count += 1
 
     def save_goal(self):
-        """Save goal position"""
         if self.goal_position:
-            # Convert tuple to list for JSON serialization
-            goal_list = [self.goal_position[0], self.goal_position[1]]
-            data = {'calibrated': True, 'goal_position': goal_list}
+            data = {
+                'calibrated': True,
+                'goal_position': list(self.goal_position)
+            }
+            if self.goal_marker:
+                data['goal_marker'] = list(self.goal_marker)
             with open(self.goal_file, 'w') as f:
-                json.dump(data, f, indent=2)  # Pretty format for readability
-            print("Goal saved: {} -> {}".format(self.goal_position, self.goal_file))
+                json.dump(data, f, indent=2)
+            print("Goal and marker saved: {} -> {}".format(self.goal_position, self.goal_file))
             return True
         return False
 
     def start_calibration(self, frame):
-        """Start click calibration with proper event loop"""
-        print("Click on goal position, press 'q' to save, 'ESC' to cancel")
+        print("Click on goal position, then click on approach marker, press 'q' to save, 'ESC' to cancel")
         cv2.namedWindow("Goal Calibration")
         cv2.setMouseCallback("Goal Calibration", self.mouse_callback)
+        self.click_count = 0
+        self.goal_position = None
+        self.goal_marker = None
+        # ...rest of your calibration loop...
         
         # Calibration loop
         while True:

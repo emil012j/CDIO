@@ -13,30 +13,40 @@ def handle_robot_navigation(navigation_info, commander, route_manager):
     angle_diff = navigation_info["angle_diff"]
     distance_cm = navigation_info["distance_cm"]
     
-    print("Navigation: Target={} Angle diff={:.1f}deg, Distance={:.1f}cm".format(
-        "Available", angle_diff, distance_cm))
+    # Check if current target is a waypoint (safe spot) or actual target (ball/goal)
+    is_waypoint = route_manager.is_current_target_waypoint()
+    target_type = "WAYPOINT" if is_waypoint else "TARGET"
     
-    # PRECISE HITTING ZONE: Tighter zone for better precision
-    hitting_zone_min = -1.0  # Tighter: Minimum precise angle to hit the ball
-    hitting_zone_max = 1.0   # Tighter: Maximum precise angle to hit the ball
+    print("Navigation: Target={} Angle diff={:.1f}deg, Distance={:.1f}cm".format(
+        target_type, angle_diff, distance_cm))
+    
+    # FORGIVING HITTING ZONE: Much looser zones for waypoints only  
+    hitting_zone_min = -8.0 if is_waypoint else -1.0  # Very loose for waypoints, precise for balls/goal
+    hitting_zone_max = 8.0 if is_waypoint else 1.0    # Very loose for waypoints, precise for balls/goal
     in_hitting_zone = hitting_zone_min <= angle_diff <= hitting_zone_max
     
+    # Different distance thresholds for waypoints vs targets  
+    approach_distance = 25 if is_waypoint else 22  # 25cm for safe spots, 22cm for balls/goal
+    
     # DEBUG: Show current state vs thresholds every frame
-    print("  DEBUG: Distance={:.1f}cm (<=22cm?), Angle={:.1f}° in [{:.1f}°,{:.1f}°]? = {}".format(
-        distance_cm, angle_diff, hitting_zone_min, hitting_zone_max, in_hitting_zone))
+    print("  DEBUG: Distance={:.1f}cm (≤{:.1f}cm?), Angle={:.1f}° in [{:.1f}°,{:.1f}°]? = {}".format(
+        distance_cm, approach_distance, angle_diff, hitting_zone_min, hitting_zone_max, in_hitting_zone))
     
     # TURN PHASE: Correct angle if not in hitting zone
     if not in_hitting_zone:
         return handle_turn_correction(angle_diff, hitting_zone_min, hitting_zone_max, commander, route_manager)
     
     # FORWARD PHASE: Careful forward movement when in hitting zone
-    elif distance_cm > 22:  # Stop when we are 22 cm away for blind collection
+    elif distance_cm > approach_distance:
         return handle_forward_movement(distance_cm, angle_diff, commander)
     
-    # BLIND BALL COLLECTION: In hitting zone AND ≤22 cm away - start blind collection
+    # ARRIVAL HANDLING: Different behavior for waypoints vs targets
     else:
-        return handle_ball_collection(distance_cm, angle_diff, -1.0, 1.0, # Precise hitting zone for collection
-                                    in_hitting_zone, commander, route_manager)
+        if is_waypoint:
+            return handle_waypoint_arrival(distance_cm, angle_diff, commander, route_manager)
+        else:
+            return handle_ball_collection(distance_cm, angle_diff, hitting_zone_min, hitting_zone_max,
+                                        in_hitting_zone, commander, route_manager)
 
 def handle_turn_correction(angle_diff, hitting_zone_min, hitting_zone_max, commander, route_manager):
     """Handles angle correction"""
@@ -82,8 +92,8 @@ def handle_turn_correction(angle_diff, hitting_zone_min, hitting_zone_max, comma
 
 def handle_forward_movement(distance_cm, angle_diff, commander):
     """Handles careful forward movement"""
-    # Adaptive distance based on proximity to target
-    remaining_distance = distance_cm - 22
+    # Adaptive distance based on proximity to target  
+    remaining_distance = distance_cm - 22  # Use 22cm as target distance for balls/goal
     
     if remaining_distance <= 0:
         move_distance = 0 # Stop if already at or past the target
@@ -99,11 +109,24 @@ def handle_forward_movement(distance_cm, angle_diff, commander):
     if move_distance < 0.5 and remaining_distance > 0:
         move_distance = 0.5
     
-    print("IN HITTING ZONE - CAREFUL FORWARD {:.1f} cm (distance:{:.1f}cm, angle:{:.1f}deg) [Wall approach active]".format(
-        move_distance, distance_cm, angle_diff))
-    
-    # Use normal forward command (forward_precise doesn't exist on robot)
     commander.send_forward_command(move_distance)
+
+def handle_waypoint_arrival(distance_cm, angle_diff, commander, route_manager):
+    """Handle arrival at a safe spot waypoint - 25cm diameter acceptance zone"""
+    print(f"🛡️ WAYPOINT ARRIVAL: Distance={distance_cm:.1f}cm, Angle={angle_diff:.1f}°")
+    
+    # If still outside 12.5cm radius (25cm diameter), continue approaching
+    if distance_cm > 12.5:  # 25cm diameter = 12.5cm radius
+        print(f"🛡️ APPROACHING WAYPOINT: Moving {distance_cm:.1f}cm closer")
+        # Move carefully towards waypoint center
+        move_distance = min(distance_cm * 0.4, 8.0)  # Move 40% of distance, max 8cm
+        commander.send_forward_command(move_distance)
+        return False  # Not yet reached
+    
+    # Inside 25cm diameter circle - advance to next target
+    print("🛡️ *** REACHED WAYPOINT (within 25cm diameter) - ADVANCING TO NEXT TARGET ***")
+    route_manager.advance_to_next_target()
+    return True  # Successfully reached waypoint
 
 def handle_ball_collection(distance_cm, angle_diff, hitting_zone_min, hitting_zone_max, 
                           in_hitting_zone, commander, route_manager):
