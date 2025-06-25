@@ -87,6 +87,9 @@ def main():
             results = run_detection(model, frame)
             scale_factor = calculate_scale_factor(results, model)
             cross_pos = get_cross_position(results, model)
+            # If cross is not found, set scale_factor to 2.02
+            if scale_factor is None:
+                scale_factor = 2.02
             display_frame = frame.copy()
             robot_head, robot_tail, balls, walls, log_info_list = process_detections_and_draw(results, model, display_frame, scale_factor)
 
@@ -100,7 +103,7 @@ def main():
 
             if current_state == ROUTE_PLANNING:
                 print("[DEBUG] State: ROUTE_PLANNING")
-                # --- Filter out balls inside the cross area ---
+                # --- Filter out balls inside the cross area only if cross is found ---
                 if balls and cross_pos:
                     filtered_balls = []
                     cross_x, cross_y = cross_pos
@@ -112,6 +115,7 @@ def main():
                         else:
                             print(f"[INFO] Skipping ball at {ball} because it is inside the cross area.")
                     balls = filtered_balls
+                # If cross_pos is None, do not filter balls
                 # If we have balls, create a route and move to collection
                 if balls and current_run_balls < STORAGE_CAPACITY:
                     route_manager.create_route_from_balls(balls, robot_center, walls, cross_pos)
@@ -222,6 +226,18 @@ def main():
             draw_robot_heading(display_frame, robot_head, robot_tail)
             draw_route_status(display_frame, route_manager)
             goal_utils.draw_goal_on_frame(display_frame)
+
+            # --- TIMER VISUALIZATION ---
+            # Show timer for current target if route is active and in BALL_COLLECTION
+            if current_state == BALL_COLLECTION and route_manager.route and not route_manager.is_route_complete():
+                if route_manager.target_start_time is not None:
+                    elapsed = time.time() - route_manager.target_start_time
+                    remaining = max(0, int(route_manager.max_target_time - elapsed))
+                    timer_text = f"Target-timer: {remaining}s tilbage"
+                    cv2.putText(display_frame, timer_text, (30, 60), cv2.FONT_HERSHEY_SIMPLEX, 1.0, (0,0,255), 3)
+                    # If timeout is reached, show a warning
+                    if remaining == 0:
+                        cv2.putText(display_frame, "SPRINGER OVER: Timeout!", (30, 100), cv2.FONT_HERSHEY_SIMPLEX, 1.0, (0,0,255), 3)
 
             if navigation_info:
                 # Use the same target that was used for navigation calculation
